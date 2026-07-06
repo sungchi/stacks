@@ -1,0 +1,12 @@
+{
+  "name": "garden-stacks-code",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:offline": "node scripts/build-offline.mjs",
+    "test": "node --test",
+    "open": "open index.html",
+    "serve": "python3 -m http.server 4173"
+  }
+}

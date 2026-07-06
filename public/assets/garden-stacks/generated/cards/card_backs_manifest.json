@@ -1,0 +1,39 @@
+{
+  "name": "garden_stacks_card_backs_v1",
+  "source_method": "existing Lucky Garden UI card templates cropped to 112x160; no programmatic illustration drawing",
+  "runtime_dir": "prototype/emoji_garden/assets/generated/garden_stacks/cards",
+  "source_dir": "assets/sprites/aseprite-ui/garden-stacks-card-backs-v1",
+  "script_policy": "Scripts may crop, scale, overlay existing assets, wrap, and export only; card-back art must come from source images or Aseprite-drawn art.",
+  "assets": [
+    {
+      "key": "card_back_deck",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/card_back_deck.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-backs-v1/card_back_deck_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-backs-v1/card_back_deck.aseprite",
+      "source_asset": "prototype/emoji_garden/assets/ui/promoted/garden_refined/43_flower_card.png",
+      "overlay_asset": null,
+      "description": "Garden Stacks deck back from Lucky Garden refined flower card template",
+      "usage": "deck pile and hidden draw stack"
+    },
+    {
+      "key": "card_back_reward",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/card_back_reward.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-backs-v1/card_back_reward_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-backs-v1/card_back_reward.aseprite",
+      "source_asset": "prototype/emoji_garden/assets/ui/promoted/garden_refined/44_tree_card.png",
+      "overlay_asset": null,
+      "description": "Garden Stacks reward back from Lucky Garden refined tree card template",
+      "usage": "reward offer deal-back and future reward pile"
+    },
+    {
+      "key": "card_locked_unknown",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/card_locked_unknown.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-backs-v1/card_locked_unknown_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-backs-v1/card_locked_unknown.aseprite",
+      "source_asset": "prototype/emoji_garden/assets/ui/promoted/garden_refined/45_disabled_card.png",
+      "overlay_asset": "prototype/emoji_garden/assets/ui/promoted/garden_refined/48_lock_round_badge.png",
+      "description": "Garden Stacks locked card from Lucky Garden disabled card and lock badge assets",
+      "usage": "undiscovered species, locked region, and unknown candidate"
+    }
+  ]
+}

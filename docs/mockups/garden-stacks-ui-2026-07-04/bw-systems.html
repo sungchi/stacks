@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Garden Stacks B/W Systems Mockup</title>
+    <link rel="stylesheet" href="./mockups.css">
+    <link rel="stylesheet" href="./mockups-bw.css">
+  </head>
+  <body>
+    <main class="mock-shell">
+      <header class="mock-nav">
+        <div class="mock-title">
+          <span class="eyebrow">B/W Systems</span>
+          <h1>상점 · 도감 · 결과</h1>
+        </div>
+        <nav class="nav-links" aria-label="목업 화면">
+          <a href="./bw-index.html">B/W 목록</a>
+          <a href="./bw-play-mobile.html">모바일</a>
+          <a href="./bw-play-desktop.html">데스크톱</a>
+        </nav>
+      </header>
+
+      <section class="bw-comparison">
+        <section class="screen-card screen-pad" aria-label="흑백 상점 목업">
+          <header class="modal-head">
+            <div>
+              <span class="eyebrow">상점</span>
+              <h2>런 보급</h2>
+            </div>
+            <button class="icon-button" type="button" aria-label="닫기">×</button>
+          </header>
+          <div class="status-grid" style="display:grid; grid-template-columns:repeat(2, 1fr); gap:8px; margin:12px 0">
+            <div class="stat-pill"><span>런 코인</span><strong>2</strong></div>
+            <div class="stat-pill"><span>씨앗</span><strong>6</strong></div>
+          </div>
+          <div class="shop-grid" style="grid-template-columns:1fr">
+            <article class="shop-row is-bought">
+              <img src="../../../public/assets/garden-stacks/generated/cards/bee_tab.png" alt="">
+              <div>
+                <h3>손패 반짝 강화</h3>
+                <p class="muted">6 나비 다음 최고수 강화</p>
+                <span class="change-pill">+21 -> +27</span>
+              </div>
+              <span class="shop-cost">2</span>
+            </article>
+            <article class="shop-row">
+              <img src="../../../public/assets/garden-stacks/generated/cards/occupant_clover.png" alt="">
+              <div>
+                <h3>원형 카드 구매</h3>
+                <p class="muted">1 새싹을 덱에 추가</p>
+                <span class="change-pill">덱 +1</span>
+              </div>
+              <span class="shop-cost">2</span>
+            </article>
+            <article class="shop-row">
+              <img src="../../../public/assets/garden-stacks/generated/cards/plan_clover_seed.png" alt="">
+              <div>
+                <h3>긴 산책로</h3>
+                <p class="muted">새 런의 내기 수 증가</p>
+                <span class="change-pill">0/2</span>
+              </div>
+              <span class="shop-cost">6</span>
+            </article>
+          </div>
+        </section>
+
+        <section class="screen-card screen-pad" aria-label="흑백 도감 목업">
+          <header class="modal-head">
+            <div>
+              <span class="eyebrow">도감</span>
+              <h2>발견 기록</h2>
+            </div>
+            <button class="icon-button" type="button" aria-label="닫기">×</button>
+          </header>
+          <div class="codex-hero" style="margin:12px 0">
+            <img src="../../../public/assets/garden-stacks/generated/species/bio_0001_dandelion.png" alt="">
+            <div>
+              <span class="eyebrow">다음 발견</span>
+              <h2>민들레 길</h2>
+              <p class="muted">낮은 숫자 흐름을 다시 시작하게 해주는 발견입니다.</p>
+            </div>
+          </div>
+          <div class="progress-tabs">
+            <span class="chip is-active">숫자 10/10</span>
+            <span class="chip">족보 5/5</span>
+            <span class="chip">땅 3/3</span>
+            <span class="chip">발견 0/8</span>
+          </div>
+          <div class="codex-grid" style="margin-top:10px">
+            <article class="codex-tile"><img src="../../../public/assets/garden-stacks/generated/species/bio_0002_white_clover.png" alt=""><h3>흰토끼풀 길</h3><p class="muted">숨김</p></article>
+            <article class="codex-tile"><img src="../../../public/assets/garden-stacks/generated/species/bio_0007_common_reed.png" alt=""><h3>갈대 물가</h3><p class="muted">숨김</p></article>
+          </div>
+        </section>
+      </section>
+
+      <section class="screen-card screen-pad" style="margin-top:12px" aria-label="흑백 결과 목업">
+        <div class="result-split">
+          <article class="result-card">
+            <span class="eyebrow">결과</span>
+            <h2>초지 숫자길 성공</h2>
+            <strong class="result-score">312</strong>
+            <p class="muted">목표 295를 넘겼습니다.</p>
+            <div class="result-actions">
+              <button class="primary-button" type="button">다음 스테이지</button>
+              <button class="ghost-button" type="button">상점</button>
+            </div>
+          </article>
+          <article class="result-card">
+            <span class="eyebrow">보상</span>
+            <h2>정원 기록 선택</h2>
+            <div class="reward-grid">
+              <article class="reward-card is-choice"><img src="../../../public/assets/garden-stacks/generated/discovery/stamp_combo_discovery.png" alt=""><h3>연속 길</h3><p class="muted">이웃수 보너스 증가</p></article>
+              <article class="reward-card"><img src="../../../public/assets/garden-stacks/generated/discovery/stamp_species_discovery.png" alt=""><h3>새 발견</h3><p class="muted">도감 후보 추가</p></article>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

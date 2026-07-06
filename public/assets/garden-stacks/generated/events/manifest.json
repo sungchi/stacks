@@ -1,0 +1,54 @@
+{
+  "name": "garden_stacks_event_badges_v1",
+  "source_method": "existing Lucky Garden 2.0 slices cropped to 64px; no programmatic illustration drawing",
+  "runtime_dir": "prototype/emoji_garden/assets/generated/garden_stacks/events",
+  "source_dir": "assets/sprites/aseprite-ui/garden-stacks-event-badges-v1",
+  "script_policy": "Scripts may crop, scale, wrap, and export only; event badge art must come from source images or Aseprite-drawn art.",
+  "events": [
+    {
+      "id": "event_spring_visitors",
+      "name": "봄 관람객",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/events/event_spring_visitors.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-event-badges-v1/event_spring_visitors_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-event-badges-v1/event_spring_visitors.aseprite",
+      "source_asset": "prototype/emoji_garden/assets/generated/lucky_garden_2/catalog_v2/slices/reward_visitor_route.png",
+      "description": "visitor route badge from Lucky Garden 2.0 reward slice"
+    },
+    {
+      "id": "event_heavy_rain",
+      "name": "폭우",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/events/event_heavy_rain.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-event-badges-v1/event_heavy_rain_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-event-badges-v1/event_heavy_rain.aseprite",
+      "source_asset": "prototype/emoji_garden/assets/generated/lucky_garden_2/catalog_v2/slices/plan_wetland_survey.png",
+      "description": "heavy rain and wetland survey badge from Lucky Garden 2.0 plan slice"
+    },
+    {
+      "id": "event_dry_wind",
+      "name": "건조한 바람",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/events/event_dry_wind.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-event-badges-v1/event_dry_wind_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-event-badges-v1/event_dry_wind.aseprite",
+      "source_asset": "prototype/emoji_garden/assets/generated/lucky_garden_2/catalog_v2/slices/status_failed.png",
+      "description": "dry wind pressure badge from Lucky Garden 2.0 status slice"
+    },
+    {
+      "id": "event_donor_offer",
+      "name": "후원 제안",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/events/event_donor_offer.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-event-badges-v1/event_donor_offer_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-event-badges-v1/event_donor_offer.aseprite",
+      "source_asset": "prototype/emoji_garden/assets/generated/lucky_garden_2/catalog_v2/slices/reward_operating_grant.png",
+      "description": "donor offer badge from Lucky Garden 2.0 operating grant reward slice"
+    },
+    {
+      "id": "event_ecology_survey",
+      "name": "생태 조사단",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/events/event_ecology_survey.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-event-badges-v1/event_ecology_survey_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-event-badges-v1/event_ecology_survey.aseprite",
+      "source_asset": "prototype/emoji_garden/assets/generated/lucky_garden_2/catalog_v2/slices/icon_research.png",
+      "description": "ecology survey badge from Lucky Garden 2.0 research icon slice"
+    }
+  ]
+}

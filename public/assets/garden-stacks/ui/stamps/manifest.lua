@@ -1,0 +1,55 @@
+return {
+    {
+        key = "new",
+        label = "NEW",
+        role = "fixed_ui_glyph",
+        runtime_path = "assets/ui/stamps/new.png",
+        source_path = "prototype/emoji_garden/scripts/build_garden_stacks_ui_polish_assets.py:stamp_new",
+        source_assets = {
+            "assets/ui/promoted/icons/clean_spark.png",
+            "assets/ui/promoted/icons/star.png",
+        },
+        w = 48,
+        h = 28,
+        scale_policy = "fixed_integer",
+    },
+    {
+        key = "lock",
+        label = "LOCK",
+        role = "fixed_ui_glyph",
+        runtime_path = "assets/ui/stamps/lock.png",
+        source_path = "prototype/emoji_garden/scripts/build_garden_stacks_ui_polish_assets.py:stamp_lock",
+        source_assets = {
+            "assets/ui/promoted/icons/lock.png",
+        },
+        w = 56,
+        h = 28,
+        scale_policy = "fixed_integer",
+    },
+    {
+        key = "done",
+        label = "DONE",
+        role = "fixed_ui_glyph",
+        runtime_path = "assets/ui/stamps/done.png",
+        source_path = "prototype/emoji_garden/scripts/build_garden_stacks_ui_polish_assets.py:stamp_done",
+        source_assets = {
+            "assets/ui/promoted/icons/check.png",
+        },
+        w = 56,
+        h = 28,
+        scale_policy = "fixed_integer",
+    },
+    {
+        key = "pick",
+        label = "PICK",
+        role = "fixed_ui_glyph",
+        runtime_path = "assets/ui/stamps/pick.png",
+        source_path = "prototype/emoji_garden/scripts/build_garden_stacks_ui_polish_assets.py:stamp_pick",
+        source_assets = {
+            "assets/ui/promoted/icons/leaf.png",
+        },
+        w = 52,
+        h = 28,
+        scale_policy = "fixed_integer",
+    },
+}

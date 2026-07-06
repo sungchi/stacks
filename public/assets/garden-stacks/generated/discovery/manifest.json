@@ -1,0 +1,67 @@
+{
+  "name": "garden_stacks_discovery_stamps_v1",
+  "source_method": "existing Lucky Garden UI/catalog slices cropped and overlaid; no programmatic illustration drawing",
+  "runtime_dir": "prototype/emoji_garden/assets/generated/garden_stacks/discovery",
+  "source_dir": "assets/sprites/aseprite-ui/garden-stacks-discovery-v1",
+  "script_policy": "Scripts may crop, scale, overlay existing assets, wrap, and export only; stamp pictograms must come from source images or Aseprite-drawn art.",
+  "stamps": [
+    {
+      "key": "stamp_species_discovery",
+      "label": "새 종 발견",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/discovery/stamp_species_discovery.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-discovery-v1/stamp_species_discovery_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-discovery-v1/stamp_species_discovery.aseprite",
+      "source_assets": [
+        "prototype/emoji_garden/assets/ui/promoted/garden_refined/46_leaf_round_badge.png",
+        "prototype/emoji_garden/assets/hand_cards/slices/43_rare_discovery_report.png",
+        "prototype/emoji_garden/assets/ui/promoted/icons/clean_spark.png"
+      ],
+      "description": "species discovery stamp from refined leaf badge, rare discovery flower crop, and clean spark sources",
+      "icon_crop": [
+        0,
+        0,
+        128,
+        150
+      ]
+    },
+    {
+      "key": "stamp_combo_discovery",
+      "label": "새 조합 발견",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/discovery/stamp_combo_discovery.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-discovery-v1/stamp_combo_discovery_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-discovery-v1/stamp_combo_discovery.aseprite",
+      "source_assets": [
+        "prototype/emoji_garden/assets/ui/promoted/garden_refined/46_leaf_round_badge.png",
+        "prototype/emoji_garden/assets/generated/lucky_garden_2/catalog_v2/slices/status_complete.png",
+        "prototype/emoji_garden/assets/ui/promoted/icons/star.png"
+      ],
+      "description": "combo discovery stamp from complete status and star source art"
+    },
+    {
+      "key": "stamp_habitat_complete",
+      "label": "완성 서식지",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/discovery/stamp_habitat_complete.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-discovery-v1/stamp_habitat_complete_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-discovery-v1/stamp_habitat_complete.aseprite",
+      "source_assets": [
+        "prototype/emoji_garden/assets/ui/promoted/garden_refined/46_leaf_round_badge.png",
+        "prototype/emoji_garden/assets/generated/lucky_garden_2/catalog_v2/slices/reward_meadow_renewal.png",
+        "prototype/emoji_garden/assets/generated/lucky_garden_2/catalog_v2/slices/status_complete.png"
+      ],
+      "description": "completed habitat stamp from meadow renewal reward and complete status source art"
+    },
+    {
+      "key": "stamp_representative_habitat",
+      "label": "대표 서식지",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/discovery/stamp_representative_habitat.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-discovery-v1/stamp_representative_habitat_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-discovery-v1/stamp_representative_habitat.aseprite",
+      "source_assets": [
+        "prototype/emoji_garden/assets/ui/promoted/garden_refined/01_leaf_star_stat_panel.png",
+        "prototype/emoji_garden/assets/generated/lucky_garden_2/catalog_v2/slices/reward_pollinator_lodge.png",
+        "prototype/emoji_garden/assets/ui/promoted/icons/star.png"
+      ],
+      "description": "representative habitat stamp from leaf-star panel, pollinator lodge, and star source art"
+    }
+  ]
+}

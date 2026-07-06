@@ -1,0 +1,13 @@
+Garden Stacks world map assets
+Generated: 2026-06-16
+Mode: built-in image_gen
+
+world_map_v1.png
+- Source copy: source/world_map_v1_source.png
+- Prompt summary: clean flat Garden Stacks card-icon-matched 16-bit real-world-style stage-select map; recognizable simplified Earth continent silhouettes, low saturation, thick dark coast outlines, quiet continents/ocean, broad biome color regions only, no individual trees/buildings/rocks/landmark objects, large negative space for visible markers/routes; no country borders, no text, no route line.
+
+vehicle_car.png, vehicle_plane.png, stage_node.png, stage_node_gray.png, stage_clear_stamp.png, stage_lock.png
+- Source sheet: source/world_map_icons_sheet_source.png
+- Alpha sheet: source/world_map_icons_sheet_alpha.png
+- Prompt summary: five separated flat Garden Stacks style 16-bit pixel sprites on flat #ff00ff chroma-key background; red car, white plane, highly visible red-orange map pin marker with cream center, green clear stamp icon without text, dark lock; thick outlines and flat shade bands.
+- Processing: chroma key removed with imagegen remove_chroma_key.py, then cropped into individual transparent PNGs. stage_node/stage_node_gray keep only the marker component; vehicle_plane.png is recropped from the full propeller plane component with padding so the nose, tail, and propeller are not clipped. stage_node_gray.png is a grayscale/color-swap derivative of stage_node.png for unvisited markers.

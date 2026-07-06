@@ -1,0 +1,371 @@
+{
+  "name": "garden_stacks_card_assets_v1",
+  "source_method": "existing image sources cropped and resized for card display; no programmatic illustration drawing",
+  "runtime_dir": "prototype/emoji_garden/assets/generated/garden_stacks/cards",
+  "source_dir": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1",
+  "assets": [
+    {
+      "key": "floor_meadow",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/floor_meadow.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/floor_meadow_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/floor_meadow.aseprite",
+      "source_asset": "prototype/emoji_garden/assets/generated/lucky_garden_2/catalog_v1/slices/floor_meadow.png",
+      "description": "Garden Stacks meadow floor art from Lucky Garden 2.0 catalog slice",
+      "cards": [
+        "floor_meadow_basic",
+        "site_entrance_plaza",
+        "site_education_lawn"
+      ]
+    },
+    {
+      "key": "floor_forest",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/floor_forest.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/floor_forest_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/floor_forest.aseprite",
+      "source_asset": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/floor_forest_imagegen_raw.png",
+      "description": "Garden Stacks young forest floor art from a user-supplied terrain tile, key-cleaned and alpha-safe resized to the same 96px card-art canvas and 78px content footprint as the other floor assets without low-resolution remastering or palette crushing",
+      "cards": [
+        "floor_forest_basic",
+        "site_forest_lodge"
+      ]
+    },
+    {
+      "key": "floor_wetland",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/floor_wetland.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/floor_wetland_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/floor_wetland.aseprite",
+      "source_asset": "prototype/emoji_garden/assets/generated/lucky_garden_2/catalog_v1/slices/floor_wetland.png",
+      "description": "Garden Stacks wetland floor art from Lucky Garden 2.0 catalog slice",
+      "cards": [
+        "floor_wetland_basic"
+      ]
+    },
+    {
+      "key": "floor_meadow_bee_lawn",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/floor_meadow_bee_lawn.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/floor_meadow_bee_lawn_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/floor_meadow_bee_lawn.aseprite",
+      "source_asset": "prototype/emoji_garden/assets/generated/lucky_garden_2/catalog_v2/slices/reward_pollinator_lodge.png",
+      "description": "Garden Stacks advanced bee lawn floor art from Lucky Garden 2.0 pollinator lodge reward slice",
+      "cards": [
+        "floor_meadow_bee_lawn"
+      ]
+    },
+    {
+      "key": "floor_forest_shade_walk",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/floor_forest_shade_walk.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/floor_forest_shade_walk_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/floor_forest_shade_walk.aseprite",
+      "source_asset": "prototype/emoji_garden/data/species_codex/generated/pixel_art_assets/slices/bio_0481_white_spruce.png",
+      "description": "Garden Stacks advanced shade walk floor art from species codex spruce pixel asset",
+      "cards": [
+        "floor_forest_shade_walk"
+      ]
+    },
+    {
+      "key": "floor_wetland_corridor",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/floor_wetland_corridor.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/floor_wetland_corridor_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/floor_wetland_corridor.aseprite",
+      "source_asset": "prototype/emoji_garden/assets/generated/lucky_garden_2/catalog_v2/slices/reward_wetland_corridor.png",
+      "description": "Garden Stacks advanced wetland corridor floor art from Lucky Garden 2.0 wetland corridor reward slice",
+      "cards": [
+        "floor_wetland_corridor"
+      ]
+    },
+    {
+      "key": "occupant_flower",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/occupant_flower.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/occupant_flower_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/occupant_flower.aseprite",
+      "source_asset": "prototype/emoji_garden/data/species_codex/generated/pixel_art_assets/slices/bio_0001_dandelion.png",
+      "description": "Garden Stacks dandelion art from species codex pixel asset",
+      "cards": [
+        "plant_meadow_dandelion"
+      ]
+    },
+    {
+      "key": "occupant_clover",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/occupant_clover.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/occupant_clover_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/occupant_clover.aseprite",
+      "source_asset": "prototype/emoji_garden/data/species_codex/generated/pixel_art_assets/slices/bio_0002_white_clover.png",
+      "description": "Garden Stacks clover art from species codex pixel asset",
+      "cards": [
+        "plant_meadow_clover"
+      ]
+    },
+    {
+      "key": "plan_clover_seed",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/plan_clover_seed.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/plan_clover_seed_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/plan_clover_seed.aseprite",
+      "source_asset": "prototype/emoji_garden/data/species_codex/generated/pixel_art_assets/slices/bio_0003_common_sunflower.png",
+      "description": "Garden Stacks sunflower art from species codex pixel asset",
+      "cards": [
+        "plant_meadow_sunflower"
+      ]
+    },
+    {
+      "key": "flower_tab",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/flower_tab.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/flower_tab_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/flower_tab.aseprite",
+      "source_asset": "prototype/emoji_garden/data/species_codex/generated/pixel_art_assets/slices/bio_0891_oakmoss.png",
+      "description": "Garden Stacks moss understory art from species codex pixel asset",
+      "cards": [
+        "plant_forest_moss"
+      ]
+    },
+    {
+      "key": "tree_tab",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/tree_tab.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/tree_tab_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/tree_tab.aseprite",
+      "source_asset": "prototype/emoji_garden/data/species_codex/generated/pixel_art_assets/slices/bio_0028_red_maple.png",
+      "description": "Garden Stacks maple/tree art from species codex pixel asset",
+      "cards": [
+        "plant_forest_maple",
+        "business_guest_cabin"
+      ]
+    },
+    {
+      "key": "reeds_tab",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/reeds_tab.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/reeds_tab_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/reeds_tab.aseprite",
+      "source_asset": "prototype/emoji_garden/data/species_codex/generated/pixel_art_assets/slices/bio_0007_common_reed.png",
+      "description": "Garden Stacks reed/wetland plant art from species codex pixel asset",
+      "cards": [
+        "plant_wetland_watercress"
+      ]
+    },
+    {
+      "key": "plant_wetland_reed",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/plant_wetland_reed.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/plant_wetland_reed_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/plant_wetland_reed.aseprite",
+      "source_asset": "prototype/emoji_garden/data/species_codex/generated/pixel_art_assets/slices/bio_0435_giant_reed.png",
+      "description": "Garden Stacks dedicated reed art from species codex pixel asset",
+      "cards": [
+        "plant_wetland_reed"
+      ]
+    },
+    {
+      "key": "occupant_bee",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/occupant_bee.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/occupant_bee_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/occupant_bee.aseprite",
+      "source_asset": "prototype/emoji_garden/data/species_codex/generated/pixel_art_assets/slices/bio_0008_western_honey_bee.png",
+      "description": "Garden Stacks bee art from species codex pixel asset",
+      "cards": [
+        "animal_meadow_bee"
+      ]
+    },
+    {
+      "key": "bee_tab",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/bee_tab.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/bee_tab_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/bee_tab.aseprite",
+      "source_asset": "prototype/emoji_garden/data/species_codex/generated/pixel_art_assets/slices/bio_0666_european_peacock_butterfly.png",
+      "description": "Garden Stacks butterfly art from species codex pixel asset",
+      "cards": [
+        "animal_meadow_butterfly"
+      ]
+    },
+    {
+      "key": "bird_tab",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/bird_tab.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/bird_tab_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/bird_tab.aseprite",
+      "source_asset": "prototype/emoji_garden/data/species_codex/generated/pixel_art_assets/slices/bio_0805_song_sparrow.png",
+      "description": "Garden Stacks bird art from species codex pixel asset",
+      "cards": [
+        "animal_forest_sparrow",
+        "animal_forest_robin"
+      ]
+    },
+    {
+      "key": "frog_tab",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/frog_tab.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/frog_tab_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/frog_tab.aseprite",
+      "source_asset": "prototype/emoji_garden/data/species_codex/generated/pixel_art_assets/slices/bio_0954_green_frog.png",
+      "description": "Garden Stacks frog art from species codex pixel asset",
+      "cards": [
+        "animal_wetland_green_frog",
+        "animal_wetland_chorus_frog"
+      ]
+    },
+    {
+      "key": "hand_pruning",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/hand_pruning.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/hand_pruning_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/hand_pruning.aseprite",
+      "source_asset": "prototype/emoji_garden/assets/hand_cards/slices1/hand2_14_pruning_shears.png",
+      "description": "Garden Stacks pruning work art from Lucky Garden hand-card slice",
+      "cards": [
+        "work_pruning"
+      ]
+    },
+    {
+      "key": "hand_watering",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/hand_watering.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/hand_watering_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/hand_watering.aseprite",
+      "source_asset": "prototype/emoji_garden/assets/hand_cards/slices1/hand2_18_watering_can.png",
+      "description": "Garden Stacks watering work art from Lucky Garden hand-card slice",
+      "cards": [
+        "work_watering"
+      ]
+    },
+    {
+      "key": "icon_research",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/icon_research.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/icon_research_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/icon_research.aseprite",
+      "source_asset": "prototype/emoji_garden/assets/generated/lucky_garden_2/catalog_v2/slices/icon_research.png",
+      "description": "Garden Stacks general research event and class art from Lucky Garden 2.0 catalog slice",
+      "cards": [
+        "event_ecology_survey",
+        "business_garden_class"
+      ]
+    },
+    {
+      "key": "work_soil_test",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/work_soil_test.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/work_soil_test_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/work_soil_test.aseprite",
+      "source_asset": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/investigation_cards_imagegen_sheet_v2_raw.png",
+      "description": "Garden Stacks soil test investigation art from imagegen 3x2 investigation sheet, resized to the shared 96px card-art canvas",
+      "cards": [
+        "work_soil_test"
+      ]
+    },
+    {
+      "key": "work_insect_watch",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/work_insect_watch.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/work_insect_watch_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/work_insect_watch.aseprite",
+      "source_asset": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/investigation_cards_imagegen_sheet_v2_raw.png",
+      "description": "Garden Stacks insect observation investigation art from imagegen 3x2 investigation sheet, resized to the shared 96px card-art canvas",
+      "cards": [
+        "work_insect_watch"
+      ]
+    },
+    {
+      "key": "work_higher_animal_tracking",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/work_higher_animal_tracking.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/work_higher_animal_tracking_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/work_higher_animal_tracking.aseprite",
+      "source_asset": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/investigation_cards_imagegen_sheet_v2_raw.png",
+      "description": "Garden Stacks higher animal tracking investigation art from imagegen 3x2 investigation sheet, resized to the shared 96px card-art canvas",
+      "cards": [
+        "work_higher_animal_tracking"
+      ]
+    },
+    {
+      "key": "work_flora_comparison",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/work_flora_comparison.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/work_flora_comparison_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/work_flora_comparison.aseprite",
+      "source_asset": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/investigation_cards_imagegen_sheet_v2_raw.png",
+      "description": "Garden Stacks flora comparison investigation art from imagegen 3x2 investigation sheet, resized to the shared 96px card-art canvas",
+      "cards": [
+        "work_flora_comparison"
+      ]
+    },
+    {
+      "key": "work_region_ecology_survey",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/work_region_ecology_survey.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/work_region_ecology_survey_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/work_region_ecology_survey.aseprite",
+      "source_asset": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/investigation_cards_imagegen_sheet_v2_raw.png",
+      "description": "Garden Stacks regional ecology survey investigation art from imagegen 3x2 investigation sheet, resized to the shared 96px card-art canvas",
+      "cards": [
+        "work_region_ecology_survey"
+      ]
+    },
+    {
+      "key": "plan_conservation_work",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/plan_conservation_work.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/plan_conservation_work_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/plan_conservation_work.aseprite",
+      "source_asset": "prototype/emoji_garden/assets/generated/lucky_garden_2/catalog_v2/slices/plan_conservation_work.png",
+      "description": "Garden Stacks conservation work art from Lucky Garden 2.0 catalog slice",
+      "cards": [
+        "work_conservation"
+      ]
+    },
+    {
+      "key": "plan_pollinator_habitat",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/plan_pollinator_habitat.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/plan_pollinator_habitat_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/plan_pollinator_habitat.aseprite",
+      "source_asset": "prototype/emoji_garden/assets/generated/lucky_garden_2/catalog_v2/slices/plan_pollinator_habitat.png",
+      "description": "Garden Stacks pollinator habitat work art from Lucky Garden 2.0 catalog slice",
+      "cards": [
+        "work_pollinator_habitat"
+      ]
+    },
+    {
+      "key": "plan_wetland_survey",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/plan_wetland_survey.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/plan_wetland_survey_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/plan_wetland_survey.aseprite",
+      "source_asset": "prototype/emoji_garden/assets/generated/lucky_garden_2/catalog_v2/slices/plan_wetland_survey.png",
+      "description": "Garden Stacks wetland survey work art from Lucky Garden 2.0 catalog slice",
+      "cards": [
+        "work_wetland_survey",
+        "event_heavy_rain"
+      ]
+    },
+    {
+      "key": "work_temporary_puddle",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/work_temporary_puddle.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/work_temporary_puddle_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/work_temporary_puddle.aseprite",
+      "source_asset": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/work_temporary_puddle_imagegen_raw.png",
+      "description": "Garden Stacks temporary puddle work art redrawn as one imagegen pixel-art wetland tile",
+      "cards": [
+        "work_temporary_puddle"
+      ]
+    },
+    {
+      "key": "reward_operating_grant",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/reward_operating_grant.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/reward_operating_grant_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/reward_operating_grant.aseprite",
+      "source_asset": "prototype/emoji_garden/assets/generated/lucky_garden_2/catalog_v2/slices/reward_operating_grant.png",
+      "description": "Garden Stacks operating grant reward art from Lucky Garden 2.0 catalog slice",
+      "cards": [
+        "reward_operating_grant",
+        "event_donor_offer",
+        "business_ticket_booth",
+        "reward_sponsor_grant"
+      ]
+    },
+    {
+      "key": "reward_seed_bank",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/reward_seed_bank.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/reward_seed_bank_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/reward_seed_bank.aseprite",
+      "source_asset": "prototype/emoji_garden/assets/generated/lucky_garden_2/catalog_v2/slices/reward_seed_bank.png",
+      "description": "Garden Stacks seed bank reward art from Lucky Garden 2.0 catalog slice",
+      "cards": [
+        "reward_seed_bank"
+      ]
+    },
+    {
+      "key": "reward_ecology_kit",
+      "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/cards/reward_ecology_kit.png",
+      "source_png": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/reward_ecology_kit_source.png",
+      "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/reward_ecology_kit.aseprite",
+      "source_asset": "assets/sprites/aseprite-ui/garden-stacks-card-assets-v1/investigation_cards_imagegen_sheet_v2_raw.png",
+      "description": "Garden Stacks ecology investigation kit reward art from imagegen 3x2 investigation sheet, resized to the shared 96px card-art canvas",
+      "cards": [
+        "reward_ecology_kit"
+      ]
+    }
+  ]
+}

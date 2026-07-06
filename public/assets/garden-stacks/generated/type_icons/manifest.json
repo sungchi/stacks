@@ -1,0 +1,99 @@
+{
+  "name": "garden_stacks_type_icons_v2",
+  "cell": 32,
+  "columns": 4,
+  "rows": 4,
+  "runtime_png": "prototype/emoji_garden/assets/generated/garden_stacks/type_icons/type_icons_v2.png",
+  "source_png": "assets/sprites/aseprite-ui/garden-stacks-type-icons-v2/type_icons_v2_source.png",
+  "source_aseprite": "assets/sprites/aseprite-ui/garden-stacks-type-icons-v2/type_icons_v2.aseprite",
+  "concept_image": "assets/sprites/aseprite-ui/garden-stacks-type-icons-v2/type_icons_v2_concept_imagegen.png",
+  "source_method": "imagegen silhouette sheet cropped to 32px; no programmatic illustration drawing",
+  "workflow": "black-and-white silhouette concept sheet -> cell slicing -> monochrome mask/palette swap -> optional Aseprite MCP cleanup target -> runtime PNG export",
+  "script_policy": "Scripts may crop, mask, recolor, and export only; icon shapes must come from silhouette or Aseprite-drawn source art.",
+  "icons": [
+    {
+      "index": 1,
+      "key": "meadow",
+      "label": "초지",
+      "description": "grass tuft with a small flower"
+    },
+    {
+      "index": 2,
+      "key": "forest",
+      "label": "숲",
+      "description": "three rounded tree crowns with trunks"
+    },
+    {
+      "index": 3,
+      "key": "wetland",
+      "label": "습지",
+      "description": "reeds above thick water ripples"
+    },
+    {
+      "index": 4,
+      "key": "flower",
+      "label": "꽃",
+      "description": "large five-petal blossom"
+    },
+    {
+      "index": 5,
+      "key": "tree",
+      "label": "나무",
+      "description": "single broad canopy tree"
+    },
+    {
+      "index": 6,
+      "key": "moss",
+      "label": "이끼",
+      "description": "low cushion moss mound"
+    },
+    {
+      "index": 7,
+      "key": "aquatic",
+      "label": "수생",
+      "description": "lily pad with water drop"
+    },
+    {
+      "index": 8,
+      "key": "butterfly",
+      "label": "나비",
+      "description": "wide butterfly silhouette"
+    },
+    {
+      "index": 9,
+      "key": "bee",
+      "label": "벌",
+      "description": "striped bee silhouette"
+    },
+    {
+      "index": 10,
+      "key": "bird",
+      "label": "새",
+      "description": "side bird silhouette"
+    },
+    {
+      "index": 11,
+      "key": "frog",
+      "label": "개구리",
+      "description": "wide-eyed sitting frog"
+    },
+    {
+      "index": 12,
+      "key": "work",
+      "label": "작업",
+      "description": "large hand trowel"
+    },
+    {
+      "index": 13,
+      "key": "reward",
+      "label": "보상",
+      "description": "star ribbon badge"
+    },
+    {
+      "index": 14,
+      "key": "neutral",
+      "label": "중립",
+      "description": "solid diamond fallback"
+    }
+  ]
+}
