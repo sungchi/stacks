@@ -21,6 +21,7 @@
 | [docs/requirements.md](docs/requirements.md) | 제품 상세 요구사항, 게임 규칙, UI, 저장, 테스트 기준 | 기준 |
 | [docs/checklist.md](docs/checklist.md) | 구현·검수 체크리스트 | 파생 |
 | [docs/assets.md](docs/assets.md) | 애셋 위치, 사용 규칙, 갱신 절차 | 기준 |
+| [docs/analysis/garden-stacks-auto-chain-combo-proposal-2026-07-08.md](docs/analysis/garden-stacks-auto-chain-combo-proposal-2026-07-08.md) | 자동 배치 연쇄 콤보 모드 규칙 제안서 | 제안 |
 | [docs/analysis/garden-stacks-ui-proposal-2026-07-04.md](docs/analysis/garden-stacks-ui-proposal-2026-07-04.md) | 깔끔하고 직관적인 게임 UI 제안 보고서 | 제안 |
 | [docs/analysis/garden-stacks-endless-mode-proposal-2026-07-07.md](docs/analysis/garden-stacks-endless-mode-proposal-2026-07-07.md) | 무한 정원 고득점 모드 규칙·제한·재미요소 제안서 | 제안 |
 | [docs/mockups/garden-stacks-ui-2026-07-04/bw-style-guide.md](docs/mockups/garden-stacks-ui-2026-07-04/bw-style-guide.md) | B/W UI 기본 스타일 가이드 | 기준 |
