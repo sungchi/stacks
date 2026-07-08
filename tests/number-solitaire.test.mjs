@@ -104,7 +104,7 @@ test("starts an endless run with score pressure instead of stage pressure", () =
   assert.equal(state.piles.length, 4);
   assert.equal(state.piles[0].capacity, 10);
   assert.ok(endlessHandPreviewSummary(state).bestIndex >= 1);
-  assert.equal(cardAbilitySummary(makeCard(3, 1)).text, "일반. 원형 이웃수로 세로/층 줄기를 잇는다.");
+  assert.equal(cardAbilitySummary(makeCard(3, 1)).text, "일반. 이웃 숫자로 세로/층 줄기를 잇는다.");
 });
 
 test("endless opening shuffle changes when the run seed changes", () => {
@@ -261,6 +261,26 @@ test("endless P0 abilities bridge, graft, and prune change connection previews",
   assert.equal(graft.componentSize, 2);
   assert.equal(graft.extraEdges.some((edge) => edge.kind === "graft"), true);
 
+  const prunePlaceState = newEndlessRun(defaultMetaProfile(), {
+    shuffle: false,
+    skipRefill: true,
+    handSize: 0,
+    hand: [makeCard(4, 1, { ability: "prune" })],
+    deck: [],
+    piles: [
+      { cards: [makeCard(1, 1), makeCard(2, 1), makeCard(3, 1)] },
+      { cards: [makeCard(8, 2), makeCard(8, 3), makeCard(8, 4)] },
+      { cards: [makeCard(7, 1), makeCard(7, 2), makeCard(7, 3)] },
+      { cards: [makeCard(6, 1), makeCard(6, 2), makeCard(6, 3)] },
+    ],
+  });
+  const prunePlace = playEndlessCardToPile(prunePlaceState, 1, 1);
+  assert.equal(prunePlace.ok, true);
+  assert.equal(prunePlace.preview.primaryKey, "neighbor");
+  assert.equal(prunePlace.preview.pruneTop, false);
+  assert.deepEqual(prunePlaceState.piles[0].cards.map((card) => card.digit), [1, 2, 3, 4]);
+  assert.deepEqual(prunePlaceState.compostPile.map((card) => card.digit), []);
+
   const pruneState = newEndlessRun(defaultMetaProfile(), {
     shuffle: false,
     skipRefill: true,
@@ -268,20 +288,22 @@ test("endless P0 abilities bridge, graft, and prune change connection previews",
     hand: [makeCard(4, 1, { ability: "prune" })],
     deck: [],
     piles: [
-      { cards: [makeCard(1, 1), makeCard(2, 1), makeCard(3, 1), makeCard(8, 1)] },
-      { cards: [makeCard(8, 2), makeCard(8, 3), makeCard(8, 4), makeCard(8, 5)] },
-      { cards: [makeCard(7, 1), makeCard(7, 2), makeCard(7, 3), makeCard(7, 4)] },
-      { cards: [makeCard(6, 1), makeCard(6, 2), makeCard(6, 3), makeCard(6, 4)] },
+      { cards: [makeCard(1, 1), makeCard(2, 1), makeCard(3, 1), ...Array.from({ length: 7 }, (_, index) => makeCard(8, index + 1))] },
+      { cards: Array.from({ length: 10 }, (_, index) => makeCard(8, index + 11)) },
+      { cards: Array.from({ length: 10 }, (_, index) => makeCard(7, index + 1)) },
+      { cards: Array.from({ length: 10 }, (_, index) => makeCard(6, index + 1)) },
     ],
   });
   const prune = playEndlessCardToPile(pruneState, 1, 4);
   assert.equal(prune.ok, true);
   assert.equal(prune.preview.primaryKey, "prune");
   assert.equal(prune.preview.pruneTop, true);
+  assert.equal(prune.preview.pruneCleanup, true);
   assert.equal(prune.preview.pileIndex, 1);
   assert.equal(pruneState.lastPlay.prunedCard.digit, 8);
-  assert.deepEqual(pruneState.piles[0].cards.map((card) => card.digit), [1, 2, 3, 4]);
-  assert.deepEqual(pruneState.compostPile.map((card) => card.digit), [8]);
+  assert.equal(pruneState.lastPlay.cleanupOnly, true);
+  assert.deepEqual(pruneState.piles[0].cards.map((card) => card.digit), [1, 2, 3, 8, 8, 8, 8, 8, 8]);
+  assert.deepEqual(pruneState.compostPile.map((card) => card.digit), [8, 4]);
 });
 
 test("endless capacity blocks non-harvest placement and game over waits for swaps", () => {

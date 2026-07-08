@@ -138,13 +138,28 @@ button:disabled {
 }
 
 .simple-shell.is-view-mobile .hand-row {
-  --hand-gap: 5px;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: var(--hand-gap);
+  --hand-card-width: clamp(106px, 29vw, 116px);
+  --hand-overlap: clamp(58px, 16vw, 66px);
+  --hand-shift-x: calc(100% - var(--hand-overlap));
+  gap: 0;
+  justify-content: center;
+  min-height: calc(var(--hand-card-width) * 1.4 + 40px);
+  padding-inline: calc(var(--hand-overlap) / 2);
 }
 
 .simple-shell.is-view-mobile .hand-card {
   padding: 6px;
+}
+
+.simple-shell.is-view-mobile .hand-card + .hand-card {
+  margin-left: calc(-1 * var(--hand-overlap));
+}
+
+.simple-shell.is-view-mobile .card-art {
+  width: min(68%, 66px);
+  height: min(34%, 52px);
+  padding: 3px;
+  transform: translateY(-70%);
 }
 
 .simple-shell.is-view-desktop {
@@ -169,7 +184,7 @@ button:disabled {
 }
 
 .simple-shell.is-view-desktop .pile-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .simple-shell.is-view-desktop .pile-card {
@@ -190,7 +205,10 @@ button:disabled {
 }
 
 .simple-shell.is-view-desktop .hand-row {
-  grid-template-columns: repeat(auto-fit, minmax(88px, 112px));
+  --hand-card-width: clamp(148px, 13.5vw, 160px);
+  --hand-gap: 0px;
+  --hand-overlap: 14px;
+  --hand-shift-x: calc(100% - var(--hand-overlap));
   justify-content: center;
 }
 
@@ -507,11 +525,17 @@ button:disabled {
 }
 
 .hand-row {
-  --hand-gap: 7px;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+  --hand-card-width: clamp(88px, 18vw, 118px);
+  --hand-overlap: 0px;
+  --hand-gap: 8px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
   gap: var(--hand-gap);
   isolation: isolate;
+  min-height: calc(var(--hand-card-width) * 1.4 + 20px);
+  overflow: visible;
+  padding: 14px 2px 2px;
 }
 
 .hand-card,
@@ -534,11 +558,45 @@ button:disabled {
 }
 
 .hand-card {
+  --hand-fan-y: 0px;
+  --hand-fan-rotate: 0deg;
+  flex: 0 0 var(--hand-card-width);
+  width: var(--hand-card-width);
   min-width: 0;
+  transform: translateY(var(--hand-fan-y)) rotate(var(--hand-fan-rotate));
   transition:
     transform 170ms var(--ease),
     box-shadow 170ms var(--ease),
     opacity 120ms var(--ease);
+}
+
+.hand-card + .hand-card {
+  margin-left: calc(-1 * var(--hand-overlap));
+}
+
+.hand-card:nth-child(1) {
+  --hand-fan-y: 10px;
+  --hand-fan-rotate: -4deg;
+}
+
+.hand-card:nth-child(2) {
+  --hand-fan-y: 4px;
+  --hand-fan-rotate: -2deg;
+}
+
+.hand-card:nth-child(3) {
+  --hand-fan-y: 0px;
+  --hand-fan-rotate: 0deg;
+}
+
+.hand-card:nth-child(4) {
+  --hand-fan-y: 4px;
+  --hand-fan-rotate: 2deg;
+}
+
+.hand-card:nth-child(5) {
+  --hand-fan-y: 10px;
+  --hand-fan-rotate: 4deg;
 }
 
 .hand-card.is-selected {
@@ -546,7 +604,7 @@ button:disabled {
   box-shadow:
     4px 6px 0 rgba(17, 17, 17, 0.22),
     0 14px 20px rgba(0, 0, 0, 0.12);
-  transform: translateY(-8px) rotate(-0.8deg);
+  transform: translateY(calc(var(--hand-fan-y) - 14px)) scale(1.055) rotate(calc(var(--hand-fan-rotate) - 0.8deg));
 }
 
 body:not(.is-hand-hover-locked) .hand-card:not(.is-dealt):not(.is-hand-pre-shift):not(.is-hand-pre-refill):not(.is-hand-shifting):not(.is-hand-refill).is-hovered,
@@ -557,7 +615,7 @@ body:not(.is-hand-hover-locked) .hand-card:not(.is-dealt):not(.is-hand-pre-shift
     4px 6px 0 rgba(17, 17, 17, 0.22),
     0 14px 20px rgba(0, 0, 0, 0.12);
   outline: none;
-  transform: translateY(-8px) rotate(-0.8deg);
+  transform: translateY(calc(var(--hand-fan-y) - 14px)) scale(1.055) rotate(calc(var(--hand-fan-rotate) - 0.8deg));
 }
 
 body.is-hand-hover-locked .hand-card:focus-visible {
@@ -589,7 +647,7 @@ body.is-hand-hover-locked .hand-card:focus-visible {
 
 .hand-card.is-hand-pre-shift {
   z-index: 2;
-  transform: translateX(calc(100% + var(--hand-gap, 7px)));
+  transform: translateX(var(--hand-shift-x, calc(100% + var(--hand-gap, 7px))));
 }
 
 .hand-card.is-hand-pre-refill {
@@ -678,7 +736,7 @@ body.is-hand-hover-locked .hand-card:focus-visible {
   overflow: hidden;
   max-width: calc(100% - 58px);
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
   font-style: normal;
   font-weight: 900;
   line-height: 1;
@@ -691,27 +749,30 @@ body.is-hand-hover-locked .hand-card:focus-visible {
 .card-art {
   align-self: center;
   justify-self: center;
-  width: min(78%, 84px);
-  height: min(78%, 84px);
-  padding: 6px;
+  width: min(74%, 102px);
+  height: min(43%, 78px);
+  padding: 5px;
+  transform: translateY(-28%);
   object-fit: contain;
   image-rendering: pixelated;
 }
 
 .card-ability {
   position: absolute;
-  left: 6px;
-  right: 6px;
-  bottom: 24px;
+  left: 7px;
+  right: 7px;
+  bottom: 22px;
   z-index: 2;
   display: grid;
   gap: 1px;
-  padding: 4px 5px;
+  min-height: 58px;
+  padding: 7px 8px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.94);
   color: var(--ink);
-  line-height: 1.1;
+  line-height: 1.15;
+  text-align: left;
   pointer-events: none;
 }
 
@@ -719,19 +780,24 @@ body.is-hand-hover-locked .hand-card:focus-visible {
 .card-ability small {
   display: block;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  text-align: left;
 }
 
 .card-ability strong {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 1000;
+  text-align: center;
 }
 
 .card-ability small {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   color: var(--muted);
-  font-size: 8px;
+  font-size: 12px;
   font-weight: 800;
+  text-align: left;
+  white-space: normal;
 }
 
 .mini-card .card-add {
@@ -1387,7 +1453,7 @@ body.is-hand-hover-locked .hand-card:focus-visible {
 
 @keyframes handSlotShiftLeft {
   from {
-    transform: translateX(calc(100% + var(--hand-gap, 7px)));
+    transform: translateX(var(--hand-shift-x, calc(100% + var(--hand-gap, 7px))));
   }
   76% {
     transform: translateX(-3px);
@@ -1575,7 +1641,7 @@ body.is-hand-hover-locked .hand-card:focus-visible {
   }
 
   .pile-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .pile-card {
@@ -1596,7 +1662,10 @@ body.is-hand-hover-locked .hand-card:focus-visible {
   }
 
   .hand-row {
-    grid-template-columns: repeat(auto-fit, minmax(88px, 112px));
+    --hand-card-width: clamp(148px, 13.5vw, 160px);
+    --hand-gap: 0px;
+    --hand-overlap: 14px;
+    --hand-shift-x: calc(100% - var(--hand-overlap));
     justify-content: center;
   }
 }
@@ -1661,13 +1730,27 @@ body[data-phase="game_over"] .simple-shell {
   }
 
   .hand-row {
-    --hand-gap: 5px;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: var(--hand-gap);
+    --hand-card-width: clamp(106px, 29vw, 116px);
+    --hand-overlap: clamp(58px, 16vw, 66px);
+    --hand-shift-x: calc(100% - var(--hand-overlap));
+    gap: 0;
+    min-height: calc(var(--hand-card-width) * 1.4 + 40px);
+    padding-inline: calc(var(--hand-overlap) / 2);
   }
 
   .hand-card {
     padding: 6px;
+  }
+
+  .hand-card + .hand-card {
+    margin-left: calc(-1 * var(--hand-overlap));
+  }
+
+  .hand-card.is-selected,
+  body:not(.is-hand-hover-locked) .hand-card:not(.is-dealt):not(.is-hand-pre-shift):not(.is-hand-pre-refill):not(.is-hand-shifting):not(.is-hand-refill).is-hovered,
+  body:not(.is-hand-hover-locked) .hand-card:not(.is-dealt):not(.is-hand-pre-shift):not(.is-hand-pre-refill):not(.is-hand-shifting):not(.is-hand-refill):not(:disabled):hover,
+  body:not(.is-hand-hover-locked) .hand-card:not(.is-dealt):not(.is-hand-pre-shift):not(.is-hand-pre-refill):not(.is-hand-shifting):not(.is-hand-refill):focus-visible {
+    transform: translateY(calc(var(--hand-fan-y) - 24px)) scale(1.15) rotate(calc(var(--hand-fan-rotate) - 0.8deg));
   }
 
   .card-add {
@@ -1675,9 +1758,10 @@ body[data-phase="game_over"] .simple-shell {
   }
 
   .card-art {
-    width: min(58%, 44px);
-    height: min(42%, 44px);
+    width: min(68%, 66px);
+    height: min(34%, 52px);
     padding: 3px;
+    transform: translateY(-70%);
   }
 
   .card-multiply {
@@ -1685,7 +1769,12 @@ body[data-phase="game_over"] .simple-shell {
   }
 
   .card-kind {
+    font-size: 11px;
     max-width: calc(100% - 48px);
+  }
+
+  .card-ability small {
+    font-size: 11px;
   }
   .reward-row,
   .codex-grid {

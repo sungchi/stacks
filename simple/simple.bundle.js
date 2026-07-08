@@ -421,7 +421,7 @@ const ENDLESS_ABILITIES = {
   normal: {
     id: "normal",
     label: "일반",
-    description: "원형 이웃수로 세로/층 줄기를 잇는다.",
+    description: "이웃 숫자로 세로/층 줄기를 잇는다.",
   },
   bridge: {
     id: "bridge",
@@ -436,12 +436,12 @@ const ENDLESS_ABILITIES = {
   prune: {
     id: "prune",
     label: "가지치기",
-    description: "맨 위 방해 카드 1장을 퇴비로 보낸다.",
+    description: "막혔을 때 첫 방해카드를 퇴비로 보낸다.",
   },
   echo: {
     id: "echo",
     label: "되새김",
-    description: "직전 원형 이웃수 연결을 한 번 반복한다.",
+    description: "직전 이웃 숫자 연결을 한 번 반복한다.",
   },
   fertilizer: {
     id: "fertilizer",
@@ -1460,21 +1460,7 @@ function evaluateEndlessPilePlay(state, pileIndex, card) {
   if (!state || !card) return null;
   const sourcePiles = ensureEndlessPiles(state);
   const index = clampInt(pileIndex, 1, PILE_COUNT);
-  const abilityId = cardAbility(card).id;
-  const variants = [false];
-  if (abilityId === "prune") variants.push(true);
-  let best = null;
-  let bestScore = -Infinity;
-  for (const prune of variants) {
-    const preview = evaluateEndlessPilePlayVariant(state, sourcePiles, index, card, prune);
-    if (!preview) continue;
-    const score = endlessPilePreviewScore(preview);
-    if (best == null || score > bestScore) {
-      best = preview;
-      bestScore = score;
-    }
-  }
-  return best;
+  return evaluateEndlessPilePlayVariant(state, sourcePiles, index, card, false);
 }
 
 function evaluateEndlessPilePlayVariant(state, sourcePiles, index, card, pruneTop) {
@@ -1594,11 +1580,70 @@ function evaluateEndlessPilePlayVariant(state, sourcePiles, index, card, pruneTo
   };
 }
 
+function evaluateEndlessPruneCleanup(state, sourcePiles, pileIndex, card) {
+  if (cardAbility(card).id !== "prune") return null;
+  const sourcePile = sourcePiles[pileIndex - 1];
+  const prunedCard = sourcePile?.cards?.[sourcePile.cards.length - 1] ?? null;
+  if (!sourcePile || !prunedCard) return null;
+  const pileCardCount = sourcePile.cards.length;
+  const capacity = sourcePile.capacity ?? state.pileCapacity ?? ENDLESS_PILE_CAPACITY;
+  const minCount = Math.min(...sourcePiles.map((item) => item.cards?.length ?? 0));
+  return {
+    playable: true,
+    reason: null,
+    connected: false,
+    breaksCombo: false,
+    previousDigit: prunedCard.digit,
+    digit: card.digit,
+    matches: [],
+    primaryLabel: "가지치기",
+    primaryKey: "prune",
+    addValue: cardAddValue(card),
+    multiplyValue: cardMultiplyValue(card),
+    addTotalBefore: Math.max(0, Math.floor(Number(sourcePile.addTotal) || 0)),
+    multiplyTotalBefore: Math.max(0, Math.floor(Number(sourcePile.multiplyTotal) || 0)),
+    nextAddTotal: Math.max(0, Math.floor(Number(sourcePile.addTotal) || 0)),
+    nextMultiplyTotal: Math.max(0, Math.floor(Number(sourcePile.multiplyTotal) || 0)),
+    nextComboStep: Math.max(0, Math.floor(Number(sourcePile.comboStep) || 0)),
+    harvestReady: false,
+    harvestScore: 0,
+    potentialScore: 0,
+    harvestLength: ENDLESS_HARVEST_LENGTH,
+    cardsToHarvest: ENDLESS_HARVEST_LENGTH,
+    harvestGroup: [],
+    harvestCards: [],
+    componentSize: 0,
+    layerConnections: 0,
+    verticalConnected: false,
+    verticalRunAllowed: false,
+    extraEdges: [],
+    prunedCard: copy(prunedCard),
+    prunedCardId: prunedCard.id ?? null,
+    pruneTop: true,
+    pruneCleanup: true,
+    heightAllowed: true,
+    minPileCardCount: minCount,
+    pileIndex,
+    pileId: sourcePile.id,
+    pileLabel: sourcePile.label,
+    pileComboStep: sourcePile.comboStep ?? 0,
+    pileCardCount,
+    cardCountAfter: Math.max(0, pileCardCount - 1),
+    capacity,
+    slotsRemaining: Math.max(0, capacity - pileCardCount + 1),
+    scoreFormula: "방해카드 퇴비",
+    expectedReputation: 0,
+    nextMultiplier: Math.max(0, Math.floor(Number(sourcePile.multiplyTotal) || 0)),
+    pileBaseAfter: Math.max(0, Math.floor(Number(sourcePile.addTotal) || 0)),
+    glow: "yellow",
+  };
+}
+
 function evaluateAllEndlessPileTargets(state, handIndex) {
   const card = state?.hand?.[handIndex - 1];
   if (!card) return [];
-  ensureEndlessPiles(state);
-  return Array.from({ length: PILE_COUNT }, (_, i) => {
+  const sourcePiles = ensureEndlessPiles(state);
+  const normalPreviews = Array.from({ length: PILE_COUNT }, (_, i) => {
     const preview = evaluateEndlessPilePlay(state, i + 1, card) ?? {
       playable: false,
       reason: "blocked_pile",
@@ -1610,6 +1655,15 @@ function evaluateAllEndlessPileTargets(state, handIndex) {
     preview.cardId = card.id;
     return preview;
   });
+  if (normalPreviews.some((preview) => preview.playable)) return normalPreviews;
+  if (cardAbility(card).id !== "prune") return normalPreviews;
+  const cleanupIndex = sourcePiles.findIndex((pile) => (pile.cards?.length ?? 0) > 0);
+  if (cleanupIndex < 0) return normalPreviews;
+  const cleanup = evaluateEndlessPruneCleanup(state, sourcePiles, cleanupIndex + 1, card);
+  if (!cleanup) return normalPreviews;
+  cleanup.handIndex = handIndex;
+  cleanup.cardId = card.id;
+  return normalPreviews.map((preview) => preview.pileIndex === cleanup.pileIndex ? cleanup : preview);
 }
 
 function endlessPilePreviewScore(preview) {
@@ -1805,6 +1859,32 @@ function playEndlessCardToPile(state, handIndex, pileIndex) {
   const targetIndex = target.bestIndex;
   const pile = ensureEndlessPiles(state)[targetIndex - 1];
   let prunedCard = null;
+  if (preview.pruneCleanup) {
+    prunedCard = pile.cards.pop() ?? null;
+    if (!prunedCard) return { ok: false, reason: "missing_prune_target", preview };
+    state.hand.splice(handIndex - 1, 1);
+    syncEndlessDiscardAlias(state);
+    state.compostPile.push(prunedCard, card);
+    state.turnCount = (state.turnCount ?? 0) + 1;
+    recomputeAllEndlessPileStats(state);
+    state.lastPlay = {
+      card: copy(card),
+      preview: copy(preview),
+      scoreGained: 0,
+      harvested: false,
+      brokeCombo: false,
+      pileIndex: targetIndex,
+      requestedPileIndex,
+      pileLabel: pile.label,
+      prunedCard: copy(prunedCard),
+      cleanupOnly: true,
+    };
+    pile.history.push(copy(state.lastPlay));
+    state.message = `${pile.label} 가지치기 · 방해카드 퇴비`;
+    refillEndlessHand(state);
+    const result = checkEndlessEnd(state);
+    return { ok: true, preview, result, harvest: null };
+  }
   if (preview.pruneTop) {
     prunedCard = pile.cards.pop() ?? null;
     if (prunedCard) {
@@ -2757,6 +2837,13 @@ function requestedViewMode() {
   return ["mobile", "desktop"].includes(view) ? view : "auto";
 }
 
+function mobileHandPreviewMode() {
+  const viewMode = requestedViewMode();
+  if (viewMode === "mobile") return true;
+  if (viewMode === "desktop") return false;
+  return window.matchMedia("(max-width: 640px)").matches;
+}
+
 function clampSelectedHand() {
   if (!ui.state.hand.length) {
     ui.selectedHandIndex = null;
@@ -2996,6 +3083,22 @@ function rejectUnplayableHand(handIndex) {
   showToast("놓을 수 있는 정원 더미가 없습니다.");
 }
 
+function previewHandCard(handIndex) {
+  if (!hasPlayableTarget(handIndex)) {
+    rejectUnplayableHand(handIndex);
+    return false;
+  }
+  if (ui.hoverPreviewTimer) {
+    window.clearTimeout(ui.hoverPreviewTimer);
+    ui.hoverPreviewTimer = null;
+  }
+  ui.selectedHandIndex = handIndex;
+  ui.hoveredHandIndex = handIndex;
+  applyHandHoverPreview();
+  playSfx("select");
+  return true;
+}
+
 function freshRunSeed() {
   const randomPart = globalThis.crypto?.getRandomValues
     ? globalThis.crypto.getRandomValues(new Uint32Array(1))[0]
@@ -3078,6 +3181,7 @@ function endlessPreviewLabel(preview) {
 function pilePreviewContent(preview) {
   if (!preview) return "";
   if (isEndlessRun()) {
+    if (preview.pruneCleanup) return `<span>${escapeHtml(endlessPreviewLabel(preview))}</span><span>퇴비</span>`;
     return `<span>${escapeHtml(endlessPreviewLabel(preview))}</span><span>${preview.harvestReady ? "수확" : `${preview.cardsToHarvest}장`}</span>`;
   }
   return `<span>${escapeHtml(preview.primaryLabel)}</span><span>x${preview.nextMultiplier}</span>`;
@@ -3706,6 +3810,10 @@ function swapWholeHand() {
 function handleAction(action, button) {
   if (action === "select-card") {
     const index = Number(button.dataset.handIndex);
+    if (isEndlessRun() && mobileHandPreviewMode() && ui.selectedHandIndex !== index) {
+      previewHandCard(index);
+      return;
+    }
     if (quickPlayPriorityTarget(index, rectSnapshot(button.getBoundingClientRect()))) return;
     if (!hasPlayableTarget(index)) {
       rejectUnplayableHand(index);
@@ -3956,6 +4064,7 @@ app.addEventListener("mousedown", (event) => {
 app.addEventListener("pointerover", (event) => {
   const card = event.target.closest(".hand-card[data-action='select-card']");
   if (!card || handHoverLocked()) return;
+  if (event.pointerType === "touch" && isEndlessRun() && mobileHandPreviewMode()) return;
   setHoveredHandIndex(Number(card.dataset.handIndex));
 });
 

@@ -118,6 +118,13 @@ function requestedViewMode() {
   return ["mobile", "desktop"].includes(view) ? view : "auto";
 }
 
+function mobileHandPreviewMode() {
+  const viewMode = requestedViewMode();
+  if (viewMode === "mobile") return true;
+  if (viewMode === "desktop") return false;
+  return window.matchMedia("(max-width: 640px)").matches;
+}
+
 function clampSelectedHand() {
   if (!ui.state.hand.length) {
     ui.selectedHandIndex = null;
@@ -357,6 +364,22 @@ function rejectUnplayableHand(handIndex) {
   showToast("놓을 수 있는 정원 더미가 없습니다.");
 }
 
+function previewHandCard(handIndex) {
+  if (!hasPlayableTarget(handIndex)) {
+    rejectUnplayableHand(handIndex);
+    return false;
+  }
+  if (ui.hoverPreviewTimer) {
+    window.clearTimeout(ui.hoverPreviewTimer);
+    ui.hoverPreviewTimer = null;
+  }
+  ui.selectedHandIndex = handIndex;
+  ui.hoveredHandIndex = handIndex;
+  applyHandHoverPreview();
+  playSfx("select");
+  return true;
+}
+
 function freshRunSeed() {
   const randomPart = globalThis.crypto?.getRandomValues
     ? globalThis.crypto.getRandomValues(new Uint32Array(1))[0]
@@ -439,6 +462,7 @@ function endlessPreviewLabel(preview) {
 function pilePreviewContent(preview) {
   if (!preview) return "";
   if (isEndlessRun()) {
+    if (preview.pruneCleanup) return `<span>${escapeHtml(endlessPreviewLabel(preview))}</span><span>퇴비</span>`;
     return `<span>${escapeHtml(endlessPreviewLabel(preview))}</span><span>${preview.harvestReady ? "수확" : `${preview.cardsToHarvest}장`}</span>`;
   }
   return `<span>${escapeHtml(preview.primaryLabel)}</span><span>x${preview.nextMultiplier}</span>`;
@@ -1067,6 +1091,10 @@ function swapWholeHand() {
 function handleAction(action, button) {
   if (action === "select-card") {
     const index = Number(button.dataset.handIndex);
+    if (isEndlessRun() && mobileHandPreviewMode() && ui.selectedHandIndex !== index) {
+      previewHandCard(index);
+      return;
+    }
     if (quickPlayPriorityTarget(index, rectSnapshot(button.getBoundingClientRect()))) return;
     if (!hasPlayableTarget(index)) {
       rejectUnplayableHand(index);
@@ -1317,6 +1345,7 @@ app.addEventListener("mousedown", (event) => {
 app.addEventListener("pointerover", (event) => {
   const card = event.target.closest(".hand-card[data-action='select-card']");
   if (!card || handHoverLocked()) return;
+  if (event.pointerType === "touch" && isEndlessRun() && mobileHandPreviewMode()) return;
   setHoveredHandIndex(Number(card.dataset.handIndex));
 });
 
