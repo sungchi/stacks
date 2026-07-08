@@ -1781,7 +1781,7 @@ function resetAllStorage(storage = globalThis.localStorage) {
 
 
 const app = document.querySelector("#app");
-const perfMonitor = createPerformanceMonitor("Garden Stacks");
+const perfMonitor = createPerformanceMonitor("Stacks (스택스)");
 const CARD_FLIGHT_MS = 420;
 const LANDING_MOTION_MS = 620;
 
@@ -2056,8 +2056,8 @@ function renderTopbar() {
   return `
     <header class="topbar">
       <div class="brand">
-        <span class="eyebrow">Garden Stacks 4.1</span>
-        <h1>Garden Stacks</h1>
+        <span class="eyebrow">Stacks (스택스) 4.1</span>
+        <h1>Stacks (스택스)</h1>
       </div>
       <nav class="top-actions" aria-label="주요 메뉴">
         <button class="tool-button" type="button" data-action="open-stages">스테이지</button>

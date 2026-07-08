@@ -44,7 +44,7 @@ import {
 } from "./performance.js";
 
 const app = document.querySelector("#app");
-const perfMonitor = createPerformanceMonitor("Garden Stacks Simple");
+const perfMonitor = createPerformanceMonitor("Stacks (스택스) Simple");
 const CARD_FLIGHT_MS = 420;
 const LANDING_MOTION_MS = 620;
 
@@ -354,7 +354,7 @@ function renderStatus() {
     <header class="simple-status">
       <div class="title-lockup">
         <span>${escapeHtml(stage.name)}</span>
-        <strong>Garden Stacks</strong>
+        <strong>Stacks (스택스)</strong>
       </div>
       <div class="status-meter" aria-label="평판 ${ui.state.reputation}/${ui.state.targetReputation}">
         <div><span>평판</span><b>${ui.state.reputation}/${ui.state.targetReputation}</b></div>

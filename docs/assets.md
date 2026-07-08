@@ -1,6 +1,6 @@
-# Garden Stacks Code — 애셋 정리
+# Stacks (스택스) Code — 애셋 정리
 
-이 문서는 이 저장소에 정리한 Garden Stacks 런타임 애셋의 위치와 갱신 규칙이다.
+이 문서는 이 저장소에 정리한 Stacks (스택스) 런타임 애셋의 위치와 갱신 규칙이다.
 
 ## 1. 기준
 
@@ -26,7 +26,7 @@
 
 | 경로 | 역할 |
 |---|---|
-| `generated/cards/` | 숫자 카드와 Garden Stacks 카드 대표 이미지 |
+| `generated/cards/` | 숫자 카드와 Stacks (스택스) 카드 대표 이미지 |
 | `generated/species/` | 대표 종 120개 런타임 이미지와 manifest |
 | `generated/discovery/` | 발견 스탬프 |
 | `generated/events/` | 이벤트 배지 |

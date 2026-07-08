@@ -1,4 +1,4 @@
-# Garden Stacks Code — Agent Guide
+# Stacks (스택스) Code — Agent Guide
 
 이 문서는 `garden-stacks-code`에서 작업하는 에이전트와 개발자가 먼저 읽어야 하는 운영 지침이다. 상세 제품 규칙은 이 파일에 계속 추가하지 말고 [docs/requirements.md](docs/requirements.md)를 기준으로 관리한다.
 
@@ -6,13 +6,13 @@
 
 ## 1. 프로젝트 정체성
 
-이 프로젝트는 Garden Stacks 최신 프로토타입을 웹으로 다시 구현하기 위한 정리 저장소다.
+이 프로젝트는 Stacks (스택스) 최신 프로토타입을 웹으로 다시 구현하기 위한 정리 저장소다.
 
 한 줄 피치:
 
 **0~9 정원 카드를 4개의 더미에 놓아 같은수, 이웃수, 합 9, 홀짝 흐름을 만들고, 스테이지 목표 평판과 발견 도감을 키우는 모바일 우선 정적 웹 카드 솔리테어.**
 
-참고할 것은 Garden Stacks의 최신 게임 감각과 애셋이다. 옛 Lucky Garden, slot, 출시 히스토리, 실험 로그는 구현 기준으로 들고 오지 않는다.
+참고할 것은 Stacks (스택스)의 최신 게임 감각과 애셋이다. 옛 Lucky Garden, slot, 출시 히스토리, 실험 로그는 구현 기준으로 들고 오지 않는다.
 
 ## 2. 문서 인덱스
 
@@ -43,7 +43,7 @@
 
 ## 4. 핵심 가드레일
 
-- 첫 구현 기준은 `Garden Stacks 4.1 / Four Garden Piles`의 4정원 숫자 솔리테어다.
+- 첫 구현 기준은 `Stacks (스택스) 4.1 / Four Garden Piles`의 4정원 숫자 솔리테어다.
 - Lua/Love2D 구조를 그대로 복제하지 않는다. `malitmot`처럼 정적 HTML, CSS, ES module, `node --test` 기반으로 구현한다.
 - 첫 화면은 실제 게임 또는 저장된 런을 이어갈 수 있는 게임 화면이어야 한다. 마케팅 랜딩 페이지를 만들지 않는다.
 - 게임 규칙은 DOM 렌더링과 분리된 순수 함수로 둔다.

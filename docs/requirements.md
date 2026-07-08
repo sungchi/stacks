@@ -1,12 +1,12 @@
-# Garden Stacks Code — 요구사항
+# Stacks (스택스) Code — 요구사항
 
-이 문서는 Garden Stacks 웹 재구현의 상세 요구사항이다. 작업 지침은 [AGENTS.md](../AGENTS.md), 실행 체크리스트는 [docs/checklist.md](checklist.md), 애셋 정책은 [docs/assets.md](assets.md)를 따른다.
+이 문서는 Stacks (스택스) 웹 재구현의 상세 요구사항이다. 작업 지침은 [AGENTS.md](../AGENTS.md), 실행 체크리스트는 [docs/checklist.md](checklist.md), 애셋 정책은 [docs/assets.md](assets.md)를 따른다.
 
 > 작업 기준일: 2026-07-05
 
 ## 1. 목표
 
-Garden Stacks 최신 프로토타입의 `Garden Stacks 4.1 / Four Garden Piles`를 `malitmot`식 정적 웹 앱으로 구현한다.
+Stacks (스택스) 최신 프로토타입의 `Stacks (스택스) 4.1 / Four Garden Piles`를 `malitmot`식 정적 웹 앱으로 구현한다.
 
 핵심 경험:
 
@@ -157,7 +157,7 @@ MVP 기본값:
 
 ## 5. UI/UX
 
-- 첫 화면은 `Garden Stacks` 타이틀과 실제 4정원 보드 흔적이 함께 보여야 한다.
+- 첫 화면은 `Stacks (스택스)` 타이틀과 실제 4정원 보드 흔적이 함께 보여야 한다.
 - 기본 시각 스타일은 [B/W UI 기본 스타일 가이드](mockups/garden-stacks-ui-2026-07-04/bw-style-guide.md)를 따른다.
 - 모바일에서는 한 화면에서 목표, 남은 내기, 더미, 손패, 주요 액션이 겹치지 않아야 한다.
 - 데스크톱에서는 4정원 보드와 손패를 넓게 보여주고, 보조 정보는 좌우 레일 또는 hover로 접는다.
@@ -184,7 +184,7 @@ MVP 기본값:
 
 - 카드는 `idle -> press -> dragging -> drop_valid/drop_invalid -> placed/shake` 흐름을 따른다.
 - 손패 카드는 클릭/키보드 선택과 드래그 앤 드롭을 모두 지원한다.
-- 손패 카드를 탭/클릭하면 원본 Garden Stacks 우선순위대로 연결 glow 대상, 빈자리 open 대상 순서로 자동 배치하고 카드 이동, 착지 pulse, 점수 팝을 재생한다.
+- 손패 카드를 탭/클릭하면 원본 Stacks (스택스) 우선순위대로 연결 glow 대상, 빈자리 open 대상 순서로 자동 배치하고 카드 이동, 착지 pulse, 점수 팝을 재생한다.
 - 카드 이동 애니메이션이 남아 있는 동안 대상 더미는 방금 놓은 카드를 미리 표시하지 않는다. 비행 카드의 CSS 애니메이션 종료 시점과 같은 시점에 더미 카드, 착지 pulse, 점수 pop이 시작된다.
 - `simple/`에서는 손패 hover/focus 중 해당 카드의 연결 후보와 빈자리 open 후보를 지연 적용되는 낮은 선 강조로 표시하며, 보드 전체를 다시 렌더하지 않는다.
 - 새 런 시작과 전체 손패 교체로 손패가 보충될 때는 새 카드가 순차적으로 들어오는 deal 애니메이션을 재생한다.

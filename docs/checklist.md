@@ -1,4 +1,4 @@
-# Garden Stacks Code — 구현·검수 체크리스트
+# Stacks (스택스) Code — 구현·검수 체크리스트
 
 이 문서는 작업 전후에 빠르게 확인하는 실행용 체크리스트다. 제품 규칙의 원본은 [docs/requirements.md](requirements.md)이며, 애셋 정책은 [docs/assets.md](assets.md)를 따른다.
 
