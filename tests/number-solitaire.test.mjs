@@ -5,23 +5,33 @@ import { DIGITS, REWARDS, cardImagePath } from "../src/game/catalog.js";
 import {
   applyReward,
   campaignStageRunOptions,
+  cardAbilitySummary,
   catalogSummary,
+  checkEndlessEnd,
   codexEntries,
   defaultMetaProfile,
+  discardEndlessCards,
   discardNumberCards,
+  endlessStarterDeck,
+  endlessHandPreviewSummary,
+  evaluateEndlessPilePlay,
   evaluatePilePlay,
   getComboMatches,
   handPreviewSummary,
+  isCircularNeighbor,
   makeCard,
   metaUpgradeStatus,
   newCampaignRun,
+  newEndlessRun,
   newGame,
   offerRewards,
+  playEndlessCardToPile,
   playCardToPile,
   priorityPileTargetForCard,
   purchaseMetaUpgrade,
   purchaseRunShop,
   recordCampaignResult,
+  recordEndlessResult,
   rewardEffectSummary,
   restoreState,
   runShopOptions,
@@ -69,6 +79,34 @@ test("starts a campaign number-solitaire run with the required defaults", () => 
   assert.equal(state.piles.length, 4);
 });
 
+test("starts an endless run with score pressure instead of stage pressure", () => {
+  const profile = defaultMetaProfile();
+  profile.numberEndless.bestScore = 900;
+  const state = newEndlessRun(profile, { seed: 11 });
+
+  assert.equal(state.mode, "endless");
+  assert.equal(state.phase, "play");
+  assert.equal(state.score, 0);
+  assert.equal(state.bestScore, 900);
+  assert.equal(state.discardsRemaining, 3);
+  assert.equal(state.hand.length, 5);
+  const endlessDeck = endlessStarterDeck();
+  assert.equal(endlessDeck.length, 50);
+  assert.deepEqual(
+    Object.groupBy(endlessDeck, (card) => card.ability).normal.map((card) => card.digit),
+    [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 8, 9, 9, 9],
+  );
+  assert.equal(Object.groupBy(endlessDeck, (card) => card.ability).bridge.length, 6);
+  assert.equal(Object.groupBy(endlessDeck, (card) => card.ability).graft.length, 5);
+  assert.equal(Object.groupBy(endlessDeck, (card) => card.ability).prune.length, 3);
+  assert.equal(state.deck.length, 45);
+  assert.equal(state.compostPile.length, 0);
+  assert.equal(state.piles.length, 4);
+  assert.equal(state.piles[0].capacity, 10);
+  assert.ok(endlessHandPreviewSummary(state).bestIndex >= 1);
+  assert.equal(cardAbilitySummary(makeCard(3, 1)).text, "일반. 원형 이웃수로 세로/층 줄기를 잇는다.");
+});
+
 test("catalog has ten complete garden cards and source-backed image paths", () => {
   assert.equal(DIGITS.length, 10);
   assert.equal(starterDeck().length, 20);
@@ -104,6 +142,152 @@ test("combo matching and pile preview score the main number relationships", () =
   assert.equal(preview.nextComboStep, 2);
   assert.equal(preview.nextMultiplier, 6);
   assert.equal(preview.expectedReputation, 102);
+});
+
+test("endless uses circular neighbors and automatic balanced placement", () => {
+  assert.equal(isCircularNeighbor(9, 0), true);
+  assert.equal(isCircularNeighbor(0, 9), true);
+  assert.equal(isCircularNeighbor(0, 8), false);
+
+  const state = newEndlessRun(defaultMetaProfile(), {
+    shuffle: false,
+    skipRefill: true,
+    hand: [makeCard(1, 1), makeCard(2, 1), makeCard(3, 1), makeCard(4, 1)],
+    deck: [],
+    handSize: 4,
+  });
+
+  for (let i = 0; i < 4; i += 1) {
+    const result = playEndlessCardToPile(state, 1, 4);
+    assert.equal(result.ok, true);
+    assert.equal(result.preview.pileIndex, i + 1);
+  }
+
+  assert.deepEqual(state.piles.map((pile) => pile.cards.length), [1, 1, 1, 1]);
+  assert.deepEqual(state.piles.map((pile) => pile.cards[0].digit), [1, 2, 3, 4]);
+  assert.equal(state.score, 0);
+});
+
+test("endless layer combo harvests five connected cards and sends them to compost", () => {
+  const state = newEndlessRun(defaultMetaProfile(), {
+    shuffle: false,
+    skipRefill: true,
+    hand: [makeCard(1, 1), makeCard(2, 1), makeCard(3, 1), makeCard(4, 1), makeCard(5, 1)],
+    deck: [],
+  });
+
+  for (let i = 0; i < 5; i += 1) {
+    const result = playEndlessCardToPile(state, 1, 4);
+    assert.equal(result.ok, true);
+  }
+
+  assert.equal(state.lastHarvest.score, 450);
+  assert.equal(state.score, 450);
+  assert.equal(state.bestHarvestScore, 450);
+  assert.equal(state.harvestCount, 1);
+  assert.deepEqual(state.piles.map((pile) => pile.cards.length), [0, 0, 0, 0]);
+  assert.equal(state.compostPile.length, 5);
+  assert.deepEqual([...state.compostPile].map((card) => card.digit).sort((a, b) => a - b), [1, 2, 3, 4, 5]);
+});
+
+test("endless P0 abilities bridge, graft, and prune change connection previews", () => {
+  const bridgeState = newEndlessRun(defaultMetaProfile(), {
+    shuffle: false,
+    skipRefill: true,
+    hand: [makeCard(4, 1, { ability: "bridge" })],
+    deck: [],
+    piles: [
+      { cards: [makeCard(1, 1), makeCard(2, 1), makeCard(3, 1), makeCard(9, 1)] },
+      { cards: [makeCard(7, 1), makeCard(7, 2), makeCard(7, 3), makeCard(7, 4)] },
+      { cards: [makeCard(8, 1), makeCard(8, 2), makeCard(8, 3), makeCard(8, 4)] },
+      { cards: [makeCard(6, 1), makeCard(6, 2), makeCard(6, 3), makeCard(6, 4)] },
+    ],
+  });
+  const bridge = evaluateEndlessPilePlay(bridgeState, 1, bridgeState.hand[0]);
+  assert.equal(bridge.primaryKey, "bridge");
+  assert.equal(bridge.componentSize, 4);
+  assert.equal(bridge.extraEdges.some((edge) => edge.kind === "bridge"), true);
+
+  const graftState = newEndlessRun(defaultMetaProfile(), {
+    shuffle: false,
+    skipRefill: true,
+    hand: [makeCard(5, 1, { ability: "graft" })],
+    deck: [],
+    piles: [
+      { cards: [makeCard(1, 1)] },
+      { cards: [makeCard(3, 1)] },
+      { cards: [makeCard(6, 1)] },
+      { cards: [makeCard(8, 1)] },
+    ],
+  });
+  const graft = evaluateEndlessPilePlay(graftState, 1, graftState.hand[0]);
+  assert.equal(graft.primaryKey, "graft");
+  assert.equal(graft.componentSize, 2);
+  assert.equal(graft.extraEdges.some((edge) => edge.kind === "graft"), true);
+
+  const pruneState = newEndlessRun(defaultMetaProfile(), {
+    shuffle: false,
+    skipRefill: true,
+    handSize: 0,
+    hand: [makeCard(4, 1, { ability: "prune" })],
+    deck: [],
+    piles: [
+      { cards: [makeCard(1, 1), makeCard(2, 1), makeCard(3, 1), makeCard(8, 1)] },
+      { cards: [makeCard(8, 2), makeCard(8, 3), makeCard(8, 4), makeCard(8, 5)] },
+      { cards: [makeCard(7, 1), makeCard(7, 2), makeCard(7, 3), makeCard(7, 4)] },
+      { cards: [makeCard(6, 1), makeCard(6, 2), makeCard(6, 3), makeCard(6, 4)] },
+    ],
+  });
+  const prune = playEndlessCardToPile(pruneState, 1, 4);
+  assert.equal(prune.ok, true);
+  assert.equal(prune.preview.primaryKey, "prune");
+  assert.equal(prune.preview.pruneTop, true);
+  assert.equal(prune.preview.pileIndex, 1);
+  assert.equal(pruneState.lastPlay.prunedCard.digit, 8);
+  assert.deepEqual(pruneState.piles[0].cards.map((card) => card.digit), [1, 2, 3, 4]);
+  assert.deepEqual(pruneState.compostPile.map((card) => card.digit), [8]);
+});
+
+test("endless capacity blocks non-harvest placement and game over waits for swaps", () => {
+  const fullPile = {
+    cards: Array.from({ length: 10 }, (_, index) => makeCard(4, index + 1)),
+    lastDigit: 4,
+    comboStep: 0,
+    addTotal: 0,
+    multiplyTotal: 0,
+  };
+  const state = newEndlessRun(defaultMetaProfile(), {
+    shuffle: false,
+    skipRefill: true,
+    hand: [makeCard(7, 1)],
+    handSize: 1,
+    deck: [],
+    compostPile: [],
+    discards: 0,
+    piles: [fullPile, fullPile, fullPile, fullPile],
+  });
+
+  const preview = evaluateEndlessPilePlay(state, 1, state.hand[0]);
+  assert.equal(preview.playable, false);
+  assert.equal(preview.reason, "pile_full");
+  assert.equal(checkEndlessEnd(state), "lost");
+  assert.equal(state.phase, "game_over");
+});
+
+test("endless hand swaps move cards to compost and refill from deck", () => {
+  const state = newEndlessRun(defaultMetaProfile(), {
+    shuffle: false,
+    skipRefill: true,
+    handSize: 2,
+    hand: [makeCard(1, 1), makeCard(2, 1)],
+    deck: [makeCard(3, 1), makeCard(4, 1)],
+  });
+
+  const result = discardEndlessCards(state, [1, 2]);
+  assert.equal(result.ok, true);
+  assert.equal(state.discardsRemaining, 2);
+  assert.deepEqual(state.hand.map((card) => card.digit), [3, 4]);
+  assert.deepEqual(state.compostPile.map((card) => card.digit), [1, 2]);
 });
 
 test("playing cards updates hand, pile, reputation, and stage end state", () => {
@@ -330,6 +514,28 @@ test("campaign result records payout, bests, clear state, and next unlock", () =
   assert.equal(result.profile.numberCampaign.bestReputation[1], 25);
 });
 
+test("endless result records best score, harvest, and survival turns", () => {
+  const profile = defaultMetaProfile();
+  profile.numberEndless.bestScore = 100;
+  const state = newEndlessRun(profile, {
+    shuffle: false,
+    skipRefill: true,
+    score: 450,
+    bestHarvestScore: 450,
+    bestPotentialScore: 460,
+    turnCount: 5,
+  });
+  state.phase = "game_over";
+
+  const result = recordEndlessResult(profile, state);
+  assert.equal(result.improved, true);
+  assert.equal(result.profile.numberEndless.bestScore, 450);
+  assert.equal(result.profile.numberEndless.bestHarvestScore, 450);
+  assert.equal(result.profile.numberEndless.bestPotentialScore, 460);
+  assert.equal(result.profile.numberEndless.bestSurvivalTurns, 5);
+  assert.equal(result.profile.numberEndless.runs, 1);
+});
+
 test("snapshot restore and storage round-trip preserve run and profile", () => {
   const storage = memoryStorage();
   const profile = defaultMetaProfile();
@@ -346,6 +552,31 @@ test("snapshot restore and storage round-trip preserve run and profile", () => {
   assert.equal(saveRun(state, storage), true);
   assert.equal(loadProfile(storage).numberMoney, 7);
   assert.equal(loadRun(storage).reputation, state.reputation);
+});
+
+test("snapshot restore and storage round-trip preserve endless run state", () => {
+  const storage = memoryStorage();
+  const state = newEndlessRun(defaultMetaProfile(), {
+    shuffle: false,
+    skipRefill: true,
+    score: 123,
+    handSize: 1,
+    hand: [makeCard(6, 1)],
+    compostPile: [makeCard(1, 1), makeCard(2, 1)],
+    deck: [],
+  });
+
+  const restored = restoreState(snapshotState(state));
+  assert.equal(restored.mode, "endless");
+  assert.equal(restored.score, 123);
+  assert.equal(restored.hand.length, 1);
+  assert.equal(restored.compostPile.length, 2);
+
+  assert.equal(saveRun(state, storage), true);
+  const loaded = loadRun(storage);
+  assert.equal(loaded.mode, "endless");
+  assert.equal(loaded.score, 123);
+  assert.equal(loaded.compostPile.length, 2);
 });
 
 test("codex summary separates seen and discovered rewards", () => {

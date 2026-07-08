@@ -27,6 +27,44 @@ export const STARTER_SHOP_COINS = 2;
 export const STAGE_CLEAR_BASE_PAYOUT = 4;
 export const STAGE_FAILURE_PAYOUT = META_UPGRADES.starterSprout.cost[0];
 export const PILE_COUNT = 4;
+export const ENDLESS_MODE = "endless";
+export const ENDLESS_PILE_CAPACITY = 10;
+export const ENDLESS_HARVEST_LENGTH = 5;
+export const ENDLESS_STARTER_DISCARDS = 3;
+export const ENDLESS_MAX_DISCARDS = 5;
+
+export const ENDLESS_ABILITIES = {
+  normal: {
+    id: "normal",
+    label: "일반",
+    description: "원형 이웃수로 세로/층 줄기를 잇는다.",
+  },
+  bridge: {
+    id: "bridge",
+    label: "건너잇기",
+    description: "분리된 줄기 하나를 이어 수확 후보를 만든다.",
+  },
+  graft: {
+    id: "graft",
+    label: "접붙이기",
+    description: "끊긴 연결 1개를 이번 배치만 이어준다.",
+  },
+  prune: {
+    id: "prune",
+    label: "가지치기",
+    description: "맨 위 방해 카드 1장을 퇴비로 보낸다.",
+  },
+  echo: {
+    id: "echo",
+    label: "되새김",
+    description: "직전 원형 이웃수 연결을 한 번 반복한다.",
+  },
+  fertilizer: {
+    id: "fertilizer",
+    label: "비료",
+    description: "포함된 수확 점수를 조금 키운다.",
+  },
+};
 
 const TYPE_ORDER_NEXT = {
   terrain: "flora",
@@ -83,6 +121,22 @@ function defaultPile(index) {
   };
 }
 
+function defaultEndlessPile(index) {
+  return {
+    id: `endless_pile_${index}`,
+    label: `정원 ${index}`,
+    cards: [],
+    lastDigit: null,
+    addTotal: 0,
+    multiplyTotal: 0,
+    comboStep: 0,
+    bestComboStep: 0,
+    capacity: ENDLESS_PILE_CAPACITY,
+    history: [],
+    harvestHistory: [],
+  };
+}
+
 function fallbackMultiplierForTopDigit(source) {
   let digit = source?.lastDigit;
   if (digit == null && source?.cards?.length) {
@@ -122,8 +176,38 @@ function ensurePiles(state) {
   return state.piles;
 }
 
+export function normalizeEndlessPiles(piles) {
+  const out = [];
+  for (let i = 1; i <= PILE_COUNT; i += 1) {
+    const source = piles?.[i - 1] ?? {};
+    const pile = defaultEndlessPile(i);
+    pile.id = source.id ?? pile.id;
+    pile.label = source.label ?? pile.label;
+    pile.cards = copy(source.cards ?? []);
+    pile.lastDigit = source.lastDigit ?? source.last_digit ?? null;
+    if (pile.lastDigit == null && pile.cards.length > 0) {
+      pile.lastDigit = pile.cards[pile.cards.length - 1]?.digit ?? null;
+    }
+    pile.addTotal = Math.max(0, Math.floor(Number(source.addTotal ?? source.add_total) || 0));
+    pile.multiplyTotal = Math.max(0, Math.floor(Number(source.multiplyTotal ?? source.multiply_total) || 0));
+    pile.comboStep = Math.max(0, Math.floor(Number(source.comboStep ?? source.combo_step) || 0));
+    pile.bestComboStep = Math.max(0, Math.floor(Number(source.bestComboStep ?? source.best_combo_step ?? pile.comboStep) || 0));
+    pile.capacity = Math.max(ENDLESS_PILE_CAPACITY, clampInt(source.capacity ?? ENDLESS_PILE_CAPACITY, 1, 99));
+    pile.history = copy(source.history ?? []);
+    pile.harvestHistory = copy(source.harvestHistory ?? source.harvest_history ?? []);
+    out.push(pile);
+  }
+  return out;
+}
+
+function ensureEndlessPiles(state) {
+  state.piles = normalizeEndlessPiles(state?.piles);
+  return state.piles;
+}
+
 export function makeCard(digit, serial = 1, opts = {}) {
   const archetype = digitCard(digit) ?? {};
+  const ability = opts.ability ?? opts.abilityId ?? opts.ability_id ?? "normal";
   return {
     id: opts.id ?? `num_${digit}_${String(serial).padStart(2, "0")}`,
     digit: Number(digit),
@@ -136,6 +220,8 @@ export function makeCard(digit, serial = 1, opts = {}) {
     imageId: opts.imageId ?? archetype.imageId,
     landMark: opts.landMark,
     bonus: opts.bonus,
+    ability,
+    abilityId: ability,
     temporary: opts.temporary === true,
   };
 }
@@ -147,6 +233,40 @@ export function starterDeck() {
       deck.push(makeCard(digit, copyIndex));
     }
   }
+  return deck;
+}
+
+export function cardAbility(card) {
+  const id = card?.ability ?? card?.abilityId ?? card?.ability_id ?? "normal";
+  return ENDLESS_ABILITIES[id] ?? ENDLESS_ABILITIES.normal;
+}
+
+export function cardAbilitySummary(card) {
+  const ability = cardAbility(card);
+  return {
+    id: ability.id,
+    label: ability.label,
+    description: ability.description,
+    text: `${ability.label}. ${ability.description}`,
+  };
+}
+
+export function endlessStarterDeck() {
+  const deck = [];
+  let serial = 1;
+  const add = (digit, ability, count) => {
+    for (let i = 0; i < count; i += 1) {
+      deck.push(makeCard(digit, serial, {
+        id: `endless_${ability}_${digit}_${String(serial).padStart(2, "0")}`,
+        ability,
+      }));
+      serial += 1;
+    }
+  };
+  for (let digit = 0; digit <= 9; digit += 1) add(digit, "normal", digit <= 5 ? 4 : 3);
+  [5, 0, 4, 9, 3, 7].forEach((digit) => add(digit, "bridge", 1));
+  [2, 6, 8, 1, 5].forEach((digit) => add(digit, "graft", 1));
+  [5, 0, 9].forEach((digit) => add(digit, "prune", 1));
   return deck;
 }
 
@@ -188,6 +308,26 @@ export function normalizeCampaignProgress(progress = {}) {
   return out;
 }
 
+export function defaultEndlessProgress() {
+  return {
+    bestScore: 0,
+    bestHarvestScore: 0,
+    bestSurvivalTurns: 0,
+    bestPotentialScore: 0,
+    runs: 0,
+  };
+}
+
+export function normalizeEndlessProgress(progress = {}) {
+  const out = defaultEndlessProgress();
+  out.bestScore = Math.max(0, Math.floor(Number(progress.bestScore ?? progress.best_score) || 0));
+  out.bestHarvestScore = Math.max(0, Math.floor(Number(progress.bestHarvestScore ?? progress.best_harvest_score) || 0));
+  out.bestSurvivalTurns = Math.max(0, Math.floor(Number(progress.bestSurvivalTurns ?? progress.best_survival_turns) || 0));
+  out.bestPotentialScore = Math.max(0, Math.floor(Number(progress.bestPotentialScore ?? progress.best_potential_score) || 0));
+  out.runs = Math.max(0, Math.floor(Number(progress.runs) || 0));
+  return out;
+}
+
 export function defaultMetaProfile() {
   return {
     version: VERSION,
@@ -195,6 +335,7 @@ export function defaultMetaProfile() {
     numberUpgrades: {},
     numberCodex: ensureCodex(),
     numberCampaign: defaultCampaignProgress(),
+    numberEndless: defaultEndlessProgress(),
   };
 }
 
@@ -209,6 +350,7 @@ export function normalizeMetaProfile(profile = {}) {
   }
   out.numberCodex = ensureCodex(profile.numberCodex ?? profile.number_codex ?? {});
   out.numberCampaign = normalizeCampaignProgress(profile.numberCampaign ?? profile.number_campaign ?? {});
+  out.numberEndless = normalizeEndlessProgress(profile.numberEndless ?? profile.number_endless ?? {});
   return out;
 }
 
@@ -621,6 +763,725 @@ export function handPreviewSummary(state) {
     }
   }
   return summary;
+}
+
+function syncEndlessDiscardAlias(state) {
+  state.compostPile = state.compostPile ?? state.discardPile ?? [];
+  state.discardPile = state.compostPile;
+  return state;
+}
+
+function freshEndlessDeck(state) {
+  const nextCycle = Math.max(0, Math.floor(Number(state.deckCycle) || 0)) + 1;
+  state.deckCycle = nextCycle;
+  return endlessStarterDeck().map((card, index) => ({
+    ...card,
+    id: `endless_${nextCycle}_${card.id}_${index}`,
+  }));
+}
+
+export function cardAddValue(card) {
+  const digit = Math.max(0, Math.min(9, Math.floor(Number(card?.digit) || 0)));
+  const base = Math.floor(Number(card?.addValue ?? card?.add_value ?? digit) || 0);
+  const bonus = card?.bonus === "shiny" ? 2 : 0;
+  return Math.max(0, base + bonus);
+}
+
+export function cardMultiplyValue(card) {
+  const digit = Math.max(0, Math.min(9, Math.floor(Number(card?.digit) || 0)));
+  const base = Math.floor(Number(card?.multiplyValue ?? card?.multiply_value ?? (9 - digit)) || 0);
+  return Math.max(0, base);
+}
+
+export function isCircularNeighbor(previousDigit, nextDigit) {
+  if (previousDigit == null || nextDigit == null) return false;
+  const prev = Math.max(0, Math.min(9, Math.floor(Number(previousDigit) || 0)));
+  const next = Math.max(0, Math.min(9, Math.floor(Number(nextDigit) || 0)));
+  const diff = Math.abs(prev - next);
+  return diff === 1 || diff === 9;
+}
+
+function endlessNodeKey(pileIndex, position) {
+  return `${pileIndex}:${position}`;
+}
+
+function endlessNodeDistance(a, b) {
+  return Math.abs(a.pileIndex - b.pileIndex) + Math.abs(a.position - b.position);
+}
+
+function cloneEndlessPilesForPreview(state) {
+  return ensureEndlessPiles(state).map((pile) => ({
+    ...pile,
+    cards: [...(pile.cards ?? [])],
+  }));
+}
+
+function addEndlessEdge(edges, a, b) {
+  if (!a || !b || a.key === b.key) return;
+  if (!edges.has(a.key)) edges.set(a.key, new Set());
+  if (!edges.has(b.key)) edges.set(b.key, new Set());
+  edges.get(a.key).add(b.key);
+  edges.get(b.key).add(a.key);
+}
+
+function buildEndlessNodes(piles) {
+  const nodes = new Map();
+  for (let pileIndex = 1; pileIndex <= piles.length; pileIndex += 1) {
+    const cards = piles[pileIndex - 1]?.cards ?? [];
+    for (let position = 0; position < cards.length; position += 1) {
+      const key = endlessNodeKey(pileIndex, position);
+      nodes.set(key, { key, pileIndex, position, card: cards[position] });
+    }
+  }
+  return nodes;
+}
+
+function connectedComponent(nodes, edges, startKey) {
+  if (!nodes.has(startKey)) return [];
+  const seen = new Set([startKey]);
+  const pending = [startKey];
+  while (pending.length) {
+    const key = pending.pop();
+    for (const next of edges.get(key) ?? []) {
+      if (seen.has(next)) continue;
+      seen.add(next);
+      pending.push(next);
+    }
+  }
+  return [...seen].map((key) => nodes.get(key)).filter(Boolean);
+}
+
+function sortedHarvestGroup(component, newNode) {
+  return [...component]
+    .sort((a, b) => {
+      if (a.key === newNode.key) return -1;
+      if (b.key === newNode.key) return 1;
+      const distance = endlessNodeDistance(a, newNode) - endlessNodeDistance(b, newNode);
+      if (distance !== 0) return distance;
+      if (a.position !== b.position) return b.position - a.position;
+      return a.pileIndex - b.pileIndex;
+    })
+    .slice(0, ENDLESS_HARVEST_LENGTH);
+}
+
+function endlessGroupTotals(group) {
+  let addTotal = 0;
+  let multiplyTotal = 0;
+  let fertilizerCount = 0;
+  for (const node of group) {
+    addTotal += cardAddValue(node.card);
+    multiplyTotal += cardMultiplyValue(node.card);
+    if (cardAbility(node.card).id === "fertilizer") fertilizerCount += 1;
+  }
+  const multiplier = fertilizerCount > 0 ? 1 + fertilizerCount * 0.2 : 1;
+  return {
+    addTotal,
+    multiplyTotal,
+    score: Math.floor(addTotal * multiplyTotal * multiplier),
+    multiplier,
+  };
+}
+
+function analyzeEndlessConnections(piles, targetPileIndex, card, options = {}) {
+  const nodes = buildEndlessNodes(piles);
+  const edges = new Map();
+  const abilityId = cardAbility(card).id;
+  for (const node of nodes.values()) edges.set(node.key, new Set());
+  for (const node of nodes.values()) {
+    const vertical = nodes.get(endlessNodeKey(node.pileIndex, node.position + 1));
+    if (vertical && isCircularNeighbor(node.card?.digit, vertical.card?.digit)) addEndlessEdge(edges, node, vertical);
+    const horizontal = nodes.get(endlessNodeKey(node.pileIndex + 1, node.position));
+    if (horizontal && isCircularNeighbor(node.card?.digit, horizontal.card?.digit)) addEndlessEdge(edges, node, horizontal);
+  }
+
+  const newPosition = (piles[targetPileIndex - 1]?.cards?.length ?? 1) - 1;
+  const newKey = endlessNodeKey(targetPileIndex, newPosition);
+  const newNode = nodes.get(newKey);
+  const extraEdges = [];
+  if (!newNode) {
+    return {
+      component: [],
+      componentSize: 0,
+      harvestReady: false,
+      harvestGroup: [],
+      harvestTotals: { addTotal: 0, multiplyTotal: 0, score: 0, multiplier: 1 },
+      verticalConnected: false,
+      layerConnections: 0,
+      extraEdges,
+    };
+  }
+
+  if (abilityId === "bridge") {
+    for (const node of nodes.values()) {
+      if (node.key === newNode.key) continue;
+      const samePileGap = node.pileIndex === newNode.pileIndex
+        && Math.abs(node.position - newNode.position) <= 3;
+      const sameLayerGap = node.position === newNode.position
+        && Math.abs(node.pileIndex - newNode.pileIndex) <= 2;
+      if ((samePileGap || sameLayerGap) && isCircularNeighbor(node.card?.digit, card.digit)) {
+        addEndlessEdge(edges, newNode, node);
+        extraEdges.push({ kind: "bridge", from: newNode.key, to: node.key });
+      }
+    }
+  }
+
+  if (abilityId === "graft") {
+    const candidates = [
+      nodes.get(endlessNodeKey(targetPileIndex, newPosition - 1)),
+      nodes.get(endlessNodeKey(targetPileIndex - 1, newPosition)),
+      nodes.get(endlessNodeKey(targetPileIndex + 1, newPosition)),
+    ].filter((node) => node && !isCircularNeighbor(node.card?.digit, card.digit));
+    let best = null;
+    let bestSize = -1;
+    for (const candidate of candidates) {
+      const trialEdges = new Map([...edges].map(([key, value]) => [key, new Set(value)]));
+      addEndlessEdge(trialEdges, newNode, candidate);
+      const size = connectedComponent(nodes, trialEdges, newKey).length;
+      if (size > bestSize) {
+        best = candidate;
+        bestSize = size;
+      }
+    }
+    if (best) {
+      addEndlessEdge(edges, newNode, best);
+      extraEdges.push({ kind: "graft", from: newNode.key, to: best.key });
+    }
+  }
+
+  const component = connectedComponent(nodes, edges, newKey);
+  const harvestReady = component.length >= ENDLESS_HARVEST_LENGTH;
+  const harvestGroup = harvestReady ? sortedHarvestGroup(component, newNode) : [];
+  const harvestTotals = endlessGroupTotals(harvestGroup);
+  const previous = nodes.get(endlessNodeKey(targetPileIndex, newPosition - 1));
+  const verticalConnected = previous ? (edges.get(newKey)?.has(previous.key) ?? false) : false;
+  const layerConnections = [-1, 1]
+    .map((offset) => nodes.get(endlessNodeKey(targetPileIndex + offset, newPosition)))
+    .filter((node) => node && (edges.get(newKey)?.has(node.key) ?? false)).length;
+
+  return {
+    component,
+    componentSize: component.length,
+    harvestReady,
+    harvestGroup,
+    harvestTotals,
+    verticalConnected,
+    layerConnections,
+    extraEdges,
+    prunedCard: options.prunedCard ?? null,
+  };
+}
+
+function recomputeEndlessPileStats(pile) {
+  const cards = pile.cards ?? [];
+  const top = cards[cards.length - 1] ?? null;
+  pile.lastDigit = top?.digit ?? null;
+  if (!cards.length) {
+    pile.addTotal = 0;
+    pile.multiplyTotal = 0;
+    pile.comboStep = 0;
+    return pile;
+  }
+  let start = cards.length - 1;
+  while (start > 0 && isCircularNeighbor(cards[start - 1]?.digit, cards[start]?.digit)) {
+    start -= 1;
+  }
+  const suffix = cards.slice(start);
+  pile.comboStep = suffix.length;
+  pile.addTotal = suffix.reduce((sum, item) => sum + cardAddValue(item), 0);
+  pile.multiplyTotal = suffix.reduce((sum, item) => sum + cardMultiplyValue(item), 0);
+  pile.bestComboStep = Math.max(pile.bestComboStep ?? 0, pile.comboStep ?? 0);
+  return pile;
+}
+
+function recomputeAllEndlessPileStats(state) {
+  const piles = state?.piles?.length === PILE_COUNT ? state.piles : ensureEndlessPiles(state);
+  for (const pile of piles) recomputeEndlessPileStats(pile);
+  return state;
+}
+
+function countAfterHarvest(piles, targetPileIndex, harvestGroup) {
+  let count = piles[targetPileIndex - 1]?.cards?.length ?? 0;
+  for (const node of harvestGroup ?? []) {
+    if (node.pileIndex === targetPileIndex) count -= 1;
+  }
+  return Math.max(0, count);
+}
+
+export function newEndlessRun(profile = {}, opts = {}) {
+  const normalized = normalizeMetaProfile(profile);
+  const compostPile = copy(opts.compostPile ?? opts.compost_pile ?? opts.discardPile ?? opts.discard_pile ?? []);
+  const state = {
+    version: VERSION,
+    mode: ENDLESS_MODE,
+    phase: opts.phase ?? "play",
+    seed: opts.seed ?? 8080,
+    rngCursor: opts.rngCursor ?? opts.rng_cursor ?? 0,
+    activeLand: opts.activeLand ?? opts.active_land ?? "meadow",
+    score: Math.max(0, Math.floor(Number(opts.score) || 0)),
+    bestScore: Math.max(normalized.numberEndless.bestScore, Math.floor(Number(opts.bestScore ?? opts.best_score) || 0)),
+    bestHarvestScore: Math.max(0, Math.floor(Number(opts.bestHarvestScore ?? opts.best_harvest_score) || 0)),
+    bestPotentialScore: Math.max(0, Math.floor(Number(opts.bestPotentialScore ?? opts.best_potential_score) || 0)),
+    turnCount: Math.max(0, Math.floor(Number(opts.turnCount ?? opts.turn_count) || 0)),
+    harvestCount: Math.max(0, Math.floor(Number(opts.harvestCount ?? opts.harvest_count) || 0)),
+    deckCycle: Math.max(0, Math.floor(Number(opts.deckCycle ?? opts.deck_cycle) || 0)),
+    discardsRemaining: opts.discards ?? opts.discardsRemaining ?? opts.discards_remaining ?? ENDLESS_STARTER_DISCARDS,
+    maxDiscards: opts.maxDiscards ?? opts.max_discards ?? ENDLESS_MAX_DISCARDS,
+    handSize: opts.handSize ?? opts.hand_size ?? HAND_SIZE,
+    pileCapacity: opts.pileCapacity ?? opts.pile_capacity ?? ENDLESS_PILE_CAPACITY,
+    deck: copy(opts.deck ?? endlessStarterDeck()),
+    hand: copy(opts.hand ?? []),
+    compostPile,
+    discardPile: compostPile,
+    piles: normalizeEndlessPiles(opts.piles),
+    lastPlay: copy(opts.lastPlay ?? opts.last_play ?? null),
+    lastHarvest: copy(opts.lastHarvest ?? opts.last_harvest ?? null),
+    lastDiscard: copy(opts.lastDiscard ?? opts.last_discard ?? null),
+    message: opts.message ?? "수확할 때만 점수가 오릅니다.",
+    failureReason: opts.failureReason ?? opts.failure_reason,
+    resultRecorded: opts.resultRecorded === true || opts.result_recorded === true,
+  };
+  if (opts.shuffle !== false) shuffle(state, state.deck, "endless-opening-deck");
+  if (opts.skipRefill !== true && opts.skip_refill !== true) refillEndlessHand(state);
+  syncEndlessDiscardAlias(state);
+  return state;
+}
+
+function recycleEndlessDeck(state) {
+  syncEndlessDiscardAlias(state);
+  if ((state.deck?.length ?? 0) > 0) return true;
+  if ((state.compostPile?.length ?? 0) > 0) {
+    state.deck = state.compostPile;
+    state.compostPile = [];
+    syncEndlessDiscardAlias(state);
+    shuffle(state, state.deck, "endless-compost-recycle");
+    return true;
+  }
+  state.deck = freshEndlessDeck(state);
+  shuffle(state, state.deck, "endless-fresh-cycle");
+  return true;
+}
+
+export function refillEndlessHand(state) {
+  syncEndlessDiscardAlias(state);
+  while ((state.hand?.length ?? 0) < (state.handSize ?? HAND_SIZE)) {
+    if ((state.deck?.length ?? 0) === 0 && !recycleEndlessDeck(state)) break;
+    if ((state.deck?.length ?? 0) === 0) break;
+    state.hand.push(state.deck.shift());
+  }
+  syncEndlessDiscardAlias(state);
+  return state;
+}
+
+export function evaluateEndlessPilePlay(state, pileIndex, card) {
+  if (!state || !card) return null;
+  const sourcePiles = ensureEndlessPiles(state);
+  const index = clampInt(pileIndex, 1, PILE_COUNT);
+  const abilityId = cardAbility(card).id;
+  const variants = [false];
+  if (abilityId === "prune") variants.push(true);
+  let best = null;
+  let bestScore = -Infinity;
+  for (const prune of variants) {
+    const preview = evaluateEndlessPilePlayVariant(state, sourcePiles, index, card, prune);
+    if (!preview) continue;
+    const score = endlessPilePreviewScore(preview);
+    if (best == null || score > bestScore) {
+      best = preview;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+function evaluateEndlessPilePlayVariant(state, sourcePiles, index, card, pruneTop) {
+  const sourcePile = sourcePiles[index - 1];
+  if (!sourcePile) return null;
+  if (pruneTop && cardAbility(card).id !== "prune") return null;
+  const piles = cloneEndlessPilesForPreview({ ...state, piles: sourcePiles });
+  const pile = piles[index - 1];
+  const pileCardCount = sourcePile.cards?.length ?? 0;
+  const capacity = sourcePile.capacity ?? state.pileCapacity ?? ENDLESS_PILE_CAPACITY;
+  const minCount = Math.min(...sourcePiles.map((item) => item.cards?.length ?? 0));
+  const previousCard = sourcePile.cards?.[sourcePile.cards.length - 1] ?? null;
+  const previousDigit = sourcePile.lastDigit ?? previousCard?.digit ?? null;
+  let prunedCard = null;
+  if (pruneTop) {
+    if (!pile.cards.length) return null;
+    prunedCard = pile.cards.pop();
+  }
+
+  pile.cards.push(card);
+  const analysis = analyzeEndlessConnections(piles, index, card, { prunedCard });
+  const connected = previousDigit == null || analysis.verticalConnected || analysis.layerConnections > 0 || analysis.componentSize > 1;
+  const matches = connected && previousDigit != null ? ["neighbor"] : [];
+  const addValue = cardAddValue(card);
+  const multiplyValue = cardMultiplyValue(card);
+  const componentTotals = endlessGroupTotals(analysis.component);
+  const nextComboStep = Math.max(1, analysis.componentSize);
+  const nextAddTotal = analysis.harvestReady ? analysis.harvestTotals.addTotal : componentTotals.addTotal;
+  const nextMultiplyTotal = analysis.harvestReady ? analysis.harvestTotals.multiplyTotal : componentTotals.multiplyTotal;
+  const harvestReady = analysis.harvestReady;
+  const harvestScore = harvestReady ? analysis.harvestTotals.score : 0;
+  const overCapacity = pileCardCount >= capacity && !pruneTop;
+  const heightAllowed = pileCardCount === minCount || harvestReady || pruneTop;
+  const playable = heightAllowed && (!overCapacity || harvestReady);
+  const cardCountAfter = countAfterHarvest(piles, index, analysis.harvestGroup);
+  const primaryKey = harvestReady
+    ? "harvest"
+    : pruneTop
+      ? "prune"
+      : analysis.extraEdges.some((edge) => edge.kind === "bridge")
+        ? "bridge"
+        : analysis.extraEdges.some((edge) => edge.kind === "graft")
+          ? "graft"
+          : connected && previousDigit != null
+            ? "neighbor"
+            : "start";
+  const primaryText = {
+    harvest: "수확",
+    prune: "가지치기",
+    bridge: "건너잇기",
+    graft: "접붙이기",
+    neighbor: analysis.layerConnections > 0 ? "층 이웃수" : "이웃수",
+    start: "새 줄기",
+  }[primaryKey];
+  const reason = playable ? null : !heightAllowed ? "height_locked" : "pile_full";
+  return {
+    playable,
+    reason,
+    connected,
+    breaksCombo: previousDigit != null && !connected,
+    previousDigit,
+    digit: card.digit,
+    matches,
+    primaryLabel: primaryText,
+    primaryKey,
+    addValue,
+    multiplyValue,
+    addTotalBefore: Math.max(0, Math.floor(Number(sourcePile.addTotal) || 0)),
+    multiplyTotalBefore: Math.max(0, Math.floor(Number(sourcePile.multiplyTotal) || 0)),
+    nextAddTotal,
+    nextMultiplyTotal,
+    nextComboStep,
+    harvestReady,
+    harvestScore,
+    potentialScore: Math.max(harvestScore, componentTotals.score),
+    harvestLength: ENDLESS_HARVEST_LENGTH,
+    cardsToHarvest: Math.max(0, ENDLESS_HARVEST_LENGTH - nextComboStep),
+    harvestGroup: analysis.harvestGroup.map((node) => ({
+      pileIndex: node.pileIndex,
+      position: node.position,
+      cardId: node.card?.id,
+      digit: node.card?.digit,
+    })),
+    harvestCards: analysis.harvestGroup.map((node) => copy(node.card)),
+    componentSize: analysis.componentSize,
+    layerConnections: analysis.layerConnections,
+    verticalConnected: analysis.verticalConnected,
+    extraEdges: copy(analysis.extraEdges),
+    prunedCard: copy(prunedCard),
+    prunedCardId: prunedCard?.id ?? null,
+    pruneTop: pruneTop === true,
+    heightAllowed,
+    minPileCardCount: minCount,
+    pileIndex: index,
+    pileId: sourcePile.id,
+    pileLabel: sourcePile.label,
+    pileComboStep: sourcePile.comboStep ?? 0,
+    pileCardCount,
+    cardCountAfter,
+    capacity,
+    slotsRemaining: Math.max(0, capacity - pileCardCount),
+    scoreFormula: `${nextAddTotal} x ${nextMultiplyTotal}`,
+    expectedReputation: harvestScore,
+    nextMultiplier: nextMultiplyTotal,
+    pileBaseAfter: nextAddTotal,
+    glow: !playable
+      ? "break"
+      : previousDigit == null
+        ? "open"
+        : harvestReady
+          ? "gold"
+          : connected || analysis.componentSize >= 3
+            ? "yellow"
+            : "open",
+  };
+}
+
+export function evaluateAllEndlessPileTargets(state, handIndex) {
+  const card = state?.hand?.[handIndex - 1];
+  if (!card) return [];
+  ensureEndlessPiles(state);
+  return Array.from({ length: PILE_COUNT }, (_, i) => {
+    const preview = evaluateEndlessPilePlay(state, i + 1, card) ?? {
+      playable: false,
+      reason: "blocked_pile",
+      pileIndex: i + 1,
+      pileId: state.piles?.[i]?.id,
+      pileLabel: state.piles?.[i]?.label ?? `정원 ${i + 1}`,
+    };
+    preview.handIndex = handIndex;
+    preview.cardId = card.id;
+    return preview;
+  });
+}
+
+function endlessPilePreviewScore(preview) {
+  if (!preview?.playable) return -Infinity;
+  return (preview.harvestReady ? 500000 : 0)
+    + (preview.pruneTop ? 25000 : 0)
+    + (preview.primaryKey === "bridge" ? 20000 : preview.primaryKey === "graft" ? 14000 : 0)
+    + (preview.breaksCombo ? -80000 : 100000)
+    + (preview.glow === "gold" ? 20000 : preview.glow === "yellow" ? 8000 : preview.glow === "open" ? 2000 : 0)
+    + (preview.potentialScore ?? 0) * 10
+    + (preview.nextComboStep ?? 1) * 1000
+    + ((preview.minPileCardCount ?? 0) === (preview.pileCardCount ?? 0) ? 500 : 0)
+    - (preview.pileCardCount ?? 0) * 100;
+}
+
+export function bestEndlessPileTargetForCard(state, handIndex) {
+  const previews = evaluateAllEndlessPileTargets(state, handIndex);
+  let bestIndex = null;
+  let bestPreview = null;
+  let bestScore = -Infinity;
+  let bestCount = 0;
+  for (const preview of previews) {
+    const score = endlessPilePreviewScore(preview);
+    if (score > bestScore) {
+      bestScore = score;
+      bestIndex = preview.pileIndex;
+      bestPreview = preview;
+      bestCount = 1;
+    } else if (score === bestScore) {
+      bestCount += 1;
+    }
+  }
+  if (bestScore === -Infinity) return { bestIndex: null, bestPreview: null, bestScore, bestCount: 0, isUniqueBest: false, previews };
+  return { bestIndex, bestPreview, bestScore, bestCount, isUniqueBest: bestCount === 1, previews };
+}
+
+export function priorityEndlessPileTargetForCard(state, handIndex) {
+  const target = bestEndlessPileTargetForCard(state, handIndex);
+  return {
+    ...target,
+    priority: target.bestPreview?.harvestReady
+      ? "harvest"
+      : target.bestPreview?.primaryKey ?? null,
+  };
+}
+
+export function getEndlessHandPreviews(state) {
+  ensureEndlessPiles(state);
+  return (state.hand ?? []).map((card, index) => {
+    const { bestPreview } = bestEndlessPileTargetForCard(state, index + 1);
+    const preview = bestPreview ?? evaluateEndlessPilePlay(state, 1, card);
+    return { ...preview, handIndex: index + 1, cardId: card.id };
+  });
+}
+
+export function endlessHandPreviewSummary(state) {
+  const previews = getEndlessHandPreviews(state);
+  const summary = {
+    total: previews.length,
+    comboSafe: 0,
+    breakCount: 0,
+    bestIndex: null,
+    bestDigit: null,
+    bestLabel: "-",
+    bestCardName: "-",
+    bestCategoryLabel: "-",
+    bestRole: "",
+    bestReputation: 0,
+    bestMultiplier: 1,
+    bestBreaksCombo: false,
+    bestGlow: "neutral",
+    bestPile: null,
+    bestPileLabel: "-",
+    bestHarvestScore: 0,
+    bestPotentialScore: 0,
+    cardsToHarvest: ENDLESS_HARVEST_LENGTH,
+  };
+  let bestScore = -Infinity;
+  for (const preview of previews) {
+    if (!preview.playable) continue;
+    if (preview.breaksCombo) summary.breakCount += 1;
+    else summary.comboSafe += 1;
+    const score = endlessPilePreviewScore(preview);
+    if (score > bestScore) {
+      const card = state.hand?.[preview.handIndex - 1] ?? {};
+      const archetype = digitCard(card.digit) ?? {};
+      bestScore = score;
+      summary.bestIndex = preview.handIndex;
+      summary.bestDigit = preview.digit;
+      summary.bestLabel = preview.harvestReady ? "수확" : preview.breaksCombo ? "새 흐름" : preview.primaryLabel ?? "-";
+      summary.bestCardName = card.cardName ?? archetype.cardName ?? "-";
+      summary.bestCategoryLabel = card.categoryLabel ?? categoryLabel(card.category ?? archetype.category);
+      summary.bestRole = archetype.role ?? "";
+      summary.bestReputation = preview.harvestScore ?? 0;
+      summary.bestMultiplier = preview.nextMultiplyTotal ?? 1;
+      summary.bestBreaksCombo = preview.breaksCombo === true;
+      summary.bestGlow = preview.glow ?? "neutral";
+      summary.bestPile = preview.pileIndex;
+      summary.bestPileLabel = preview.pileLabel ?? "-";
+      summary.bestHarvestScore = preview.harvestScore ?? 0;
+      summary.bestPotentialScore = preview.potentialScore ?? 0;
+      summary.cardsToHarvest = preview.cardsToHarvest ?? ENDLESS_HARVEST_LENGTH;
+    }
+  }
+  return summary;
+}
+
+function applyEndlessHarvest(state, pileIndex, preview) {
+  const piles = ensureEndlessPiles(state);
+  const harvestGroup = preview.harvestGroup?.length
+    ? preview.harvestGroup
+    : Array.from({ length: ENDLESS_HARVEST_LENGTH }, (_, offset) => {
+      const pile = piles[pileIndex - 1];
+      return {
+        pileIndex,
+        position: Math.max(0, (pile.cards?.length ?? 0) - ENDLESS_HARVEST_LENGTH + offset),
+      };
+    });
+  const harvested = [];
+  const byPile = new Map();
+  for (const node of harvestGroup) {
+    if (!byPile.has(node.pileIndex)) byPile.set(node.pileIndex, []);
+    byPile.get(node.pileIndex).push(node.position);
+  }
+  for (const [groupPileIndex, positions] of byPile.entries()) {
+    const pile = piles[groupPileIndex - 1];
+    for (const position of [...positions].sort((a, b) => b - a)) {
+      const removed = pile?.cards?.splice(position, 1)?.[0];
+      if (removed) harvested.push(removed);
+    }
+  }
+  state.compostPile.push(...harvested);
+  syncEndlessDiscardAlias(state);
+  const score = preview.harvestScore ?? 0;
+  state.score = Math.max(0, Math.floor(Number(state.score) || 0)) + score;
+  state.harvestCount = (state.harvestCount ?? 0) + 1;
+  state.bestScore = Math.max(state.bestScore ?? 0, state.score ?? 0);
+  state.bestHarvestScore = Math.max(state.bestHarvestScore ?? 0, score);
+  state.bestPotentialScore = Math.max(state.bestPotentialScore ?? 0, preview.potentialScore ?? 0);
+  if (state.harvestCount % 3 === 0) {
+    state.discardsRemaining = Math.min(state.maxDiscards ?? ENDLESS_MAX_DISCARDS, (state.discardsRemaining ?? 0) + 1);
+  }
+  recomputeAllEndlessPileStats(state);
+  const pile = piles[pileIndex - 1];
+  pile.bestComboStep = Math.max(pile.bestComboStep ?? 0, preview.nextComboStep ?? 0);
+  const harvest = {
+    pileIndex,
+    pileLabel: pile.label,
+    score,
+    addTotal: preview.nextAddTotal,
+    multiplyTotal: preview.nextMultiplyTotal,
+    comboStep: preview.nextComboStep,
+    cards: copy(harvested),
+  };
+  pile.harvestHistory.push(copy(harvest));
+  state.lastHarvest = copy(harvest);
+  state.message = `${pile.label} 수확 +${score}점`;
+  return harvest;
+}
+
+export function hasAnyEndlessMove(state) {
+  if (!state?.hand?.length) return false;
+  return state.hand.some((_, index) => evaluateAllEndlessPileTargets(state, index + 1).some((preview) => preview.playable));
+}
+
+export function checkEndlessEnd(state) {
+  if (!state || state.phase !== "play") return state?.phase ?? "missing";
+  refillEndlessHand(state);
+  if (hasAnyEndlessMove(state)) {
+    state.phase = "play";
+    return "play";
+  }
+  if ((state.discardsRemaining ?? 0) > 0) {
+    state.phase = "play";
+    state.message = "놓을 수 있는 더미가 없습니다. 손패를 교체하세요.";
+    return "blocked";
+  }
+  state.phase = "game_over";
+  state.failureReason = "놓을 수 있는 정원 더미가 없습니다.";
+  state.message = state.failureReason;
+  return "lost";
+}
+
+export function playEndlessCardToPile(state, handIndex, pileIndex) {
+  if (!state || state.phase !== "play") return { ok: false, reason: "not_playing" };
+  const card = state.hand?.[handIndex - 1];
+  if (!card) return { ok: false, reason: "missing_card" };
+  const target = bestEndlessPileTargetForCard(state, handIndex);
+  const preview = target.bestPreview;
+  if (!preview?.playable || !target.bestIndex) return { ok: false, reason: preview?.reason ?? "blocked_pile", preview };
+  const requestedPileIndex = pileIndex == null ? null : clampInt(pileIndex, 1, PILE_COUNT);
+  const targetIndex = target.bestIndex;
+  const pile = ensureEndlessPiles(state)[targetIndex - 1];
+  let prunedCard = null;
+  if (preview.pruneTop) {
+    prunedCard = pile.cards.pop() ?? null;
+    if (prunedCard) {
+      syncEndlessDiscardAlias(state);
+      state.compostPile.push(prunedCard);
+    }
+  }
+  state.hand.splice(handIndex - 1, 1);
+  pile.cards.push(card);
+  state.turnCount = (state.turnCount ?? 0) + 1;
+  recomputeAllEndlessPileStats(state);
+  pile.bestComboStep = Math.max(pile.bestComboStep ?? 0, preview.nextComboStep ?? 0);
+  state.bestPotentialScore = Math.max(state.bestPotentialScore ?? 0, preview.potentialScore ?? 0);
+  state.lastPlay = {
+    card: copy(card),
+    preview: copy(preview),
+    scoreGained: 0,
+    harvested: false,
+    brokeCombo: preview.breaksCombo,
+    pileIndex: targetIndex,
+    requestedPileIndex,
+    pileLabel: pile.label,
+    prunedCard: copy(prunedCard),
+  };
+  pile.history.push(copy(state.lastPlay));
+  let harvest = null;
+  if (preview.harvestReady) {
+    harvest = applyEndlessHarvest(state, targetIndex, preview);
+    state.lastPlay.scoreGained = harvest.score;
+    state.lastPlay.harvested = true;
+  } else {
+    state.message = `${pile.label} ${preview.primaryLabel} · ${preview.scoreFormula}`;
+  }
+  refillEndlessHand(state);
+  const result = checkEndlessEnd(state);
+  return { ok: true, preview, result, harvest };
+}
+
+export function playEndlessCard(state, handIndex) {
+  return playEndlessCardToPile(state, handIndex, null);
+}
+
+export function discardEndlessCards(state, indices) {
+  if (!state || state.phase !== "play") return { ok: false, reason: "not_playing" };
+  if ((state.discardsRemaining ?? 0) <= 0) return { ok: false, reason: "no_discards" };
+  const unique = [...new Set(indices ?? [])]
+    .map((index) => Math.floor(Number(index) || 0))
+    .filter((index) => state.hand?.[index - 1])
+    .sort((a, b) => b - a);
+  if (unique.length === 0) return { ok: false, reason: "empty_selection" };
+  syncEndlessDiscardAlias(state);
+  const pending = [];
+  for (const index of unique) {
+    pending.push(state.hand.splice(index - 1, 1)[0]);
+  }
+  state.discardsRemaining -= 1;
+  for (let i = pending.length - 1; i >= 0; i -= 1) {
+    state.compostPile.push(pending[i]);
+  }
+  refillEndlessHand(state);
+  state.lastDiscard = { count: pending.length, compostSize: state.compostPile.length };
+  state.message = `${pending.length}장을 퇴비로 보내고 새 손패를 뽑았습니다.`;
+  const result = checkEndlessEnd(state);
+  return { ok: true, result };
 }
 
 export function newGame(opts = {}) {
@@ -1269,7 +2130,38 @@ export function recordCampaignResult(profile, state) {
   return { profile: out, payout, cleared, stage };
 }
 
+export function recordEndlessResult(profile, state) {
+  const out = normalizeMetaProfile(profile);
+  const score = Math.max(0, Math.floor(Number(state?.score) || 0));
+  const harvestScore = Math.max(0, Math.floor(Number(state?.bestHarvestScore) || 0));
+  const turns = Math.max(0, Math.floor(Number(state?.turnCount) || 0));
+  const potential = Math.max(0, Math.floor(Number(state?.bestPotentialScore) || 0));
+  const before = copy(out.numberEndless);
+  out.numberEndless.bestScore = Math.max(out.numberEndless.bestScore ?? 0, score);
+  out.numberEndless.bestHarvestScore = Math.max(out.numberEndless.bestHarvestScore ?? 0, harvestScore);
+  out.numberEndless.bestSurvivalTurns = Math.max(out.numberEndless.bestSurvivalTurns ?? 0, turns);
+  out.numberEndless.bestPotentialScore = Math.max(out.numberEndless.bestPotentialScore ?? 0, potential);
+  out.numberEndless.runs = (out.numberEndless.runs ?? 0) + 1;
+  return {
+    profile: out,
+    score,
+    improved: out.numberEndless.bestScore > (before.bestScore ?? 0),
+    bestScore: out.numberEndless.bestScore,
+  };
+}
+
 export function snapshotState(state) {
+  if (state?.mode === ENDLESS_MODE) {
+    syncEndlessDiscardAlias(state);
+    return copy({
+      ...state,
+      version: VERSION,
+      mode: ENDLESS_MODE,
+      piles: normalizeEndlessPiles(state?.piles),
+      compostPile: state.compostPile ?? [],
+      discardPile: state.compostPile ?? [],
+    });
+  }
   return copy({
     ...state,
     version: VERSION,
@@ -1277,8 +2169,23 @@ export function snapshotState(state) {
   });
 }
 
+function restoreEndlessState(snapshot) {
+  const state = newEndlessRun(defaultMetaProfile(), {
+    ...snapshot,
+    shuffle: false,
+    skipRefill: true,
+  });
+  state.phase = snapshot.phase ?? state.phase;
+  state.rngCursor = snapshot.rngCursor ?? snapshot.rng_cursor ?? 0;
+  state.failureReason = snapshot.failureReason ?? snapshot.failure_reason;
+  state.resultRecorded = snapshot.resultRecorded === true || snapshot.result_recorded === true;
+  syncEndlessDiscardAlias(state);
+  return state;
+}
+
 export function restoreState(snapshot) {
   if (!snapshot) return null;
+  if (snapshot.mode === ENDLESS_MODE) return restoreEndlessState(snapshot);
   const state = newGame({
     ...snapshot,
     shuffle: false,

@@ -250,7 +250,7 @@ h2 {
 
 .progress-track {
   height: 10px;
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: #fff;
@@ -302,6 +302,10 @@ h2 {
   line-height: 1.35;
 }
 
+.deck-view-button {
+  justify-self: stretch;
+}
+
 .recommend-band {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
@@ -346,7 +350,7 @@ h2 {
   min-width: 0;
   min-height: 184px;
   padding: 10px;
-  overflow: hidden;
+  overflow: visible;
   border: 2px solid var(--ink);
   border-radius: var(--radius);
   background: #fff;
@@ -392,6 +396,11 @@ h2 {
 
 .pile-cell.is-landing {
   animation: pileSnap 250ms var(--motion-pop);
+}
+
+.pile-cell.is-landing-harvest {
+  z-index: 20;
+  animation: pileSnap 250ms var(--motion-pop), harvestPilePop 520ms ease;
 }
 
 .pile-cell.is-landing-break {
@@ -498,11 +507,12 @@ h2 {
 }
 
 .hand-row {
+  --hand-gap: 8px;
   position: relative;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   align-items: start;
-  gap: 8px;
+  gap: var(--hand-gap);
   overflow: visible;
   padding-top: 10px;
 }
@@ -534,14 +544,22 @@ h2 {
   overflow: hidden;
 }
 
-.hand-card.is-selected {
+.hand-card.is-selected,
+body:not(.is-hand-hover-locked) .hand-card:not(.is-dealt):not(.is-hand-pre-shift):not(.is-hand-pre-refill):not(.is-hand-shifting):not(.is-hand-refill).is-hovered,
+body:not(.is-hand-hover-locked) .hand-card:not(.is-dealt):not(.is-hand-pre-shift):not(.is-hand-pre-refill):not(.is-hand-shifting):not(.is-hand-refill):not(:disabled):hover,
+body:not(.is-hand-hover-locked) .hand-card:not(.is-dealt):not(.is-hand-pre-shift):not(.is-hand-pre-refill):not(.is-hand-shifting):not(.is-hand-refill):focus-visible {
   z-index: 3;
   border-color: var(--ink);
   background: #fff;
   box-shadow:
     5px 8px 0 rgba(17, 17, 17, 0.24),
     0 16px 22px rgba(0, 0, 0, 0.14);
+  outline: none;
   transform: translateY(-9px) rotate(-0.8deg);
+}
+
+body.is-hand-hover-locked .hand-card:focus-visible {
+  outline: none;
 }
 
 .hand-card.is-discard-selected {
@@ -560,7 +578,46 @@ h2 {
 }
 
 .hand-card.is-dealt {
-  animation: cardDeal 333ms var(--motion-pop);
+  animation-delay: var(--deal-delay, 0ms);
+  animation-duration: 620ms;
+  animation-fill-mode: both;
+  animation-name: cardDeal;
+  animation-timing-function: var(--motion-pop);
+}
+
+.hand-card.is-hand-pre-shift,
+.hand-card.is-hand-pre-refill {
+  pointer-events: none;
+}
+
+.hand-card.is-hand-pre-shift {
+  z-index: 2;
+  transform: translateX(calc(100% + var(--hand-gap, 8px)));
+}
+
+.hand-card.is-hand-pre-refill {
+  opacity: 0;
+  filter: brightness(1.08);
+  transform: translate3d(calc(72% + var(--hand-gap, 8px)), 0, 0) scale(0.9) rotate(2deg);
+}
+
+.hand-card.is-hand-shifting {
+  z-index: 2;
+  pointer-events: none;
+  animation-delay: var(--hand-shift-delay, 80ms);
+  animation-duration: var(--hand-shift-duration, 240ms);
+  animation-fill-mode: both;
+  animation-name: handSlotShiftLeft;
+  animation-timing-function: var(--motion-ease);
+}
+
+.hand-card.is-hand-refill {
+  pointer-events: none;
+  animation-delay: var(--hand-refill-delay, 420ms);
+  animation-duration: var(--hand-refill-duration, 430ms);
+  animation-fill-mode: both;
+  animation-name: handRefillDeal;
+  animation-timing-function: var(--motion-pop);
 }
 
 .card-add,
@@ -637,6 +694,42 @@ h2 {
   object-fit: contain;
   padding: 7px;
   image-rendering: pixelated;
+}
+
+.card-ability {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 26px;
+  z-index: 2;
+  display: grid;
+  gap: 1px;
+  padding: 5px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--ink);
+  line-height: 1.12;
+  pointer-events: none;
+}
+
+.card-ability strong,
+.card-ability small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-ability strong {
+  font-size: 10px;
+  font-weight: 1000;
+}
+
+.card-ability small {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
 }
 
 .mini-card .card-add {
@@ -732,6 +825,78 @@ h2 {
   width: min(100%, 920px);
 }
 
+.deck-modal {
+  max-height: min(760px, calc(100vh - 36px));
+}
+
+.deck-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.deck-summary span {
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--soft);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.deck-list {
+  display: grid;
+  gap: 7px;
+  max-height: min(560px, 62vh);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.deck-row {
+  display: grid;
+  grid-template-columns: 32px 36px minmax(0, 1fr) minmax(120px, 1.1fr);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.deck-row b,
+.deck-digit {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  font-weight: 1000;
+}
+
+.deck-digit {
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.deck-row span {
+  min-width: 0;
+}
+
+.deck-row strong,
+.deck-row small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deck-row small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
 .modal-head {
   display: flex;
   align-items: start;
@@ -782,8 +947,7 @@ h2 {
 
 .reward-option:hover,
 .stage-tile:hover,
-.store-row:hover,
-.hand-card:hover {
+.store-row:hover {
   transform: translateY(-1px);
 }
 
@@ -1058,10 +1222,15 @@ h2 {
   box-shadow:
     5px 8px 0 rgba(17, 17, 17, 0.24),
     0 18px 28px rgba(0, 0, 0, 0.18);
+  opacity: 0;
   transform: translate3d(var(--drag-x, 0), var(--drag-y, 0), 0) rotate(2deg) scale(1.05);
   transform-origin: center;
   animation: cardLift 167ms var(--motion-pop);
   will-change: transform;
+}
+
+.drag-card.is-ready {
+  opacity: 1;
 }
 
 .drag-card::before {
@@ -1097,7 +1266,7 @@ h2 {
 
 .score-pop {
   position: absolute;
-  z-index: 2;
+  z-index: 8;
   left: 50%;
   top: 46%;
   transform: translate(-50%, -50%);
@@ -1112,8 +1281,123 @@ h2 {
   animation: scorePop 500ms var(--motion-ease) forwards;
 }
 
+.score-pop.is-harvest {
+  display: grid;
+  gap: 3px;
+  min-width: 128px;
+  padding: 9px 12px 10px;
+  border-width: 3px;
+  background: #fff;
+  box-shadow:
+    5px 7px 0 rgba(17, 17, 17, 0.24),
+    0 18px 28px rgba(0, 0, 0, 0.18);
+  text-align: center;
+  animation: harvestScoreFly 1000ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  will-change: opacity, transform;
+}
+
+.score-pop.is-harvest span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 1000;
+  letter-spacing: 0;
+}
+
+.score-pop.is-harvest strong {
+  display: block;
+  color: var(--ink);
+  font-size: clamp(24px, 5vw, 38px);
+  line-height: 0.92;
+}
+
+.score-pop.is-harvest em {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .score-pop.is-break {
   background: var(--soft);
+}
+
+.harvest-ring {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  top: 46%;
+  width: 38%;
+  aspect-ratio: 1;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0.55);
+  animation: harvestRing 620ms ease-out forwards;
+  will-change: opacity, transform;
+}
+
+.harvest-sparks {
+  position: absolute;
+  z-index: 6;
+  left: 50%;
+  top: 46%;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.harvest-sparks i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 9px;
+  height: 9px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.7);
+  animation: harvestSpark 680ms ease-out forwards;
+  will-change: opacity, transform;
+}
+
+.harvest-sparks i:nth-child(1) {
+  --spark-x: -104px;
+  --spark-y: -84px;
+}
+
+.harvest-sparks i:nth-child(2) {
+  --spark-x: 92px;
+  --spark-y: -92px;
+  animation-delay: 25ms;
+}
+
+.harvest-sparks i:nth-child(3) {
+  --spark-x: 118px;
+  --spark-y: 8px;
+  animation-delay: 50ms;
+}
+
+.harvest-sparks i:nth-child(4) {
+  --spark-x: 70px;
+  --spark-y: 104px;
+  animation-delay: 75ms;
+}
+
+.harvest-sparks i:nth-child(5) {
+  --spark-x: -80px;
+  --spark-y: 92px;
+  animation-delay: 100ms;
+}
+
+.harvest-sparks i:nth-child(6) {
+  --spark-x: -118px;
+  --spark-y: 10px;
+  animation-delay: 125ms;
 }
 
 @keyframes cardLift {
@@ -1128,15 +1412,48 @@ h2 {
 @keyframes cardDeal {
   from {
     opacity: 0;
-    transform: translateY(18px) scale(0.92);
+    filter: brightness(1.08);
+    transform: translate3d(var(--deal-x, 0), 34px, 0) scale(0.84) rotate(calc(var(--deal-rotate, 0deg) + 4deg));
   }
   60% {
     opacity: 1;
-    transform: translateY(-3px) scale(1.02);
+    filter: brightness(1);
+    transform: translate3d(0, -8px, 0) scale(1.035) rotate(-0.8deg);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    filter: brightness(1);
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes handSlotShiftLeft {
+  from {
+    transform: translateX(calc(100% + var(--hand-gap, 8px)));
+  }
+  76% {
+    transform: translateX(-3px);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes handRefillDeal {
+  from {
+    opacity: 0;
+    filter: brightness(1.08);
+    transform: translate3d(calc(72% + var(--hand-gap, 8px)), 0, 0) scale(0.9) rotate(2deg);
+  }
+  68% {
+    opacity: 1;
+    filter: brightness(1);
+    transform: translate3d(-5px, 0, 0) scale(1.025) rotate(-0.6deg);
+  }
+  to {
+    opacity: 1;
+    filter: brightness(1);
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
   }
 }
 
@@ -1203,6 +1520,66 @@ h2 {
   to {
     opacity: 0;
     transform: translate(-50%, -88%) scale(1);
+  }
+}
+
+@keyframes harvestScoreFly {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -30%) scale(0.9);
+  }
+  14% {
+    opacity: 1;
+    transform: translate(-50%, -58%) scale(1.04);
+  }
+  70% {
+    opacity: 1;
+    transform: translate(-50%, -88%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -155%) scale(0.96);
+  }
+}
+
+@keyframes harvestRing {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.55);
+  }
+  24% {
+    opacity: 0.48;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.25);
+  }
+}
+
+@keyframes harvestSpark {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.7);
+  }
+  18% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--spark-x)), calc(-50% + var(--spark-y))) scale(0.3);
+  }
+}
+
+@keyframes harvestPilePop {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  36% {
+    transform: scale(1.035);
+  }
+  68% {
+    transform: scale(0.99);
   }
 }
 
@@ -1337,7 +1714,7 @@ h2 {
   }
 
   .hand-row {
-    gap: 6px;
+    --hand-gap: 6px;
     padding-top: 14px;
   }
 

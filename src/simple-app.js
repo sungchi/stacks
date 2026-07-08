@@ -10,20 +10,28 @@ import {
 } from "./game/catalog.js";
 import {
   applyReward,
+  bestEndlessPileTargetForCard,
   bestPileTargetForCard,
   campaignStageStatus,
+  cardAbilitySummary,
   catalogSummary,
   codexEntries,
   defaultMetaProfile,
+  discardEndlessCards,
   discardNumberCards,
+  endlessHandPreviewSummary,
   handPreviewSummary,
   isCampaignStageUnlocked,
   newCampaignRun,
+  newEndlessRun,
+  playEndlessCardToPile,
   playCardToPile,
+  priorityEndlessPileTargetForCard,
   priorityPileTargetForCard,
   purchaseMetaUpgrade,
   purchaseRunShop,
   recordCampaignResult,
+  recordEndlessResult,
   rewardEffectSummary,
   runShopOptions,
   storeOptions,
@@ -46,7 +54,14 @@ import {
 const app = document.querySelector("#app");
 const perfMonitor = createPerformanceMonitor("Stacks (스택스) Simple");
 const CARD_FLIGHT_MS = 420;
-const LANDING_MOTION_MS = 620;
+const HAND_SHIFT_DELAY_MS = 80;
+const HAND_SHIFT_STAGGER_MS = 22;
+const HAND_SHIFT_MS = 240;
+const HAND_REFILL_DELAY_MS = 420;
+const HAND_REFILL_MS = 430;
+const LANDING_MOTION_MS = HAND_REFILL_DELAY_MS + HAND_REFILL_MS + 120;
+const HARVEST_MOTION_MS = CARD_FLIGHT_MS + 1120;
+const HARVEST_REWARD_SFX_DELAY_MS = CARD_FLIGHT_MS + 180;
 
 const ui = {
   profile: loadProfile(),
@@ -63,6 +78,8 @@ const ui = {
   drag: null,
   suppressNextClick: false,
   hoverPreviewTimer: null,
+  handHoverLockUntil: 0,
+  handHoverUnlockTimer: null,
 };
 
 const audio = {
@@ -115,6 +132,24 @@ function rewardPresentationBlocked() {
   return ui.motion?.type === "landing";
 }
 
+function handHoverLocked() {
+  return ui.drag != null
+    || ui.motion?.type === "landing"
+    || ui.motion?.type === "deal"
+    || Date.now() < (ui.handHoverLockUntil ?? 0);
+}
+
+function lockHandHover(duration = 0) {
+  ui.handHoverLockUntil = Math.max(ui.handHoverLockUntil ?? 0, Date.now() + duration);
+  clearHoverPreview();
+  if (ui.handHoverUnlockTimer) window.clearTimeout(ui.handHoverUnlockTimer);
+  const delay = Math.max(0, ui.handHoverLockUntil - Date.now() + 20);
+  ui.handHoverUnlockTimer = window.setTimeout(() => {
+    ui.handHoverUnlockTimer = null;
+    render();
+  }, delay);
+}
+
 function motionAllowed() {
   return ui.settings.animations && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
@@ -124,7 +159,7 @@ function soundAllowed() {
 }
 
 function dealMotionDuration(count = 1) {
-  return 580 + Math.max(0, count - 1) * 72;
+  return 620 + Math.max(0, count - 1) * 82;
 }
 
 function midiFrequency(note) {
@@ -165,12 +200,18 @@ function playSfx(name, detail = {}) {
   const run = () => {
     if (name === "select") {
       playMidiTone(ctx, 76, { duration: 0.045, gain: 0.011 });
+    } else if (name === "hover") {
+      playMidiTone(ctx, 72, { duration: 0.035, gain: 0.0065 });
+      playMidiTone(ctx, 79, { delay: 0.028, duration: 0.045, gain: 0.0055 });
     } else if (name === "reject") {
       playMidiTone(ctx, 47, { duration: 0.09, gain: 0.017, type: "sawtooth" });
       playMidiTone(ctx, 42, { delay: 0.055, duration: 0.11, gain: 0.013, type: "sawtooth" });
     } else if (name === "deal") {
-      playMidiTone(ctx, 60, { duration: 0.045, gain: 0.012, type: "square" });
-      playMidiTone(ctx, 67, { delay: 0.04, duration: 0.045, gain: 0.01, type: "square" });
+      const count = Math.max(1, Math.min(5, Math.floor(Number(detail.count) || 1)));
+      const notes = [57, 60, 64, 67, 72];
+      notes.slice(0, count).forEach((note, i) => {
+        playMidiTone(ctx, note, { delay: i * 0.045, duration: 0.055, gain: 0.009, type: "square" });
+      });
     } else if (name === "reward") {
       [72, 76, 79, 84].forEach((note, i) => {
         playMidiTone(ctx, note, { delay: i * 0.055, duration: 0.12, gain: 0.013 });
@@ -198,6 +239,9 @@ function queueMotion(motion, duration = 520) {
   if (!motionAllowed()) return;
   const id = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
   ui.motion = { ...motion, id };
+  if (motion.type === "landing" || motion.type === "deal") {
+    lockHandHover(duration + 140);
+  }
   if (motion.type === "landing" && duration > CARD_FLIGHT_MS) {
     window.setTimeout(() => {
       if (ui.motion?.id === id && ui.motion.type === "landing") {
@@ -249,6 +293,17 @@ function persist() {
 
 function maybeFinalizeRun() {
   if (!["won", "game_over"].includes(ui.state.phase) || ui.state.resultRecorded) return;
+  if (isEndlessRun()) {
+    if (ui.state.phase !== "game_over") return;
+    const result = recordEndlessResult(ui.profile, ui.state);
+    ui.profile = result.profile;
+    ui.state.resultRecorded = true;
+    ui.state.resultImproved = result.improved;
+    ui.state.resultBestScore = result.bestScore;
+    ui.state.message = result.improved ? `새 최고 점수 ${result.score}점` : `최종 점수 ${result.score}점`;
+    persist();
+    return;
+  }
   const result = recordCampaignResult(ui.profile, ui.state);
   ui.profile = result.profile;
   ui.state.resultRecorded = true;
@@ -258,6 +313,62 @@ function maybeFinalizeRun() {
     ? `${result.stage.name} 클리어 · 씨앗 ${result.payout} 획득`
     : `재도전 씨앗 ${result.payout} 획득`;
   persist();
+}
+
+function isEndlessRun(state = ui.state) {
+  return state?.mode === "endless";
+}
+
+function currentHandSummary() {
+  return isEndlessRun() ? endlessHandPreviewSummary(ui.state) : handPreviewSummary(ui.state);
+}
+
+function currentBestTarget(handIndex) {
+  return isEndlessRun() ? bestEndlessPileTargetForCard(ui.state, handIndex) : bestPileTargetForCard(ui.state, handIndex);
+}
+
+function currentPriorityTarget(handIndex) {
+  return isEndlessRun() ? priorityEndlessPileTargetForCard(ui.state, handIndex) : priorityPileTargetForCard(ui.state, handIndex);
+}
+
+function playCurrentCard(handIndex, pileIndex) {
+  return isEndlessRun() ? playEndlessCardToPile(ui.state, handIndex, pileIndex) : playCardToPile(ui.state, handIndex, pileIndex);
+}
+
+function discardCurrentCards(indices) {
+  return isEndlessRun() ? discardEndlessCards(ui.state, indices) : discardNumberCards(ui.state, indices);
+}
+
+function previewPoints(preview) {
+  return isEndlessRun() ? (preview?.harvestScore ?? 0) : (preview?.expectedReputation ?? 0);
+}
+
+function hasPlayableTarget(handIndex) {
+  const { previews } = currentBestTarget(handIndex);
+  return previews.some((preview) => preview && preview.playable !== false);
+}
+
+function rejectUnplayableHand(handIndex) {
+  ui.selectedHandIndex = null;
+  clearHoverPreview();
+  ui.discardSelection.clear();
+  queueMotion({ type: "reject", handIndex }, 360);
+  playSfx("reject");
+  showToast("놓을 수 있는 정원 더미가 없습니다.");
+}
+
+function startEndlessMode() {
+  ui.state = newEndlessRun(ui.profile);
+  ui.selectedHandIndex = null;
+  clearHoverPreview();
+  ui.discardMode = false;
+  ui.discardSelection.clear();
+  ui.menuOpen = false;
+  const dealtIds = ui.state.hand.map((card) => card.id);
+  queueMotion({ type: "deal", dealtIds }, dealMotionDuration(dealtIds.length));
+  playSfx("deal", { count: dealtIds.length });
+  persist();
+  render();
 }
 
 function startStage(stageIndex) {
@@ -274,7 +385,7 @@ function startStage(stageIndex) {
   ui.menuOpen = false;
   const dealtIds = ui.state.hand.map((card) => card.id);
   queueMotion({ type: "deal", dealtIds }, dealMotionDuration(dealtIds.length));
-  playSfx("deal");
+  playSfx("deal", { count: dealtIds.length });
   persist();
   render();
 }
@@ -289,7 +400,7 @@ function selectedTarget() {
     ? ui.hoveredHandIndex
     : ui.selectedHandIndex;
   if (!handIndex) return { bestIndex: null, bestPreview: null, previews: [] };
-  return bestPileTargetForCard(ui.state, handIndex);
+  return currentBestTarget(handIndex);
 }
 
 function visiblePileCardsForRender(pile, pileNumber) {
@@ -300,6 +411,27 @@ function visiblePileCardsForRender(pile, pileNumber) {
 
 function pilePreviewGlows(preview) {
   return ui.state.phase === "play" && ["gold", "yellow", "open"].includes(preview?.glow);
+}
+
+function endlessPreviewLabel(preview) {
+  if (!preview) return "";
+  if (preview.playable) return preview.primaryLabel;
+  if (preview.reason === "height_locked") return "높이 제한";
+  if (preview.reason === "pile_full") return "가득 참";
+  return "배치 불가";
+}
+
+function pilePreviewContent(preview) {
+  if (!preview) return "";
+  if (isEndlessRun()) {
+    return `<span>${escapeHtml(endlessPreviewLabel(preview))}</span><span>${preview.harvestReady ? "수확" : `${preview.cardsToHarvest}장`}</span>`;
+  }
+  return `<span>${escapeHtml(preview.primaryLabel)}</span><span>x${preview.nextMultiplier}</span>`;
+}
+
+function pilePreviewMarkup(preview) {
+  const content = pilePreviewContent(preview);
+  return `<div class="pile-preview" ${content ? "" : "hidden"}>${content}</div>`;
 }
 
 function cardArt(card, className = "") {
@@ -327,11 +459,17 @@ function cardMultiplyMarkup(card) {
     : `<span class="card-multiply-prefix">x</span><span class="card-multiply-number">${value}</span>`;
 }
 
-function cardFace(card, artClass) {
+function cardAbilityMarkup(card) {
+  const ability = cardAbilitySummary(card);
+  return `<span class="card-ability"><strong>${escapeHtml(ability.label)}</strong><small>${escapeHtml(ability.description)}</small></span>`;
+}
+
+function cardFace(card, artClass, opts = {}) {
   return `
     <span class="card-add">${cardAddMarkup(card)}</span>
     <span class="card-kind">${escapeHtml(card.categoryLabel)}</span>
     ${cardArt(card, artClass)}
+    ${opts.showAbility ? cardAbilityMarkup(card) : ""}
     <span class="card-multiply">${cardMultiplyMarkup(card)}</span>
   `;
 }
@@ -347,6 +485,30 @@ function rewardChoiceText(reward) {
 }
 
 function renderStatus() {
+  if (isEndlessRun()) {
+    const best = Math.max(ui.profile.numberEndless?.bestScore ?? 0, ui.state.bestScore ?? 0, ui.state.score ?? 0);
+    const progress = Math.min(100, Math.round(((ui.state.score ?? 0) / Math.max(1, best)) * 100));
+    return `
+      <header class="simple-status">
+        <div class="title-lockup">
+          <span>무한 정원</span>
+          <strong>Stacks (스택스)</strong>
+        </div>
+        <div class="status-meter" aria-label="점수 ${ui.state.score}">
+          <div><span>점수</span><b>${ui.state.score}</b></div>
+          <div class="meter-track"><i style="width:${progress}%"></i></div>
+        </div>
+        <div class="status-pills" aria-label="런 상태">
+          <span>최고 ${best}</span>
+          <span>교체 ${ui.state.discardsRemaining}</span>
+          <span>수확 ${ui.state.harvestCount ?? 0}</span>
+          <span>퇴비 ${ui.state.compostPile?.length ?? 0}</span>
+        </div>
+        <button class="menu-trigger" type="button" data-action="open-deck" aria-label="덱 보기">덱</button>
+        <button class="menu-trigger" type="button" data-action="open-menu" aria-label="메뉴 열기">메뉴</button>
+      </header>
+    `;
+  }
   const stage = stageByIndex(ui.state.stageIndex ?? 1);
   const land = LANDS[ui.state.activeLand] ?? LANDS.meadow;
   const progress = pct(ui.state.reputation, ui.state.targetReputation);
@@ -380,11 +542,13 @@ function renderPiles() {
         const pileNumber = index + 1;
         const preview = previewByPile.get(pileNumber);
         const landing = ui.motion?.type === "landing" && ui.motion.settled && ui.motion.pileIndex === pileNumber;
-        const stack = visiblePileCardsForRender(pile, pileNumber).slice(-4);
-        const match = pilePreviewGlows(preview);
-        return `
-          <button class="pile-card ${match ? "is-match" : ""} ${preview?.breaksCombo ? "is-break" : ""} ${landing ? "is-landing" : ""}" type="button" data-action="play-pile" data-pile-index="${pileNumber}" aria-label="정원 ${pileNumber}" ${ui.state.phase !== "play" ? "disabled" : ""}>
-            <div class="mini-stack" aria-hidden="true">
+        const harvested = landing && ui.motion?.harvested;
+        const showScore = landing && (!isEndlessRun() || (ui.motion?.points ?? 0) > 0);
+          const stack = visiblePileCardsForRender(pile, pileNumber).slice(-4);
+          const match = pilePreviewGlows(preview);
+          return `
+            <button class="pile-card ${match ? "is-match" : ""} ${preview?.breaksCombo ? "is-break" : ""} ${landing ? "is-landing" : ""} ${harvested ? "is-landing-harvest" : ""}" type="button" data-action="play-pile" data-pile-index="${pileNumber}" aria-label="정원 ${pileNumber}" ${ui.state.phase !== "play" ? "disabled" : ""}>
+              <div class="mini-stack" aria-hidden="true">
               ${stack.length
                 ? stack.map((card, cardIndex) => {
                   const fanX = Math.round((cardIndex - (stack.length - 1) / 2) * 25);
@@ -397,8 +561,14 @@ function renderPiles() {
                   </span>
                 `;
                 }).join("")
-                : `<span class="empty-slot"></span>`}
-            </div>
+                  : `<span class="empty-slot"></span>`}
+              </div>
+              ${pilePreviewMarkup(preview)}
+              ${harvested ? `<span class="harvest-ring" aria-hidden="true"></span>
+                <span class="harvest-sparks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>` : ""}
+              ${showScore ? `<span class="score-pop ${harvested ? "is-harvest" : ""}">
+              ${harvested ? `<span>수확</span><strong>+${ui.motion.points ?? 0}</strong><em>${escapeHtml(ui.motion.formula ?? "")}</em>` : `+${ui.motion.points ?? 0}`}
+            </span>` : ""}
           </button>
         `;
       }).join("")}
@@ -407,6 +577,9 @@ function renderPiles() {
 }
 
 function renderHand() {
+  const handMotion = ui.motion?.type === "landing" ? ui.motion : null;
+  const handFlowReady = handMotion?.settled === true;
+  const playedHandIndex = handMotion?.playedHandIndex ?? 0;
   return `
     <section class="hand-panel" aria-label="손패">
       <div class="hand-head">
@@ -421,15 +594,26 @@ function renderHand() {
           const selected = ui.selectedHandIndex === handIndex;
           const hovered = ui.hoveredHandIndex === handIndex;
           const discardSelected = ui.discardSelection.has(handIndex);
-          const dealtIndex = ui.motion?.dealtIds?.indexOf(card.id) ?? -1;
+          const dealtIndex = ui.motion?.type === "deal" ? (ui.motion.dealtIds?.indexOf(card.id) ?? -1) : -1;
+          const beforeIndex = handMotion?.beforeHandIds?.indexOf(card.id) ?? -1;
+          const shifted = beforeIndex >= playedHandIndex && beforeIndex > index;
+          const shiftOrder = shifted ? Math.max(0, beforeIndex - playedHandIndex) : 0;
+          const shiftDelay = HAND_SHIFT_DELAY_MS + shiftOrder * HAND_SHIFT_STAGGER_MS;
+          const refillIndex = handMotion?.dealtIds?.indexOf(card.id) ?? -1;
+          const refilling = refillIndex >= 0;
+          const preShift = shifted && !handFlowReady;
+          const preRefill = refilling && !handFlowReady;
+          const activeShift = shifted && handFlowReady;
+          const activeRefill = refilling && handFlowReady;
           const dealt = dealtIndex >= 0;
           const dealCount = ui.motion?.dealtIds?.length ?? 0;
-          const dealX = dealt ? Math.round((dealtIndex - (dealCount - 1) / 2) * -10) : 0;
-          const dealDelay = dealt ? dealtIndex * 72 : 0;
+          const dealX = dealt ? Math.round((dealtIndex - (dealCount - 1) / 2) * -14) : 0;
+          const dealDelay = dealt ? dealtIndex * 82 : 0;
+          const dealRotate = dealt ? Math.round((dealtIndex - (dealCount - 1) / 2) * 2) : 0;
           const rejected = ui.motion?.type === "reject" && ui.motion.handIndex === handIndex;
           return `
-            <button class="hand-card ${selected ? "is-selected" : ""} ${hovered ? "is-hovered" : ""} ${discardSelected ? "is-discard-selected" : ""} ${dealt ? "is-dealt" : ""} ${rejected ? "is-rejected" : ""}" type="button" data-action="select-card" data-hand-index="${handIndex}" aria-label="${card.digit} ${escapeHtml(card.cardName)} ${escapeHtml(card.categoryLabel)}" style="--color:${colorCss(card.color)}; --deal-index:${Math.max(0, dealtIndex)}; --deal-delay:${dealDelay}ms; --deal-x:${dealX}px" ${ui.state.phase !== "play" ? "disabled" : ""}>
-              ${cardFace(card, "card-art")}
+            <button class="hand-card ${selected ? "is-selected" : ""} ${hovered ? "is-hovered" : ""} ${discardSelected ? "is-discard-selected" : ""} ${preShift ? "is-hand-pre-shift" : ""} ${preRefill ? "is-hand-pre-refill" : ""} ${activeShift ? "is-hand-shifting" : ""} ${activeRefill ? "is-hand-refill" : ""} ${dealt ? "is-dealt" : ""} ${rejected ? "is-rejected" : ""}" type="button" data-action="select-card" data-hand-index="${handIndex}" aria-label="${card.digit} ${escapeHtml(card.cardName)} ${escapeHtml(card.categoryLabel)}" style="--color:${colorCss(card.color)}; --deal-index:${Math.max(0, dealtIndex)}; --deal-delay:${dealDelay}ms; --deal-x:${dealX}px; --deal-rotate:${dealRotate}deg; --hand-shift-delay:${shiftDelay}ms; --hand-shift-duration:${HAND_SHIFT_MS}ms; --hand-refill-delay:${HAND_REFILL_DELAY_MS}ms; --hand-refill-duration:${HAND_REFILL_MS}ms" ${ui.state.phase !== "play" ? "disabled" : ""}>
+              ${cardFace(card, "card-art", { showAbility: isEndlessRun() })}
             </button>
           `;
         }).join("")}
@@ -440,6 +624,18 @@ function renderHand() {
 
 function renderResultPanel() {
   if (!["won", "game_over"].includes(ui.state.phase)) return "";
+  if (isEndlessRun()) {
+    return `
+      <section class="result-sheet is-loss">
+        <div>
+          <span>${ui.state.resultImproved ? "새 기록" : "기록 종료"}</span>
+          <strong>${escapeHtml(ui.state.failureReason ?? "더 이상 놓을 수 없습니다.")}</strong>
+        </div>
+        <b>${ui.state.score}점</b>
+        <button class="primary-button" type="button" data-action="restart-run">다시</button>
+      </section>
+    `;
+  }
   const cleared = ui.state.phase === "won";
   return `
     <section class="result-sheet ${cleared ? "is-win" : "is-loss"}">
@@ -483,7 +679,7 @@ function renderRewardSheet() {
 
 function renderMenu() {
   if (!ui.menuOpen) return "";
-  const summary = handPreviewSummary(ui.state);
+  const summary = currentHandSummary();
   return `
     <section class="menu-backdrop">
       <div class="menu-panel">
@@ -495,9 +691,10 @@ function renderMenu() {
           <button class="primary-button" type="button" data-action="auto-play" ${ui.state.phase !== "play" || !summary.bestIndex ? "disabled" : ""}>추천</button>
           <button class="plain-button" type="button" data-action="swap-hand" ${ui.state.phase !== "play" || ui.state.discardsRemaining <= 0 ? "disabled" : ""}>교체 5</button>
           <button class="plain-button" type="button" data-action="new-run">새 런</button>
+          <button class="plain-button" type="button" data-action="new-endless">무한</button>
         </div>
         <div class="menu-tabs">
-          ${["stages", "store", "codex", "settings"].map((tab) => `
+          ${["stages", "deck", "store", "codex", "settings"].map((tab) => `
             <button class="${ui.menuTab === tab ? "is-active" : ""}" type="button" data-action="set-menu-tab" data-tab="${tab}">${tabLabel(tab)}</button>
           `).join("")}
         </div>
@@ -508,19 +705,50 @@ function renderMenu() {
 }
 
 function tabLabel(tab) {
-  return { stages: "스테이지", store: "상점", codex: "도감", settings: "설정" }[tab] ?? tab;
+  return { stages: "스테이지", deck: "덱", store: "상점", codex: "도감", settings: "설정" }[tab] ?? tab;
 }
 
 function renderMenuContent() {
+  if (ui.menuTab === "deck") return renderDeck();
   if (ui.menuTab === "store") return renderStore();
   if (ui.menuTab === "codex") return renderCodex();
   if (ui.menuTab === "settings") return renderSettings();
   return renderStages();
 }
 
+function renderDeck() {
+  const deck = ui.state.deck ?? [];
+  const compost = ui.state.compostPile ?? [];
+  return `
+    <div class="deck-stack">
+      <div class="deck-counts">
+        <span>남은 덱 ${deck.length}</span>
+        <span>퇴비 ${compost.length}</span>
+      </div>
+      <div class="deck-list" role="list">
+        ${deck.length ? deck.map((card, index) => {
+          const ability = cardAbilitySummary(card);
+          return `
+            <div class="deck-row" role="listitem">
+              <b>${index + 1}</b>
+              <i>${card.digit}</i>
+              <span><strong>${escapeHtml(card.cardName)}</strong><small>${escapeHtml(card.categoryLabel)} · ${escapeHtml(card.colorLabel)}</small></span>
+              <span><strong>${escapeHtml(ability.label)}</strong><small>${escapeHtml(ability.description)}</small></span>
+            </div>
+          `;
+        }).join("") : `<p class="empty-note">덱이 비어 있습니다. 다음 뽑기 전에 퇴비가 섞입니다.</p>`}
+      </div>
+    </div>
+  `;
+}
+
 function renderStages() {
   return `
     <div class="stage-list">
+      <button class="menu-row stage-row ${isEndlessRun() ? "cleared" : "unlocked"}" type="button" data-action="new-endless">
+        <b>E</b>
+        <span><strong>무한 정원</strong><small>수확 점수 · 최고 ${ui.profile.numberEndless?.bestScore ?? 0}</small></span>
+      </button>
       ${CAMPAIGN_STAGES.map((stage) => {
         const status = campaignStageStatus(ui.profile.numberCampaign, stage.index);
         const locked = status === "locked";
@@ -536,19 +764,19 @@ function renderStages() {
 }
 
 function renderStore() {
-  const runOptions = ui.state.phase === "play" ? runShopOptions(ui.state) : [];
+  const runOptions = ui.state.phase === "play" && !isEndlessRun() ? runShopOptions(ui.state) : [];
   const metaOptions = storeOptions(ui.profile);
   return `
     <div class="store-stack">
       <section>
-        <h3>이번 런 · 코인 ${ui.state.shopCoins}</h3>
+        <h3>이번 런 · 코인 ${ui.state.shopCoins ?? 0}</h3>
         ${runOptions.length ? runOptions.map((option, index) => `
           <button class="menu-row store-row" type="button" data-action="buy-run-shop" data-shop-index="${index + 1}" ${ui.state.shopCoins < option.cost ? "disabled" : ""}>
             ${cardArt({ imageId: option.imageId, cardName: option.name, digit: option.digit ?? "" }, "row-art")}
             <span><strong>${escapeHtml(option.name)}</strong><small>${escapeHtml(option.previewLine)}</small></span>
             <b>${option.cost}</b>
           </button>
-        `).join("") : `<p class="empty-note">완료된 런에서는 보급을 쓸 수 없습니다.</p>`}
+        `).join("") : `<p class="empty-note">${isEndlessRun() ? "무한 정원은 현재 런 보급 없이 진행됩니다." : "완료된 런에서는 보급을 쓸 수 없습니다."}</p>`}
       </section>
       <section>
         <h3>메타 성장 · 씨앗 ${ui.profile.numberMoney}</h3>
@@ -604,6 +832,7 @@ function renderSettings() {
       <label><input type="checkbox" data-action="toggle-setting" data-setting="autosave" ${ui.settings.autosave ? "checked" : ""} /> 자동 저장</label>
       <div class="danger-row">
         <button class="plain-button" type="button" data-action="new-run">새 런</button>
+        <button class="plain-button" type="button" data-action="new-endless">새 무한</button>
         <button class="danger-button" type="button" data-action="reset-storage">저장 초기화</button>
       </div>
     </div>
@@ -623,7 +852,7 @@ function renderMotionLayer() {
   return `
     <div class="motion-layer" aria-hidden="true">
       <div class="flight-card" style="--x:${source.left}px; --y:${source.top}px; --w:${source.width}px; --h:${source.height}px; --tx:${tx}px; --ty:${ty}px; --color:${colorCss(card.color)}">
-        ${cardFace(card, "card-art")}
+        ${cardFace(card, "card-art", { showAbility: isEndlessRun() })}
       </div>
     </div>
   `;
@@ -648,7 +877,9 @@ function render() {
       </main>
     `;
     document.body.dataset.phase = ui.state.phase;
+    document.body.dataset.mode = ui.state.mode ?? "number";
     document.body.classList.toggle("no-motion-body", !motionAllowed());
+    document.body.classList.toggle("is-hand-hover-locked", handHoverLocked());
   } finally {
     stopRender({
       ...performanceDetail(),
@@ -663,7 +894,7 @@ function actionButton(target) {
 }
 
 function setHoveredHandIndex(handIndex) {
-  const next = handIndex && ui.state.phase === "play" && !ui.discardMode ? handIndex : null;
+  const next = handIndex && !handHoverLocked() && ui.state.phase === "play" && !ui.discardMode ? handIndex : null;
   if (ui.hoveredHandIndex === next) return;
   if (ui.hoverPreviewTimer) {
     window.clearTimeout(ui.hoverPreviewTimer);
@@ -678,6 +909,7 @@ function setHoveredHandIndex(handIndex) {
     ui.hoverPreviewTimer = null;
     ui.hoveredHandIndex = next;
     applyHandHoverPreview();
+    playSfx("hover");
   }, 90);
 }
 
@@ -694,6 +926,12 @@ function applyHandHoverPreview() {
     const preview = previewByPile.get(pileIndex);
     pile.classList.toggle("is-match", pilePreviewGlows(preview));
     pile.classList.toggle("is-break", preview?.breaksCombo === true);
+    const previewSlot = pile.querySelector(".pile-preview");
+    if (previewSlot) {
+      const content = pilePreviewContent(preview);
+      previewSlot.innerHTML = content;
+      previewSlot.hidden = !content;
+    }
   });
 }
 
@@ -725,7 +963,7 @@ function playFromHandToPile(handIndex, pileIndex, opts = {}) {
   const sourceRect = rectSnapshot(opts.sourceRect) ?? handCardRect(handIndex);
   const targetRect = rectSnapshot(opts.targetRect) ?? pileLandingRect(pileIndex) ?? pileCellRect(pileIndex);
   const beforeHand = ui.state.hand.map((card) => card.id);
-  const result = perfMonitor.measure("game.playCard", () => playCardToPile(ui.state, handIndex, pileIndex), {
+  const result = perfMonitor.measure("game.playCard", () => playCurrentCard(handIndex, pileIndex), {
     ...performanceDetail(),
     handIndex,
     pileIndex,
@@ -741,19 +979,27 @@ function playFromHandToPile(handIndex, pileIndex, opts = {}) {
   ui.selectedHandIndex = null;
   clearHoverPreview();
   ui.discardSelection.clear();
+  const motionDuration = result.harvest ? HARVEST_MOTION_MS : LANDING_MOTION_MS;
   queueMotion({
     type: "landing",
     pileIndex: result.preview?.pileIndex ?? pileIndex,
-    points: result.preview?.expectedReputation ?? 0,
+    points: previewPoints(result.preview),
+    harvested: result.harvest != null,
+    formula: result.harvest ? `${result.harvest.addTotal} x ${result.harvest.multiplyTotal}` : result.preview?.scoreFormula,
     brokeCombo: result.preview?.breaksCombo === true,
     dealtIds,
+    beforeHandIds: beforeHand,
+    playedHandIndex: handIndex,
     source: sourceRect,
     target: targetRect,
     card: playedCard,
-  }, LANDING_MOTION_MS);
+  }, motionDuration);
   playSfx("place", { preview: result.preview });
-  if (ui.state.phase === "reward" || ui.state.phase === "won") {
-    window.setTimeout(() => playSfx("reward"), ui.motion?.type === "landing" ? LANDING_MOTION_MS : 150);
+  if (ui.state.phase === "reward" || ui.state.phase === "won" || result.harvest) {
+    const rewardDelay = result.harvest
+      ? HARVEST_REWARD_SFX_DELAY_MS
+      : ui.motion?.type === "landing" ? LANDING_MOTION_MS : 150;
+    window.setTimeout(() => playSfx("reward"), rewardDelay);
   }
   persist();
   render();
@@ -761,15 +1007,19 @@ function playFromHandToPile(handIndex, pileIndex, opts = {}) {
 }
 
 function playBestCard(handIndex) {
-  const targetIndex = handIndex ?? handPreviewSummary(ui.state).bestIndex;
+  const targetIndex = handIndex ?? currentHandSummary().bestIndex;
   if (!targetIndex) return { ok: false, reason: "no_card" };
-  const target = bestPileTargetForCard(ui.state, targetIndex);
-  return playFromHandToPile(targetIndex, target.bestIndex ?? 1);
+  const target = currentBestTarget(targetIndex);
+  if (!target.bestIndex) {
+    rejectUnplayableHand(targetIndex);
+    return { ok: false, reason: "no_playable_pile" };
+  }
+  return playFromHandToPile(targetIndex, target.bestIndex);
 }
 
 function quickPlayPriorityTarget(handIndex, sourceRect = null) {
   if (ui.state.phase !== "play" || ui.discardMode) return false;
-  const target = priorityPileTargetForCard(ui.state, handIndex);
+  const target = currentPriorityTarget(handIndex);
   if (!target.bestIndex) return false;
   const result = playFromHandToPile(handIndex, target.bestIndex, {
     sourceRect: sourceRect ?? handCardRect(handIndex),
@@ -781,7 +1031,7 @@ function quickPlayPriorityTarget(handIndex, sourceRect = null) {
 function swapWholeHand() {
   const beforeIds = new Set(ui.state.hand.map((card) => card.id));
   const indices = ui.state.hand.map((_, index) => index + 1);
-  const result = perfMonitor.measure("game.discard", () => discardNumberCards(ui.state, indices), performanceDetail());
+  const result = perfMonitor.measure("game.discard", () => discardCurrentCards(indices), performanceDetail());
   if (!result.ok) {
     playSfx("reject");
     showToast(result.reason);
@@ -794,7 +1044,7 @@ function swapWholeHand() {
   ui.discardMode = false;
   ui.discardSelection.clear();
   queueMotion({ type: "deal", dealtIds }, dealMotionDuration(dealtIds.length));
-  playSfx("deal");
+  playSfx("deal", { count: dealtIds.length });
   persist();
   return result;
 }
@@ -803,6 +1053,10 @@ function handleAction(action, button) {
   if (action === "select-card") {
     const index = Number(button.dataset.handIndex);
     if (quickPlayPriorityTarget(index, rectSnapshot(button.getBoundingClientRect()))) return;
+    if (!hasPlayableTarget(index)) {
+      rejectUnplayableHand(index);
+      return;
+    }
     ui.selectedHandIndex = index;
     playSfx("select");
   } else if (action === "play-pile") {
@@ -827,12 +1081,18 @@ function handleAction(action, button) {
     persist();
   } else if (action === "open-menu") {
     ui.menuOpen = true;
+  } else if (action === "open-deck") {
+    ui.menuOpen = true;
+    ui.menuTab = "deck";
   } else if (action === "close-menu") {
     ui.menuOpen = false;
   } else if (action === "set-menu-tab") {
     ui.menuTab = button.dataset.tab || "stages";
   } else if (action === "select-stage") {
     startStage(Number(button.dataset.stageIndex));
+    return;
+  } else if (action === "new-endless") {
+    startEndlessMode();
     return;
   } else if (action === "buy-run-shop") {
     const result = purchaseRunShop(ui.state, Number(button.dataset.shopIndex));
@@ -853,6 +1113,10 @@ function handleAction(action, button) {
     startNextStage();
     return;
   } else if (action === "restart-run" || action === "new-run") {
+    if (isEndlessRun()) {
+      startEndlessMode();
+      return;
+    }
     startStage(ui.state.stageIndex ?? ui.profile.numberCampaign.lastSelectedStage);
     return;
   } else if (action === "toggle-setting") {
@@ -892,6 +1156,20 @@ function updateDragGhost() {
   drag.ghost.style.setProperty("--drag-h", `${Math.round(drag.sourceRect.height)}px`);
 }
 
+function ensureDragGhost() {
+  const drag = ui.drag;
+  if (!drag || drag.ghost) return;
+  const ghost = document.createElement("div");
+  ghost.className = `drag-card is-ready ${drag.sourceEl.classList.contains("is-selected") ? "is-selected" : ""}`;
+  ghost.innerHTML = drag.sourceEl.innerHTML;
+  ghost.style.setProperty("--color", colorCss(drag.card.color));
+  drag.ghost = ghost;
+  updateDragGhost();
+  document.body.appendChild(ghost);
+  drag.sourceEl.classList.add("is-drag-source");
+  document.body.classList.add("is-card-dragging");
+}
+
 function updateDropTarget(x, y) {
   const drag = ui.drag;
   if (!drag) return null;
@@ -903,8 +1181,8 @@ function updateDropTarget(x, y) {
   if (!pileIndex) return null;
   const target = document.querySelector(`.pile-card[data-pile-index="${pileIndex}"]`);
   const preview = drag.previews.find((item) => item.pileIndex === pileIndex);
-  target?.classList.add("is-drop-target", preview?.breaksCombo ? "is-drop-danger" : "is-drop-valid");
-  drag.ghost?.classList.add(preview?.breaksCombo ? "is-over-break" : "is-over-valid");
+  target?.classList.add("is-drop-target", preview?.breaksCombo || preview?.playable === false ? "is-drop-danger" : "is-drop-valid");
+  drag.ghost?.classList.add(preview?.breaksCombo || preview?.playable === false ? "is-over-break" : "is-over-valid");
   return pileIndex;
 }
 
@@ -919,28 +1197,24 @@ function endDragVisuals() {
 
 function beginCardDrag(event, sourceEl) {
   if (ui.state.phase !== "play" || ui.discardMode || sourceEl.disabled) return;
+  if (isEndlessRun()) return;
   const handIndex = Number(sourceEl.dataset.handIndex);
   const card = ui.state.hand[handIndex - 1];
   if (!card) return;
+  if (!hasPlayableTarget(handIndex)) return;
   const stopDragStart = perfMonitor.start("drag.start", performanceDetail());
   const sourceRect = sourceEl.getBoundingClientRect();
-  const { previews } = bestPileTargetForCard(ui.state, handIndex);
-  const ghost = document.createElement("div");
-  ghost.className = `drag-card ${sourceEl.classList.contains("is-selected") ? "is-selected" : ""}`;
-  ghost.innerHTML = sourceEl.innerHTML;
-  ghost.style.setProperty("--color", colorCss(card.color));
-  document.body.appendChild(ghost);
-  sourceEl.classList.add("is-drag-source");
-  document.body.classList.add("is-card-dragging");
+  const { previews } = currentBestTarget(handIndex);
   ui.selectedHandIndex = handIndex;
   ui.suppressNextClick = true;
   ui.drag = {
     pointerId: event.pointerId,
     handIndex,
+    card,
     previews,
     sourceEl,
     sourceRect,
-    ghost,
+    ghost: null,
     offsetX: event.clientX - sourceRect.left,
     offsetY: event.clientY - sourceRect.top,
     startX: event.clientX,
@@ -950,7 +1224,6 @@ function beginCardDrag(event, sourceEl) {
     moved: false,
     overPileIndex: null,
   };
-  updateDragGhost();
   if (event.pointerId != null) sourceEl.setPointerCapture?.(event.pointerId);
   event.preventDefault();
   stopDragStart({ handIndex });
@@ -965,10 +1238,13 @@ function moveCardDrag(event) {
   drag.y = event.clientY;
   const dx = event.clientX - drag.startX;
   const dy = event.clientY - drag.startY;
-  if (dx * dx + dy * dy > 36) drag.moved = true;
+  if (dx * dx + dy * dy > 36) {
+    drag.moved = true;
+    ensureDragGhost();
+  }
   perfMonitor.measure("drag.move", () => {
     updateDragGhost();
-    updateDropTarget(event.clientX, event.clientY);
+    if (drag.moved) updateDropTarget(event.clientX, event.clientY);
   }, {
     ...performanceDetail(),
     handIndex: drag.handIndex,
@@ -1025,7 +1301,7 @@ app.addEventListener("mousedown", (event) => {
 
 app.addEventListener("pointerover", (event) => {
   const card = event.target.closest(".hand-card[data-action='select-card']");
-  if (!card || ui.drag) return;
+  if (!card || handHoverLocked()) return;
   setHoveredHandIndex(Number(card.dataset.handIndex));
 });
 
@@ -1086,9 +1362,12 @@ window.addEventListener("keydown", (event) => {
       render();
     } else if (["q", "w", "e", "r"].includes(key)) {
       const pile = { q: 1, w: 2, e: 3, r: 4 }[key];
-      if (ui.state.phase === "play" && ui.selectedHandIndex) playFromHandToPile(ui.selectedHandIndex, pile);
+      if (ui.state.phase === "play" && ui.selectedHandIndex) {
+        if (isEndlessRun()) playBestCard(ui.selectedHandIndex);
+        else playFromHandToPile(ui.selectedHandIndex, pile);
+      }
     } else if (key === "enter" || key === " ") {
-      if (ui.state.phase === "play") playBestCard(ui.selectedHandIndex ?? handPreviewSummary(ui.state).bestIndex);
+      if (ui.state.phase === "play") playBestCard(ui.selectedHandIndex ?? currentHandSummary().bestIndex);
     } else if (key === "m") {
       ui.menuOpen = true;
       render();
