@@ -107,6 +107,16 @@ test("starts an endless run with score pressure instead of stage pressure", () =
   assert.equal(cardAbilitySummary(makeCard(3, 1)).text, "일반. 원형 이웃수로 세로/층 줄기를 잇는다.");
 });
 
+test("endless opening shuffle changes when the run seed changes", () => {
+  const first = newEndlessRun(defaultMetaProfile(), { seed: 11 });
+  const second = newEndlessRun(defaultMetaProfile(), { seed: 12 });
+
+  assert.notDeepEqual(
+    first.hand.map((card) => `${card.digit}:${card.ability}`),
+    second.hand.map((card) => `${card.digit}:${card.ability}`),
+  );
+});
+
 test("catalog has ten complete garden cards and source-backed image paths", () => {
   assert.equal(DIGITS.length, 10);
   assert.equal(starterDeck().length, 20);
@@ -144,48 +154,74 @@ test("combo matching and pile preview score the main number relationships", () =
   assert.equal(preview.expectedReputation, 102);
 });
 
-test("endless uses circular neighbors and automatic balanced placement", () => {
+test("endless stacks circular neighbors before balancing unrelated cards", () => {
   assert.equal(isCircularNeighbor(9, 0), true);
   assert.equal(isCircularNeighbor(0, 9), true);
   assert.equal(isCircularNeighbor(0, 8), false);
 
-  const state = newEndlessRun(defaultMetaProfile(), {
+  const chainState = newEndlessRun(defaultMetaProfile(), {
     shuffle: false,
     skipRefill: true,
-    hand: [makeCard(1, 1), makeCard(2, 1), makeCard(3, 1), makeCard(4, 1)],
+    hand: [makeCard(5, 1), makeCard(6, 1), makeCard(7, 1)],
+    deck: [],
+    handSize: 3,
+  });
+
+  for (let i = 0; i < 3; i += 1) {
+    const result = playEndlessCardToPile(chainState, 1, 4);
+    assert.equal(result.ok, true);
+    assert.equal(result.preview.pileIndex, 1);
+    assert.equal(result.preview.verticalConnected, i > 0);
+  }
+
+  assert.deepEqual(chainState.piles.map((pile) => pile.cards.length), [3, 0, 0, 0]);
+  assert.deepEqual(chainState.piles[0].cards.map((card) => card.digit), [5, 6, 7]);
+  assert.equal(chainState.score, 0);
+
+  const spreadState = newEndlessRun(defaultMetaProfile(), {
+    shuffle: false,
+    skipRefill: true,
+    hand: [makeCard(1, 1), makeCard(3, 1), makeCard(5, 1), makeCard(7, 1)],
     deck: [],
     handSize: 4,
   });
 
   for (let i = 0; i < 4; i += 1) {
-    const result = playEndlessCardToPile(state, 1, 4);
+    const result = playEndlessCardToPile(spreadState, 1, 4);
     assert.equal(result.ok, true);
     assert.equal(result.preview.pileIndex, i + 1);
   }
 
-  assert.deepEqual(state.piles.map((pile) => pile.cards.length), [1, 1, 1, 1]);
-  assert.deepEqual(state.piles.map((pile) => pile.cards[0].digit), [1, 2, 3, 4]);
-  assert.equal(state.score, 0);
+  assert.deepEqual(spreadState.piles.map((pile) => pile.cards.length), [1, 1, 1, 1]);
+  assert.deepEqual(spreadState.piles.map((pile) => pile.cards[0].digit), [1, 3, 5, 7]);
 });
 
 test("endless layer combo harvests five connected cards and sends them to compost", () => {
   const state = newEndlessRun(defaultMetaProfile(), {
     shuffle: false,
     skipRefill: true,
-    hand: [makeCard(1, 1), makeCard(2, 1), makeCard(3, 1), makeCard(4, 1), makeCard(5, 1)],
+    handSize: 0,
+    hand: [makeCard(3, 1)],
     deck: [],
+    piles: [
+      { cards: [makeCard(1, 1), makeCard(2, 1)] },
+      { cards: [makeCard(8, 1)] },
+      { cards: [makeCard(9, 1), makeCard(4, 1)] },
+      { cards: [makeCard(9, 2), makeCard(5, 1)] },
+    ],
   });
 
-  for (let i = 0; i < 5; i += 1) {
-    const result = playEndlessCardToPile(state, 1, 4);
-    assert.equal(result.ok, true);
-  }
+  const result = playEndlessCardToPile(state, 1, 4);
+  assert.equal(result.ok, true);
+  assert.equal(result.preview.pileIndex, 2);
+  assert.equal(result.preview.verticalConnected, false);
+  assert.equal(result.preview.layerConnections, 2);
 
   assert.equal(state.lastHarvest.score, 450);
   assert.equal(state.score, 450);
   assert.equal(state.bestHarvestScore, 450);
   assert.equal(state.harvestCount, 1);
-  assert.deepEqual(state.piles.map((pile) => pile.cards.length), [0, 0, 0, 0]);
+  assert.deepEqual(state.piles.map((pile) => pile.cards.length), [0, 1, 1, 1]);
   assert.equal(state.compostPile.length, 5);
   assert.deepEqual([...state.compostPile].map((card) => card.digit).sort((a, b) => a - b), [1, 2, 3, 4, 5]);
 });

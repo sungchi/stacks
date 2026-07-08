@@ -305,7 +305,14 @@ function selectedTarget() {
     ? ui.hoveredHandIndex
     : ui.selectedHandIndex;
   if (!handIndex) return { bestIndex: null, bestPreview: null, previews: [] };
-  return currentBestTarget(handIndex);
+  const target = currentBestTarget(handIndex);
+  if (isEndlessRun()) {
+    return {
+      ...target,
+      previews: target.bestPreview ? [target.bestPreview] : [],
+    };
+  }
+  return target;
 }
 
 function endlessPreviewLabel(preview) {
@@ -372,8 +379,16 @@ function maybeFinalizeRun() {
   persist();
 }
 
+function freshRunSeed() {
+  const randomPart = globalThis.crypto?.getRandomValues
+    ? globalThis.crypto.getRandomValues(new Uint32Array(1))[0]
+    : Math.floor(Math.random() * 0xffffffff);
+  const clockPart = Math.floor((globalThis.performance?.now?.() ?? 0) * 1000);
+  return `${Date.now()}:${clockPart}:${randomPart}`;
+}
+
 function startEndlessMode() {
-  ui.state = newEndlessRun(ui.profile);
+  ui.state = newEndlessRun(ui.profile, { seed: freshRunSeed() });
   ui.selectedHandIndex = null;
   ui.hoveredHandIndex = null;
   ui.discardMode = false;

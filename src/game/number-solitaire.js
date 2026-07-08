@@ -1123,7 +1123,8 @@ function evaluateEndlessPilePlayVariant(state, sourcePiles, index, card, pruneTo
   const harvestReady = analysis.harvestReady;
   const harvestScore = harvestReady ? analysis.harvestTotals.score : 0;
   const overCapacity = pileCardCount >= capacity && !pruneTop;
-  const heightAllowed = pileCardCount === minCount || harvestReady || pruneTop;
+  const verticalRunAllowed = previousDigit != null && analysis.verticalConnected;
+  const heightAllowed = pileCardCount === minCount || harvestReady || pruneTop || verticalRunAllowed;
   const playable = heightAllowed && (!overCapacity || harvestReady);
   const cardCountAfter = countAfterHarvest(piles, index, analysis.harvestGroup);
   const primaryKey = harvestReady
@@ -1178,6 +1179,7 @@ function evaluateEndlessPilePlayVariant(state, sourcePiles, index, card, pruneTo
     componentSize: analysis.componentSize,
     layerConnections: analysis.layerConnections,
     verticalConnected: analysis.verticalConnected,
+    verticalRunAllowed,
     extraEdges: copy(analysis.extraEdges),
     prunedCard: copy(prunedCard),
     prunedCardId: prunedCard?.id ?? null,
@@ -1231,6 +1233,7 @@ function endlessPilePreviewScore(preview) {
   return (preview.harvestReady ? 500000 : 0)
     + (preview.pruneTop ? 25000 : 0)
     + (preview.primaryKey === "bridge" ? 20000 : preview.primaryKey === "graft" ? 14000 : 0)
+    + (preview.verticalConnected ? 32000 : preview.layerConnections > 0 ? 12000 : 0)
     + (preview.breaksCombo ? -80000 : 100000)
     + (preview.glow === "gold" ? 20000 : preview.glow === "yellow" ? 8000 : preview.glow === "open" ? 2000 : 0)
     + (preview.potentialScore ?? 0) * 10
