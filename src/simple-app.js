@@ -47,6 +47,10 @@ import {
   saveSettings,
 } from "./game/storage.js";
 import {
+  initialRunForRequest,
+  requestedPlayMode,
+} from "./game/run-mode.js";
+import {
   createPerformanceMonitor,
   installPerformanceTools,
 } from "./performance.js";
@@ -86,8 +90,10 @@ const audio = {
   context: null,
 };
 
-ui.state = loadRun() ?? newCampaignRun(ui.profile, ui.profile.numberCampaign.lastSelectedStage);
-if (!ui.state) ui.state = newCampaignRun(defaultMetaProfile(), 1);
+const requestedMode = requestedPlayMode(window.location.search);
+const savedRun = loadRun();
+ui.state = initialRunForRequest(savedRun, ui.profile, requestedMode, { seed: freshRunSeed() });
+if (!ui.state) ui.state = newEndlessRun(defaultMetaProfile(), { seed: freshRunSeed() });
 
 function performanceDetail() {
   return {
@@ -427,12 +433,11 @@ function startNextStage() {
 }
 
 function selectedTarget() {
-  const handIndex = ui.state.phase === "play" && !ui.discardMode && ui.hoveredHandIndex
-    ? ui.hoveredHandIndex
-    : ui.selectedHandIndex;
+  const hovering = ui.state.phase === "play" && !ui.discardMode && ui.hoveredHandIndex;
+  const handIndex = hovering ? ui.hoveredHandIndex : ui.selectedHandIndex;
   if (!handIndex) return { bestIndex: null, bestPreview: null, previews: [] };
-  const target = currentBestTarget(handIndex);
-  if (isEndlessRun()) {
+  const target = hovering ? currentPriorityTarget(handIndex) : currentBestTarget(handIndex);
+  if (hovering || isEndlessRun()) {
     return {
       ...target,
       previews: target.bestPreview ? [target.bestPreview] : [],
@@ -500,13 +505,17 @@ function cardMultiplyMarkup(card) {
 
 function cardAbilityMarkup(card) {
   const ability = cardAbilitySummary(card);
-  return `<span class="card-ability"><strong>${escapeHtml(ability.label)}</strong><small>${escapeHtml(ability.description)}</small></span>`;
+  return `<span class="card-ability"><strong>${escapeHtml(ability.label)}.</strong><small>${escapeHtml(ability.description)}</small></span>`;
+}
+
+function cardAriaLabel(card) {
+  const ability = cardAbilitySummary(card);
+  return `${card?.digit ?? ""} ${card?.cardName ?? "카드"} ${ability.label}`.trim();
 }
 
 function cardFace(card, artClass, opts = {}) {
   return `
     <span class="card-add">${cardAddMarkup(card)}</span>
-    <span class="card-kind">${escapeHtml(card.categoryLabel)}</span>
     ${cardArt(card, artClass)}
     ${opts.showAbility ? cardAbilityMarkup(card) : ""}
     <span class="card-multiply">${cardMultiplyMarkup(card)}</span>
@@ -651,7 +660,7 @@ function renderHand() {
           const dealRotate = dealt ? Math.round((dealtIndex - (dealCount - 1) / 2) * 2) : 0;
           const rejected = ui.motion?.type === "reject" && ui.motion.handIndex === handIndex;
           return `
-            <button class="hand-card ${selected ? "is-selected" : ""} ${hovered ? "is-hovered" : ""} ${discardSelected ? "is-discard-selected" : ""} ${preShift ? "is-hand-pre-shift" : ""} ${preRefill ? "is-hand-pre-refill" : ""} ${activeShift ? "is-hand-shifting" : ""} ${activeRefill ? "is-hand-refill" : ""} ${dealt ? "is-dealt" : ""} ${rejected ? "is-rejected" : ""}" type="button" data-action="select-card" data-hand-index="${handIndex}" aria-label="${card.digit} ${escapeHtml(card.cardName)} ${escapeHtml(card.categoryLabel)}" style="--color:${colorCss(card.color)}; --deal-index:${Math.max(0, dealtIndex)}; --deal-delay:${dealDelay}ms; --deal-x:${dealX}px; --deal-rotate:${dealRotate}deg; --hand-shift-delay:${shiftDelay}ms; --hand-shift-duration:${HAND_SHIFT_MS}ms; --hand-refill-delay:${HAND_REFILL_DELAY_MS}ms; --hand-refill-duration:${HAND_REFILL_MS}ms" ${ui.state.phase !== "play" ? "disabled" : ""}>
+            <button class="hand-card ${selected ? "is-selected" : ""} ${hovered ? "is-hovered" : ""} ${discardSelected ? "is-discard-selected" : ""} ${preShift ? "is-hand-pre-shift" : ""} ${preRefill ? "is-hand-pre-refill" : ""} ${activeShift ? "is-hand-shifting" : ""} ${activeRefill ? "is-hand-refill" : ""} ${dealt ? "is-dealt" : ""} ${rejected ? "is-rejected" : ""}" type="button" data-action="select-card" data-hand-index="${handIndex}" aria-label="${escapeHtml(cardAriaLabel(card))}" style="--color:${colorCss(card.color)}; --deal-index:${Math.max(0, dealtIndex)}; --deal-delay:${dealDelay}ms; --deal-x:${dealX}px; --deal-rotate:${dealRotate}deg; --hand-shift-delay:${shiftDelay}ms; --hand-shift-duration:${HAND_SHIFT_MS}ms; --hand-refill-delay:${HAND_REFILL_DELAY_MS}ms; --hand-refill-duration:${HAND_REFILL_MS}ms" ${ui.state.phase !== "play" ? "disabled" : ""}>
               ${cardFace(card, "card-art", { showAbility: isEndlessRun() })}
             </button>
           `;
@@ -772,7 +781,7 @@ function renderDeck() {
               <b>${index + 1}</b>
               <i>${card.digit}</i>
               <span><strong>${escapeHtml(card.cardName)}</strong><small>${escapeHtml(card.categoryLabel)} · ${escapeHtml(card.colorLabel)}</small></span>
-              <span><strong>${escapeHtml(ability.label)}</strong><small>${escapeHtml(ability.description)}</small></span>
+              <span><strong>${escapeHtml(ability.label)}.</strong><small>${escapeHtml(ability.description)}</small></span>
             </div>
           `;
         }).join("") : `<p class="empty-note">덱이 비어 있습니다. 다음 뽑기 전에 퇴비가 섞입니다.</p>`}
@@ -1170,7 +1179,7 @@ function handleAction(action, button) {
     resetAllStorage();
     clearRun();
     ui.profile = defaultMetaProfile();
-    ui.state = newCampaignRun(ui.profile, 1);
+    ui.state = newEndlessRun(ui.profile, { seed: freshRunSeed() });
     ui.settings = loadSettings();
     ui.menuOpen = false;
     clearMotion();

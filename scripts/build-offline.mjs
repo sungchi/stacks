@@ -7,6 +7,7 @@ const sharedInputs = [
   "src/game/random.js",
   "src/game/catalog.js",
   "src/game/number-solitaire.js",
+  "src/game/run-mode.js",
   "src/game/storage.js",
 ];
 const builds = [

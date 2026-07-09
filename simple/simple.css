@@ -729,23 +729,6 @@ body.is-hand-hover-locked .hand-card:focus-visible {
   line-height: 1;
 }
 
-.card-kind {
-  position: absolute;
-  top: 9px;
-  right: 8px;
-  overflow: hidden;
-  max-width: calc(100% - 58px);
-  color: var(--muted);
-  font-size: 12px;
-  font-style: normal;
-  font-weight: 900;
-  line-height: 1;
-  text-align: right;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  pointer-events: none;
-}
-
 .card-art {
   align-self: center;
   justify-self: center;
@@ -1766,11 +1749,6 @@ body[data-phase="game_over"] .simple-shell {
 
   .card-multiply {
     font-size: 15px;
-  }
-
-  .card-kind {
-    font-size: 11px;
-    max-width: calc(100% - 48px);
   }
 
   .card-ability small {

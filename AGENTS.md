@@ -10,7 +10,7 @@
 
 한 줄 피치:
 
-**0~9 정원 카드를 4개의 더미에 놓아 같은수, 이웃수, 합 9, 홀짝 흐름을 만들고, 스테이지 목표 평판과 발견 도감을 키우는 모바일 우선 정적 웹 카드 솔리테어.**
+**0~9 정원 카드 1장을 골라 4개 정원에 자동 배치하고, 세로·층 숫자 흐름을 수확해 최고 점수를 노리는 모바일 우선 정적 웹 카드 솔리테어.**
 
 참고할 것은 Stacks (스택스)의 최신 게임 감각과 애셋이다. 옛 Lucky Garden, slot, 출시 히스토리, 실험 로그는 구현 기준으로 들고 오지 않는다.
 
@@ -23,6 +23,7 @@
 | [docs/assets.md](docs/assets.md) | 애셋 위치, 사용 규칙, 갱신 절차 | 기준 |
 | [docs/analysis/garden-stacks-endless-mode-proposal-2026-07-07.md](docs/analysis/garden-stacks-endless-mode-proposal-2026-07-07.md) | 무한 정원 고득점 모드 규칙 제안서 | 제안 |
 | [docs/analysis/garden-stacks-auto-chain-combo-proposal-2026-07-08.md](docs/analysis/garden-stacks-auto-chain-combo-proposal-2026-07-08.md) | 자동 배치 연쇄 콤보 모드 규칙 제안서 | 제안 |
+| [docs/analysis/garden-stacks-endless-default-mode-analysis-2026-07-10.md](docs/analysis/garden-stacks-endless-default-mode-analysis-2026-07-10.md) | 현재 무한 정원 기본 모드 구현 분석과 개선 우선순위 | 분석 |
 | [docs/analysis/garden-stacks-ui-proposal-2026-07-04.md](docs/analysis/garden-stacks-ui-proposal-2026-07-04.md) | 깔끔하고 직관적인 게임 UI 제안 보고서 | 제안 |
 | [docs/analysis/garden-stacks-endless-mode-proposal-2026-07-07.md](docs/analysis/garden-stacks-endless-mode-proposal-2026-07-07.md) | 무한 정원 고득점 모드 규칙·제한·재미요소 제안서 | 제안 |
 | [docs/mockups/garden-stacks-ui-2026-07-04/bw-style-guide.md](docs/mockups/garden-stacks-ui-2026-07-04/bw-style-guide.md) | B/W UI 기본 스타일 가이드 | 기준 |
@@ -47,6 +48,7 @@
 - 첫 구현 기준은 `Stacks (스택스) 4.1 / Four Garden Piles`의 4정원 숫자 솔리테어다.
 - Lua/Love2D 구조를 그대로 복제하지 않는다. `malitmot`처럼 정적 HTML, CSS, ES module, `node --test` 기반으로 구현한다.
 - 첫 화면은 실제 게임 또는 저장된 런을 이어갈 수 있는 게임 화면이어야 한다. 마케팅 랜딩 페이지를 만들지 않는다.
+- 기본 플레이 진입은 무한 정원이며, 캠페인은 메뉴와 명시적 모드 주소로 접근한다.
 - 게임 규칙은 DOM 렌더링과 분리된 순수 함수로 둔다.
 - 숫자 카드, 콤보 판정, 보상, 스테이지 종료, 저장/복원은 자동 테스트 대상이다.
 - UI는 모바일 우선이다. 데스크톱에서는 같은 플레이 구조를 넓은 4정원 보드와 손패로 보여준다.
