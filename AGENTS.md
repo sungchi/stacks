@@ -21,9 +21,11 @@
 | [docs/requirements.md](docs/requirements.md) | 제품 상세 요구사항, 게임 규칙, UI, 저장, 테스트 기준 | 기준 |
 | [docs/checklist.md](docs/checklist.md) | 구현·검수 체크리스트 | 파생 |
 | [docs/assets.md](docs/assets.md) | 애셋 위치, 사용 규칙, 갱신 절차 | 기준 |
+| [docs/requirements/garden-stacks-active-garden-tools-v0.1.md](docs/requirements/garden-stacks-active-garden-tools-v0.1.md) | 무한 정원 능동형 도구 분리 요구사항 | 기준 |
 | [docs/analysis/garden-stacks-endless-mode-proposal-2026-07-07.md](docs/analysis/garden-stacks-endless-mode-proposal-2026-07-07.md) | 무한 정원 고득점 모드 규칙 제안서 | 제안 |
 | [docs/analysis/garden-stacks-auto-chain-combo-proposal-2026-07-08.md](docs/analysis/garden-stacks-auto-chain-combo-proposal-2026-07-08.md) | 자동 배치 연쇄 콤보 모드 규칙 제안서 | 제안 |
 | [docs/analysis/garden-stacks-endless-default-mode-analysis-2026-07-10.md](docs/analysis/garden-stacks-endless-default-mode-analysis-2026-07-10.md) | 현재 무한 정원 기본 모드 구현 분석과 개선 우선순위 | 분석 |
+| [docs/analysis/garden-stacks-active-tools-balance-2026-07-11.md](docs/analysis/garden-stacks-active-tools-balance-2026-07-11.md) | 능동형 정원 도구 20시드 초기 밸런스 검증 | 분석 |
 | [docs/analysis/garden-stacks-ui-proposal-2026-07-04.md](docs/analysis/garden-stacks-ui-proposal-2026-07-04.md) | 깔끔하고 직관적인 게임 UI 제안 보고서 | 제안 |
 | [docs/analysis/garden-stacks-endless-mode-proposal-2026-07-07.md](docs/analysis/garden-stacks-endless-mode-proposal-2026-07-07.md) | 무한 정원 고득점 모드 규칙·제한·재미요소 제안서 | 제안 |
 | [docs/mockups/garden-stacks-ui-2026-07-04/bw-style-guide.md](docs/mockups/garden-stacks-ui-2026-07-04/bw-style-guide.md) | B/W UI 기본 스타일 가이드 | 기준 |

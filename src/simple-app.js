@@ -13,17 +13,20 @@ import {
   bestEndlessPileTargetForCard,
   bestPileTargetForCard,
   campaignStageStatus,
-  cardAbilitySummary,
   catalogSummary,
   codexEntries,
   defaultMetaProfile,
   discardEndlessCards,
   discardNumberCards,
   endlessHandPreviewSummary,
+  endlessToolSummary,
+  evaluateEndlessToolTargets,
   handPreviewSummary,
   isCampaignStageUnlocked,
   newCampaignRun,
   newEndlessRun,
+  chooseEndlessToolReward,
+  playEndlessCardWithTool,
   playEndlessCardToPile,
   playCardToPile,
   priorityEndlessPileTargetForCard,
@@ -34,7 +37,9 @@ import {
   recordEndlessResult,
   rewardEffectSummary,
   runShopOptions,
+  skipEndlessToolReward,
   storeOptions,
+  useEndlessPruneTool,
 } from "./game/number-solitaire.js";
 import {
   clearRun,
@@ -73,6 +78,7 @@ const ui = {
   settings: loadSettings(),
   selectedHandIndex: null,
   hoveredHandIndex: null,
+  armedToolIndex: null,
   discardMode: false,
   discardSelection: new Set(),
   menuOpen: false,
@@ -332,6 +338,31 @@ function isEndlessRun(state = ui.state) {
   return state?.mode === "endless";
 }
 
+function armedToolEntry() {
+  if (!isEndlessRun() || !ui.armedToolIndex) return null;
+  const item = ui.state.tools?.[ui.armedToolIndex - 1];
+  const detail = endlessToolSummary(item);
+  return item && detail ? { ...detail, index: ui.armedToolIndex } : null;
+}
+
+function clearToolSelection() {
+  ui.armedToolIndex = null;
+  ui.selectedHandIndex = null;
+  ui.hoveredHandIndex = null;
+}
+
+function gameplayInteractionBlocked() {
+  return ui.motion != null;
+}
+
+function toolTargetPreviews() {
+  const tool = armedToolEntry();
+  if (!tool) return [];
+  if (tool.id === "prune") return evaluateEndlessToolTargets(ui.state, tool.id);
+  const handIndex = ui.hoveredHandIndex ?? ui.selectedHandIndex;
+  return handIndex ? evaluateEndlessToolTargets(ui.state, tool.id, handIndex) : [];
+}
+
 function currentHandSummary() {
   return isEndlessRun() ? endlessHandPreviewSummary(ui.state) : handPreviewSummary(ui.state);
 }
@@ -359,6 +390,12 @@ function previewPoints(preview) {
 function hasPlayableTarget(handIndex) {
   const { previews } = currentBestTarget(handIndex);
   return previews.some((preview) => preview && preview.playable !== false);
+}
+
+function hasPlayableToolTarget(handIndex) {
+  const tool = armedToolEntry();
+  if (!tool || tool.id === "prune") return false;
+  return evaluateEndlessToolTargets(ui.state, tool.id, handIndex).some((preview) => preview.playable);
 }
 
 function rejectUnplayableHand(handIndex) {
@@ -397,6 +434,7 @@ function freshRunSeed() {
 function startEndlessMode() {
   ui.state = newEndlessRun(ui.profile, { seed: freshRunSeed() });
   ui.selectedHandIndex = null;
+  ui.armedToolIndex = null;
   clearHoverPreview();
   ui.discardMode = false;
   ui.discardSelection.clear();
@@ -416,6 +454,7 @@ function startStage(stageIndex) {
   ui.profile.numberCampaign.lastSelectedStage = stageIndex;
   ui.state = newCampaignRun(ui.profile, stageIndex);
   ui.selectedHandIndex = null;
+  ui.armedToolIndex = null;
   clearHoverPreview();
   ui.discardMode = false;
   ui.discardSelection.clear();
@@ -433,6 +472,10 @@ function startNextStage() {
 }
 
 function selectedTarget() {
+  const tool = armedToolEntry();
+  if (tool) {
+    return { bestIndex: null, bestPreview: null, previews: toolTargetPreviews() };
+  }
   const hovering = ui.state.phase === "play" && !ui.discardMode && ui.hoveredHandIndex;
   const handIndex = hovering ? ui.hoveredHandIndex : ui.selectedHandIndex;
   if (!handIndex) return { bestIndex: null, bestPreview: null, previews: [] };
@@ -461,13 +504,16 @@ function endlessPreviewLabel(preview) {
   if (preview.playable) return preview.primaryLabel;
   if (preview.reason === "height_locked") return "높이 제한";
   if (preview.reason === "pile_full") return "가득 참";
+  if (preview.reason === "no_graft_target") return "접붙임 없음";
+  if (preview.reason === "empty_pile") return "빈 정원";
   return "배치 불가";
 }
 
 function pilePreviewContent(preview) {
   if (!preview) return "";
   if (isEndlessRun()) {
-    if (preview.pruneCleanup) return `<span>${escapeHtml(endlessPreviewLabel(preview))}</span><span>퇴비</span>`;
+    if (preview.toolId === "prune") return `<span>${escapeHtml(endlessPreviewLabel(preview))}</span><span>${preview.playable ? "1칸 확보" : "-"}</span>`;
+    if (!preview.playable) return `<span>${escapeHtml(endlessPreviewLabel(preview))}</span><span>-</span>`;
     return `<span>${escapeHtml(endlessPreviewLabel(preview))}</span><span>${preview.harvestReady ? "수확" : `${preview.cardsToHarvest}장`}</span>`;
   }
   return `<span>${escapeHtml(preview.primaryLabel)}</span><span>x${preview.nextMultiplier}</span>`;
@@ -482,6 +528,12 @@ function cardArt(card, className = "") {
   const alt = card ? `${card.cardName} ${card.digit}` : "카드";
   const src = cardImagePath(card?.imageId ?? "card_locked_unknown");
   return `<img class="${className}" src="${src}" alt="${escapeHtml(alt)}" loading="lazy" decoding="async" />`;
+}
+
+function toolArt(toolOrId, className = "") {
+  const tool = endlessToolSummary(toolOrId);
+  const src = cardImagePath(tool?.imageId ?? "card_locked_unknown");
+  return `<img class="${className}" src="${src}" alt="${escapeHtml(tool?.label ?? "도구")}" loading="lazy" decoding="async" />`;
 }
 
 function rewardArt(item, className = "") {
@@ -503,21 +555,17 @@ function cardMultiplyMarkup(card) {
     : `<span class="card-multiply-prefix">x</span><span class="card-multiply-number">${value}</span>`;
 }
 
-function cardAbilityMarkup(card) {
-  const ability = cardAbilitySummary(card);
-  return `<span class="card-ability"><strong>${escapeHtml(ability.label)}.</strong><small>${escapeHtml(ability.description)}</small></span>`;
-}
-
 function cardAriaLabel(card) {
-  const ability = cardAbilitySummary(card);
-  return `${card?.digit ?? ""} ${card?.cardName ?? "카드"} ${ability.label}`.trim();
+  return `${card?.digit ?? ""} ${card?.cardName ?? "카드"}`.trim();
 }
 
-function cardFace(card, artClass, opts = {}) {
+function cardFace(card, artClass) {
   return `
     <span class="card-add">${cardAddMarkup(card)}</span>
-    ${cardArt(card, artClass)}
-    ${opts.showAbility ? cardAbilityMarkup(card) : ""}
+    <span class="card-identity">
+      ${cardArt(card, artClass)}
+      <span class="card-name">${escapeHtml(card?.cardName ?? "카드")}</span>
+    </span>
     <span class="card-multiply">${cardMultiplyMarkup(card)}</span>
   `;
 }
@@ -582,6 +630,7 @@ function renderStatus() {
 }
 
 function renderPiles() {
+  const tool = armedToolEntry();
   const { previews } = selectedTarget();
   const previewByPile = new Map(previews.map((preview) => [preview.pileIndex, preview]));
   return `
@@ -590,12 +639,13 @@ function renderPiles() {
         const pileNumber = index + 1;
         const preview = previewByPile.get(pileNumber);
         const landing = ui.motion?.type === "landing" && ui.motion.settled && ui.motion.pileIndex === pileNumber;
+        const toolMotion = ui.motion?.type === "tool" && ui.motion.pileIndex === pileNumber;
         const harvested = landing && ui.motion?.harvested;
         const showScore = landing && (!isEndlessRun() || (ui.motion?.points ?? 0) > 0);
           const stack = visiblePileCardsForRender(pile, pileNumber).slice(-4);
           const match = pilePreviewGlows(preview);
           return `
-            <button class="pile-card ${match ? "is-match" : ""} ${preview?.breaksCombo ? "is-break" : ""} ${landing ? "is-landing" : ""} ${harvested ? "is-landing-harvest" : ""}" type="button" data-action="play-pile" data-pile-index="${pileNumber}" aria-label="정원 ${pileNumber}" ${ui.state.phase !== "play" ? "disabled" : ""}>
+            <button class="pile-card ${match ? "is-match" : ""} ${preview?.breaksCombo ? "is-break" : ""} ${tool && preview?.playable ? "is-tool-target" : ""} ${tool?.id === "relocate" && preview?.playable ? "is-relocate-target" : ""} ${tool?.id === "graft" && preview?.playable ? "is-graft-target" : ""} ${tool?.id === "prune" && preview?.playable ? "is-prune-target" : ""} ${landing ? "is-landing" : ""} ${harvested ? "is-landing-harvest" : ""} ${toolMotion ? "is-tool-landing" : ""}" type="button" data-action="play-pile" data-pile-index="${pileNumber}" aria-label="정원 ${pileNumber}${preview ? `, ${escapeHtml(endlessPreviewLabel(preview))}` : ""}" ${ui.state.phase !== "play" ? "disabled" : ""}>
               <div class="mini-stack" aria-hidden="true">
               ${stack.length
                 ? stack.map((card, cardIndex) => {
@@ -620,6 +670,36 @@ function renderPiles() {
           </button>
         `;
       }).join("")}
+    </section>
+  `;
+}
+
+function renderTools() {
+  if (!isEndlessRun()) return "";
+  const armed = armedToolEntry();
+  return `
+    <section class="tool-belt ${armed ? "is-armed" : ""}" aria-label="정원 도구">
+      <div class="tool-belt-head">
+        <span>정원 도구</span>
+        <strong>${escapeHtml(armed ? armed.text : "보관함 2칸")}</strong>
+        ${armed ? `<button class="tool-cancel" type="button" data-action="cancel-tool">취소</button>` : ""}
+      </div>
+      <div class="tool-slots">
+        ${Array.from({ length: 2 }, (_, index) => {
+          const toolIndex = index + 1;
+          const item = ui.state.tools?.[index];
+          const tool = endlessToolSummary(item);
+          if (!tool) return `<span class="tool-slot is-empty" aria-label="빈 도구 슬롯"></span>`;
+          const selected = ui.armedToolIndex === toolIndex;
+          return `
+            <button class="tool-slot ${selected ? "is-selected" : ""}" type="button" data-action="select-tool" data-tool-index="${toolIndex}" aria-pressed="${selected}" aria-label="${escapeHtml(`${tool.label}, 1회 남음. ${tool.description}${selected ? " 준비됨" : ""}`)}" ${ui.state.phase !== "play" ? "disabled" : ""}>
+              ${toolArt(tool, "tool-art")}
+              <span>${escapeHtml(tool.label)}</span>
+              <small class="tool-use">1회</small>
+            </button>
+          `;
+        }).join("")}
+      </div>
     </section>
   `;
 }
@@ -661,7 +741,7 @@ function renderHand() {
           const rejected = ui.motion?.type === "reject" && ui.motion.handIndex === handIndex;
           return `
             <button class="hand-card ${selected ? "is-selected" : ""} ${hovered ? "is-hovered" : ""} ${discardSelected ? "is-discard-selected" : ""} ${preShift ? "is-hand-pre-shift" : ""} ${preRefill ? "is-hand-pre-refill" : ""} ${activeShift ? "is-hand-shifting" : ""} ${activeRefill ? "is-hand-refill" : ""} ${dealt ? "is-dealt" : ""} ${rejected ? "is-rejected" : ""}" type="button" data-action="select-card" data-hand-index="${handIndex}" aria-label="${escapeHtml(cardAriaLabel(card))}" style="--color:${colorCss(card.color)}; --deal-index:${Math.max(0, dealtIndex)}; --deal-delay:${dealDelay}ms; --deal-x:${dealX}px; --deal-rotate:${dealRotate}deg; --hand-shift-delay:${shiftDelay}ms; --hand-shift-duration:${HAND_SHIFT_MS}ms; --hand-refill-delay:${HAND_REFILL_DELAY_MS}ms; --hand-refill-duration:${HAND_REFILL_MS}ms" ${ui.state.phase !== "play" ? "disabled" : ""}>
-              ${cardFace(card, "card-art", { showAbility: isEndlessRun() })}
+              ${cardFace(card, "card-art")}
             </button>
           `;
         }).join("")}
@@ -725,6 +805,47 @@ function renderRewardSheet() {
   `;
 }
 
+function renderToolRewardSheet() {
+  if (ui.state.phase !== "tool_reward" || rewardPresentationBlocked()) return "";
+  const reward = ui.state.pendingToolReward;
+  if (!reward) return "";
+  const selected = endlessToolSummary(reward.selectedToolId);
+  const full = (ui.state.tools?.length ?? 0) >= 2;
+  return `
+    <section class="sheet-backdrop tool-reward-backdrop" aria-label="도구 보상">
+      <div class="bottom-sheet tool-reward-sheet">
+        <div class="sheet-title">
+          <span>수확 ${reward.harvestCount}</span>
+          <strong>${selected && full ? `${selected.label}와 바꿀 도구를 고르세요` : "정원 도구 하나를 고르세요"}</strong>
+        </div>
+        ${selected && full ? `
+          <div class="tool-replace-row">
+            ${ui.state.tools.map((item, index) => {
+              const tool = endlessToolSummary(item);
+              return `<button class="tool-replace-option" type="button" data-action="replace-tool-reward" data-tool-id="${selected.id}" data-replace-index="${index + 1}">
+                ${toolArt(tool, "tool-reward-art")}
+                <span>${escapeHtml(tool.label)}</span><small>${escapeHtml(`${selected.label}로 교체`)}</small>
+              </button>`;
+            }).join("")}
+          </div>
+          <button class="plain-button" type="button" data-action="skip-tool-reward">건너뛰기</button>
+        ` : `
+          <div class="tool-reward-row">
+            ${reward.options.map((id) => {
+              const tool = endlessToolSummary(id);
+              return `<button class="tool-reward-option" type="button" data-action="choose-tool-reward" data-tool-id="${tool.id}">
+                ${toolArt(tool, "tool-reward-art")}
+                <span>${escapeHtml(tool.label)}</span><strong>${escapeHtml(tool.role)}</strong><small>${escapeHtml(tool.description)}</small>
+              </button>`;
+            }).join("")}
+          </div>
+          ${full ? `<button class="plain-button" type="button" data-action="skip-tool-reward">건너뛰기</button>` : ""}
+        `}
+      </div>
+    </section>
+  `;
+}
+
 function renderMenu() {
   if (!ui.menuOpen) return "";
   const summary = currentHandSummary();
@@ -774,17 +895,13 @@ function renderDeck() {
         <span>퇴비 ${compost.length}</span>
       </div>
       <div class="deck-list" role="list">
-        ${deck.length ? deck.map((card, index) => {
-          const ability = cardAbilitySummary(card);
-          return `
+        ${deck.length ? deck.map((card, index) => `
             <div class="deck-row" role="listitem">
               <b>${index + 1}</b>
               <i>${card.digit}</i>
               <span><strong>${escapeHtml(card.cardName)}</strong><small>${escapeHtml(card.categoryLabel)} · ${escapeHtml(card.colorLabel)}</small></span>
-              <span><strong>${escapeHtml(ability.label)}.</strong><small>${escapeHtml(ability.description)}</small></span>
             </div>
-          `;
-        }).join("") : `<p class="empty-note">덱이 비어 있습니다. 다음 뽑기 전에 퇴비가 섞입니다.</p>`}
+          `).join("") : `<p class="empty-note">덱이 비어 있습니다. 다음 뽑기 전에 퇴비가 섞입니다.</p>`}
       </div>
     </div>
   `;
@@ -900,7 +1017,7 @@ function renderMotionLayer() {
   return `
     <div class="motion-layer" aria-hidden="true">
       <div class="flight-card" style="--x:${source.left}px; --y:${source.top}px; --w:${source.width}px; --h:${source.height}px; --tx:${tx}px; --ty:${ty}px; --color:${colorCss(card.color)}">
-        ${cardFace(card, "card-art", { showAbility: isEndlessRun() })}
+        ${cardFace(card, "card-art")}
       </div>
     </div>
   `;
@@ -917,8 +1034,10 @@ function render() {
         ${renderStatus()}
         ${renderResultPanel()}
         ${renderPiles()}
+        ${renderTools()}
         ${renderHand()}
         ${renderRewardSheet()}
+        ${renderToolRewardSheet()}
         ${renderMenu()}
         ${renderToast()}
         ${renderMotionLayer()}
@@ -962,6 +1081,7 @@ function setHoveredHandIndex(handIndex) {
 }
 
 function applyHandHoverPreview() {
+  const tool = armedToolEntry();
   const { previews } = selectedTarget();
   const previewByPile = new Map(previews.map((preview) => [preview.pileIndex, preview]));
   app.querySelectorAll(".hand-card[data-hand-index]").forEach((card) => {
@@ -974,6 +1094,10 @@ function applyHandHoverPreview() {
     const preview = previewByPile.get(pileIndex);
     pile.classList.toggle("is-match", pilePreviewGlows(preview));
     pile.classList.toggle("is-break", preview?.breaksCombo === true);
+    pile.classList.toggle("is-tool-target", Boolean(tool && preview?.playable));
+    pile.classList.toggle("is-relocate-target", Boolean(tool?.id === "relocate" && preview?.playable));
+    pile.classList.toggle("is-graft-target", Boolean(tool?.id === "graft" && preview?.playable));
+    pile.classList.toggle("is-prune-target", Boolean(tool?.id === "prune" && preview?.playable));
     const previewSlot = pile.querySelector(".pile-preview");
     if (previewSlot) {
       const content = pilePreviewContent(preview);
@@ -1011,10 +1135,14 @@ function playFromHandToPile(handIndex, pileIndex, opts = {}) {
   const sourceRect = rectSnapshot(opts.sourceRect) ?? handCardRect(handIndex);
   const targetRect = rectSnapshot(opts.targetRect) ?? pileLandingRect(pileIndex) ?? pileCellRect(pileIndex);
   const beforeHand = ui.state.hand.map((card) => card.id);
-  const result = perfMonitor.measure("game.playCard", () => playCurrentCard(handIndex, pileIndex), {
+  const toolIndex = opts.toolIndex ?? null;
+  const result = perfMonitor.measure("game.playCard", () => toolIndex
+    ? playEndlessCardWithTool(ui.state, toolIndex, handIndex, pileIndex)
+    : playCurrentCard(handIndex, pileIndex), {
     ...performanceDetail(),
     handIndex,
     pileIndex,
+    toolIndex,
   });
   if (!result.ok) {
     queueMotion({ type: "reject", handIndex }, 360);
@@ -1024,7 +1152,8 @@ function playFromHandToPile(handIndex, pileIndex, opts = {}) {
   }
   const beforeIds = new Set(beforeHand);
   const dealtIds = ui.state.hand.filter((card) => !beforeIds.has(card.id)).map((card) => card.id);
-  ui.selectedHandIndex = null;
+  if (toolIndex) clearToolSelection();
+  else ui.selectedHandIndex = null;
   clearHoverPreview();
   ui.discardSelection.clear();
   const motionDuration = result.harvest ? HARVEST_MOTION_MS : LANDING_MOTION_MS;
@@ -1041,6 +1170,7 @@ function playFromHandToPile(handIndex, pileIndex, opts = {}) {
     source: sourceRect,
     target: targetRect,
     card: playedCard,
+    toolId: result.tool?.id ?? null,
   }, motionDuration);
   playSfx("place", { preview: result.preview });
   if (ui.state.phase === "reward" || ui.state.phase === "won" || result.harvest) {
@@ -1049,6 +1179,28 @@ function playFromHandToPile(handIndex, pileIndex, opts = {}) {
       : ui.motion?.type === "landing" ? LANDING_MOTION_MS : 150;
     window.setTimeout(() => playSfx("reward"), rewardDelay);
   }
+  persist();
+  render();
+  return result;
+}
+
+function playPruneTool(pileIndex) {
+  const tool = armedToolEntry();
+  if (!tool || tool.id !== "prune") return { ok: false, reason: "wrong_tool" };
+  const result = perfMonitor.measure("game.tool", () => useEndlessPruneTool(ui.state, tool.index, pileIndex), {
+    ...performanceDetail(),
+    toolId: tool.id,
+    pileIndex,
+  });
+  if (!result.ok) {
+    playSfx("reject");
+    showToast(result.reason);
+    return result;
+  }
+  clearToolSelection();
+  clearHoverPreview();
+  queueMotion({ type: "tool", toolId: "prune", pileIndex, removedCard: result.removedCard }, 520);
+  playSfx("place", { preview: result.preview });
   persist();
   render();
   return result;
@@ -1066,7 +1218,7 @@ function playBestCard(handIndex) {
 }
 
 function quickPlayPriorityTarget(handIndex, sourceRect = null) {
-  if (ui.state.phase !== "play" || ui.discardMode) return false;
+  if (ui.state.phase !== "play" || ui.discardMode || armedToolEntry()) return false;
   const target = currentPriorityTarget(handIndex);
   if (!target.bestIndex) return false;
   const result = playFromHandToPile(handIndex, target.bestIndex, {
@@ -1087,6 +1239,7 @@ function swapWholeHand() {
   }
   const dealtIds = ui.state.hand.filter((card) => !beforeIds.has(card.id)).map((card) => card.id);
   ui.selectedHandIndex = null;
+  ui.armedToolIndex = null;
   clearHoverPreview();
   ui.menuOpen = false;
   ui.discardMode = false;
@@ -1098,8 +1251,35 @@ function swapWholeHand() {
 }
 
 function handleAction(action, button) {
+  if (gameplayInteractionBlocked() && [
+    "select-card",
+    "play-pile",
+    "select-tool",
+    "cancel-tool",
+    "auto-play",
+    "swap-hand",
+    "toggle-discard",
+    "apply-discard",
+  ].includes(action)) return;
   if (action === "select-card") {
     const index = Number(button.dataset.handIndex);
+    const tool = armedToolEntry();
+    if (tool) {
+      if (tool.id === "prune") {
+        showToast("가지치기할 정원을 고르세요.");
+        return;
+      }
+      if (!hasPlayableToolTarget(index)) {
+        rejectUnplayableHand(index);
+        return;
+      }
+      ui.selectedHandIndex = index;
+      ui.hoveredHandIndex = index;
+      applyHandHoverPreview();
+      playSfx("select");
+      render();
+      return;
+    }
     if (isEndlessRun() && mobileHandPreviewMode() && ui.selectedHandIndex !== index) {
       previewHandCard(index);
       return;
@@ -1112,11 +1292,29 @@ function handleAction(action, button) {
     ui.selectedHandIndex = index;
     playSfx("select");
   } else if (action === "play-pile") {
-    if (ui.state.phase === "play" && ui.selectedHandIndex) {
-      playFromHandToPile(ui.selectedHandIndex, Number(button.dataset.pileIndex));
+    const tool = armedToolEntry();
+    const pileIndex = Number(button.dataset.pileIndex);
+    if (ui.state.phase === "play" && tool?.id === "prune") {
+      playPruneTool(pileIndex);
+    } else if (ui.state.phase === "play" && tool && ui.selectedHandIndex) {
+      playFromHandToPile(ui.selectedHandIndex, pileIndex, { toolIndex: tool.index });
+    } else if (ui.state.phase === "play" && ui.selectedHandIndex) {
+      playFromHandToPile(ui.selectedHandIndex, pileIndex);
     }
     return;
+  } else if (action === "select-tool") {
+    const index = Number(button.dataset.toolIndex);
+    ui.armedToolIndex = ui.armedToolIndex === index ? null : index;
+    ui.selectedHandIndex = null;
+    clearHoverPreview();
+    ui.discardMode = false;
+    ui.discardSelection.clear();
+    playSfx("select");
+  } else if (action === "cancel-tool") {
+    clearToolSelection();
+    clearHoverPreview();
   } else if (action === "auto-play") {
+    clearToolSelection();
     ui.menuOpen = false;
     playBestCard(ui.selectedHandIndex);
     return;
@@ -1130,6 +1328,28 @@ function handleAction(action, button) {
     } else {
       playSfx("reward");
     }
+    persist();
+  } else if (action === "choose-tool-reward") {
+    const result = chooseEndlessToolReward(ui.state, button.dataset.toolId);
+    if (!result.ok) {
+      playSfx("reject");
+      showToast(result.reason);
+    } else if (!result.pendingReplacement) {
+      playSfx("reward");
+    }
+    persist();
+  } else if (action === "replace-tool-reward") {
+    const result = chooseEndlessToolReward(ui.state, button.dataset.toolId, Number(button.dataset.replaceIndex));
+    if (!result.ok) {
+      playSfx("reject");
+      showToast(result.reason);
+    } else {
+      playSfx("reward");
+    }
+    persist();
+  } else if (action === "skip-tool-reward") {
+    const result = skipEndlessToolReward(ui.state);
+    if (!result.ok) showToast(result.reason);
     persist();
   } else if (action === "open-menu") {
     ui.menuOpen = true;
@@ -1180,6 +1400,7 @@ function handleAction(action, button) {
     clearRun();
     ui.profile = defaultMetaProfile();
     ui.state = newEndlessRun(ui.profile, { seed: freshRunSeed() });
+    ui.armedToolIndex = null;
     ui.settings = loadSettings();
     ui.menuOpen = false;
     clearMotion();
@@ -1409,23 +1630,38 @@ window.addEventListener("keydown", (event) => {
   if (event.target instanceof HTMLInputElement) return;
   const key = event.key.toLowerCase();
   perfMonitor.measure("keyboard", () => {
-    if (key >= "1" && key <= "5") {
+    if (gameplayInteractionBlocked() && ["1", "2", "3", "4", "5", "6", "7", "q", "w", "e", "r", "enter", " "].includes(key)) return;
+    if (key === "6" || key === "7") {
+      const toolIndex = Number(key) - 5;
+      if (ui.state.phase === "play" && ui.state.tools?.[toolIndex - 1]) {
+        ui.armedToolIndex = ui.armedToolIndex === toolIndex ? null : toolIndex;
+        ui.selectedHandIndex = null;
+        clearHoverPreview();
+        render();
+      }
+    } else if (key >= "1" && key <= "5") {
       const index = Number(key);
-      if (ui.state.hand[index - 1]) ui.selectedHandIndex = index;
+      if (ui.state.hand[index - 1] && armedToolEntry()?.id !== "prune") ui.selectedHandIndex = index;
       render();
     } else if (["q", "w", "e", "r"].includes(key)) {
       const pile = { q: 1, w: 2, e: 3, r: 4 }[key];
-      if (ui.state.phase === "play" && ui.selectedHandIndex) {
+      const tool = armedToolEntry();
+      if (ui.state.phase === "play" && tool?.id === "prune") {
+        playPruneTool(pile);
+      } else if (ui.state.phase === "play" && tool && ui.selectedHandIndex) {
+        playFromHandToPile(ui.selectedHandIndex, pile, { toolIndex: tool.index });
+      } else if (ui.state.phase === "play" && ui.selectedHandIndex) {
         if (isEndlessRun()) playBestCard(ui.selectedHandIndex);
         else playFromHandToPile(ui.selectedHandIndex, pile);
       }
     } else if (key === "enter" || key === " ") {
-      if (ui.state.phase === "play") playBestCard(ui.selectedHandIndex ?? currentHandSummary().bestIndex);
+      if (ui.state.phase === "play" && !armedToolEntry()) playBestCard(ui.selectedHandIndex ?? currentHandSummary().bestIndex);
     } else if (key === "m") {
       ui.menuOpen = true;
       render();
     } else if (key === "escape") {
-      ui.menuOpen = false;
+      if (armedToolEntry()) clearToolSelection();
+      else ui.menuOpen = false;
       render();
     }
   }, { ...performanceDetail(), key });

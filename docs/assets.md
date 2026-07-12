@@ -72,7 +72,22 @@ Lua manifest는 현재 원본 구조를 보존하기 위한 참고 파일이다.
 4. manifest가 가리키는 핵심 이미지가 실제로 존재하는지 확인한다.
 5. 이 문서의 폴더 역할 또는 주요 manifest 목록이 바뀌면 함께 갱신한다.
 
-## 6. 현재 복사 범위
+## 6. 능동형 정원 도구
+
+무한 정원 4.2의 도구는 새 이미지를 만들지 않고 아래 런타임 카드 일러스트를 재사용한다.
+
+| 도구 | 이미지 ID | 런타임 경로 |
+|---|---|---|
+| 옮겨심기 | `reward_ecology_kit` | `generated/cards/reward_ecology_kit.png` |
+| 접붙이기 | `plan_conservation_work` | `generated/cards/plan_conservation_work.png` |
+| 가지치기 | `hand_pruning` | `generated/cards/hand_pruning.png` |
+
+- 세 이미지는 숫자 카드가 아니라 정사각형 도구 슬롯과 도구 보상에서 사용한다.
+- 44px, 56px, 72px급 표시에서 `object-fit: contain`, `image-rendering: pixelated`를 유지한다.
+- 접붙이기와 가지치기가 혼동되면 접붙이기만 `generated/cards/hand_watering.png`와 비교한 뒤 교체한다.
+- 누락 시 `generated/cards/card_locked_unknown.png`를 사용한다.
+
+## 7. 현재 복사 범위
 
 - 원본 `assets/generated/garden_stacks`를 이 저장소의 `public/assets/garden-stacks/generated`로 복사했다.
 - 원본 `assets/ui`를 이 저장소의 `public/assets/garden-stacks/ui`로 복사했다.

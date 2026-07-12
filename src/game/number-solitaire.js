@@ -18,7 +18,7 @@ import {
   stageByIndex,
 } from "./catalog.js";
 
-export const VERSION = "4.1-web-number-solitaire";
+export const VERSION = "4.2-web-active-tools";
 export const STARTER_TARGET_REPUTATION = 295;
 export const STARTER_PLAYS = 18;
 export const STARTER_DISCARDS = 3;
@@ -32,37 +32,39 @@ export const ENDLESS_PILE_CAPACITY = 10;
 export const ENDLESS_HARVEST_LENGTH = 5;
 export const ENDLESS_STARTER_DISCARDS = 3;
 export const ENDLESS_MAX_DISCARDS = 5;
+export const ENDLESS_RULES_VERSION = "active-garden-tools-v1";
+export const ENDLESS_TOOL_CAPACITY = 2;
+export const ENDLESS_TOOL_REWARD_INTERVAL = 3;
+
+export const ENDLESS_TOOLS = {
+  relocate: {
+    id: "relocate",
+    label: "옮겨심기",
+    role: "위치 조작",
+    description: "카드와 정원을 직접 골라 높이 제한을 무시한다.",
+    imageId: "reward_ecology_kit",
+  },
+  graft: {
+    id: "graft",
+    label: "접붙이기",
+    role: "연결 조작",
+    description: "비이웃수 카드 1개를 이번 배치만 이어준다.",
+    imageId: "plan_conservation_work",
+  },
+  prune: {
+    id: "prune",
+    label: "가지치기",
+    role: "공간 조작",
+    description: "선택한 정원의 맨 위 카드 1장을 퇴비로 보낸다.",
+    imageId: "hand_pruning",
+  },
+};
 
 export const ENDLESS_ABILITIES = {
   normal: {
     id: "normal",
     label: "일반",
     description: "이웃 숫자로 세로/층 줄기를 잇는다.",
-  },
-  bridge: {
-    id: "bridge",
-    label: "건너잇기",
-    description: "분리된 줄기 하나를 이어 수확 후보를 만든다.",
-  },
-  graft: {
-    id: "graft",
-    label: "접붙이기",
-    description: "끊긴 연결 1개를 이번 배치만 이어준다.",
-  },
-  prune: {
-    id: "prune",
-    label: "가지치기",
-    description: "막혔을 때 첫 방해카드를 퇴비로 보낸다.",
-  },
-  echo: {
-    id: "echo",
-    label: "되새김",
-    description: "직전 이웃 숫자 연결을 한 번 반복한다.",
-  },
-  fertilizer: {
-    id: "fertilizer",
-    label: "비료",
-    description: "포함된 수확 점수를 조금 키운다.",
   },
 };
 
@@ -251,22 +253,42 @@ export function cardAbilitySummary(card) {
   };
 }
 
+export function endlessTool(toolOrId) {
+  const id = typeof toolOrId === "string" ? toolOrId : toolOrId?.id;
+  return ENDLESS_TOOLS[id] ?? null;
+}
+
+export function endlessToolSummary(toolOrId) {
+  const tool = endlessTool(toolOrId);
+  if (!tool) return null;
+  return {
+    ...tool,
+    text: `${tool.label}. ${tool.description}`,
+  };
+}
+
+function normalizeEndlessTools(tools = []) {
+  return (tools ?? [])
+    .map((tool) => endlessTool(tool))
+    .filter(Boolean)
+    .slice(0, ENDLESS_TOOL_CAPACITY)
+    .map((tool) => ({ id: tool.id }));
+}
+
 export function endlessStarterDeck() {
   const deck = [];
   let serial = 1;
-  const add = (digit, ability, count) => {
-    for (let i = 0; i < count; i += 1) {
-      deck.push(makeCard(digit, serial, {
-        id: `endless_${ability}_${digit}_${String(serial).padStart(2, "0")}`,
-        ability,
-      }));
+  for (let copyIndex = 1; copyIndex <= 4; copyIndex += 1) {
+    for (let digit = 0; digit <= 9; digit += 1) {
+      const card = makeCard(digit, serial, {
+        id: `endless_${digit}_${String(serial).padStart(2, "0")}`,
+      });
+      delete card.ability;
+      delete card.abilityId;
+      deck.push(card);
       serial += 1;
     }
-  };
-  for (let digit = 0; digit <= 9; digit += 1) add(digit, "normal", digit <= 5 ? 4 : 3);
-  [5, 0, 4, 9, 3, 7].forEach((digit) => add(digit, "bridge", 1));
-  [2, 6, 8, 1, 5].forEach((digit) => add(digit, "graft", 1));
-  [5, 0, 9].forEach((digit) => add(digit, "prune", 1));
+  }
   return deck;
 }
 
@@ -315,6 +337,8 @@ export function defaultEndlessProgress() {
     bestSurvivalTurns: 0,
     bestPotentialScore: 0,
     runs: 0,
+    toolsUsed: 0,
+    toolUses: {},
   };
 }
 
@@ -325,6 +349,12 @@ export function normalizeEndlessProgress(progress = {}) {
   out.bestSurvivalTurns = Math.max(0, Math.floor(Number(progress.bestSurvivalTurns ?? progress.best_survival_turns) || 0));
   out.bestPotentialScore = Math.max(0, Math.floor(Number(progress.bestPotentialScore ?? progress.best_potential_score) || 0));
   out.runs = Math.max(0, Math.floor(Number(progress.runs) || 0));
+  out.toolsUsed = Math.max(0, Math.floor(Number(progress.toolsUsed ?? progress.tools_used) || 0));
+  const toolUses = progress.toolUses ?? progress.tool_uses ?? {};
+  for (const id of Object.keys(ENDLESS_TOOLS)) {
+    const count = Math.max(0, Math.floor(Number(toolUses[id]) || 0));
+    if (count > 0) out.toolUses[id] = count;
+  }
   return out;
 }
 
@@ -867,25 +897,22 @@ function sortedHarvestGroup(component, newNode) {
 function endlessGroupTotals(group) {
   let addTotal = 0;
   let multiplyTotal = 0;
-  let fertilizerCount = 0;
   for (const node of group) {
     addTotal += cardAddValue(node.card);
     multiplyTotal += cardMultiplyValue(node.card);
-    if (cardAbility(node.card).id === "fertilizer") fertilizerCount += 1;
   }
-  const multiplier = fertilizerCount > 0 ? 1 + fertilizerCount * 0.2 : 1;
   return {
     addTotal,
     multiplyTotal,
-    score: Math.floor(addTotal * multiplyTotal * multiplier),
-    multiplier,
+    score: Math.floor(addTotal * multiplyTotal),
+    multiplier: 1,
   };
 }
 
 function analyzeEndlessConnections(piles, targetPileIndex, card, options = {}) {
   const nodes = buildEndlessNodes(piles);
   const edges = new Map();
-  const abilityId = cardAbility(card).id;
+  const toolId = options.toolId ?? null;
   for (const node of nodes.values()) edges.set(node.key, new Set());
   for (const node of nodes.values()) {
     const vertical = nodes.get(endlessNodeKey(node.pileIndex, node.position + 1));
@@ -911,35 +938,26 @@ function analyzeEndlessConnections(piles, targetPileIndex, card, options = {}) {
     };
   }
 
-  if (abilityId === "bridge") {
-    for (const node of nodes.values()) {
-      if (node.key === newNode.key) continue;
-      const samePileGap = node.pileIndex === newNode.pileIndex
-        && Math.abs(node.position - newNode.position) <= 3;
-      const sameLayerGap = node.position === newNode.position
-        && Math.abs(node.pileIndex - newNode.pileIndex) <= 2;
-      if ((samePileGap || sameLayerGap) && isCircularNeighbor(node.card?.digit, card.digit)) {
-        addEndlessEdge(edges, newNode, node);
-        extraEdges.push({ kind: "bridge", from: newNode.key, to: node.key });
-      }
-    }
-  }
-
-  if (abilityId === "graft") {
+  if (toolId === "graft") {
     const candidates = [
       nodes.get(endlessNodeKey(targetPileIndex, newPosition - 1)),
       nodes.get(endlessNodeKey(targetPileIndex - 1, newPosition)),
       nodes.get(endlessNodeKey(targetPileIndex + 1, newPosition)),
-    ].filter((node) => node && !isCircularNeighbor(node.card?.digit, card.digit));
+    ]
+      .filter((node) => node && !isCircularNeighbor(node.card?.digit, card.digit))
+      .sort((a, b) => a.pileIndex - b.pileIndex || a.position - b.position);
     let best = null;
     let bestSize = -1;
+    let bestScore = -1;
     for (const candidate of candidates) {
       const trialEdges = new Map([...edges].map(([key, value]) => [key, new Set(value)]));
       addEndlessEdge(trialEdges, newNode, candidate);
-      const size = connectedComponent(nodes, trialEdges, newKey).length;
-      if (size > bestSize) {
+      const component = connectedComponent(nodes, trialEdges, newKey);
+      const score = endlessGroupTotals(sortedHarvestGroup(component, newNode)).score;
+      if (component.length > bestSize || (component.length === bestSize && score > bestScore)) {
         best = candidate;
-        bestSize = size;
+        bestSize = component.length;
+        bestScore = score;
       }
     }
     if (best) {
@@ -967,7 +985,7 @@ function analyzeEndlessConnections(piles, targetPileIndex, card, options = {}) {
     verticalConnected,
     layerConnections,
     extraEdges,
-    prunedCard: options.prunedCard ?? null,
+    toolId,
   };
 }
 
@@ -1007,11 +1025,45 @@ function countAfterHarvest(piles, targetPileIndex, harvestGroup) {
   return Math.max(0, count);
 }
 
+function normalizePendingToolReward(reward) {
+  if (!reward) return null;
+  const options = [...new Set((reward.options ?? []).map((item) => endlessTool(item)?.id).filter(Boolean))].slice(0, 2);
+  if (options.length === 0) return null;
+  const selectedToolId = endlessTool(reward.selectedToolId ?? reward.selected_tool_id)?.id ?? null;
+  return {
+    id: reward.id ?? `tool_reward_${Math.max(0, Math.floor(Number(reward.harvestCount ?? reward.harvest_count) || 0))}`,
+    harvestCount: Math.max(0, Math.floor(Number(reward.harvestCount ?? reward.harvest_count) || 0)),
+    options,
+    selectedToolId: options.includes(selectedToolId) ? selectedToolId : null,
+  };
+}
+
+function toolRewardOptions(state) {
+  const ids = Object.keys(ENDLESS_TOOLS);
+  shuffle(state, ids, `endless-tool-reward-${state.harvestCount ?? 0}`);
+  return ids.slice(0, 2);
+}
+
+function offerEndlessToolReward(state) {
+  if (state.pendingToolReward) return state.pendingToolReward;
+  const reward = {
+    id: `tool_reward_${state.harvestCount ?? 0}`,
+    harvestCount: state.harvestCount ?? 0,
+    options: toolRewardOptions(state),
+    selectedToolId: null,
+  };
+  state.pendingToolReward = reward;
+  state.toolRewardCount = (state.toolRewardCount ?? 0) + 1;
+  state.phase = "tool_reward";
+  return reward;
+}
+
 export function newEndlessRun(profile = {}, opts = {}) {
   const normalized = normalizeMetaProfile(profile);
   const compostPile = copy(opts.compostPile ?? opts.compost_pile ?? opts.discardPile ?? opts.discard_pile ?? []);
   const state = {
     version: VERSION,
+    endlessRulesVersion: ENDLESS_RULES_VERSION,
     mode: ENDLESS_MODE,
     phase: opts.phase ?? "play",
     seed: opts.seed ?? 8080,
@@ -1033,6 +1085,11 @@ export function newEndlessRun(profile = {}, opts = {}) {
     compostPile,
     discardPile: compostPile,
     piles: normalizeEndlessPiles(opts.piles),
+    tools: opts.tools == null ? [{ id: "relocate" }] : normalizeEndlessTools(opts.tools),
+    pendingToolReward: normalizePendingToolReward(opts.pendingToolReward ?? opts.pending_tool_reward),
+    toolRewardCount: Math.max(0, Math.floor(Number(opts.toolRewardCount ?? opts.tool_reward_count) || 0)),
+    toolsUsed: Math.max(0, Math.floor(Number(opts.toolsUsed ?? opts.tools_used) || 0)),
+    toolHistory: copy(opts.toolHistory ?? opts.tool_history ?? []),
     lastPlay: copy(opts.lastPlay ?? opts.last_play ?? null),
     lastHarvest: copy(opts.lastHarvest ?? opts.last_harvest ?? null),
     lastDiscard: copy(opts.lastDiscard ?? opts.last_discard ?? null),
@@ -1040,6 +1097,7 @@ export function newEndlessRun(profile = {}, opts = {}) {
     failureReason: opts.failureReason ?? opts.failure_reason,
     resultRecorded: opts.resultRecorded === true || opts.result_recorded === true,
   };
+  if (state.pendingToolReward) state.phase = "tool_reward";
   if (opts.shuffle !== false) shuffle(state, state.deck, "endless-opening-deck");
   if (opts.skipRefill !== true && opts.skip_refill !== true) refillEndlessHand(state);
   syncEndlessDiscardAlias(state);
@@ -1076,13 +1134,13 @@ export function evaluateEndlessPilePlay(state, pileIndex, card) {
   if (!state || !card) return null;
   const sourcePiles = ensureEndlessPiles(state);
   const index = clampInt(pileIndex, 1, PILE_COUNT);
-  return evaluateEndlessPilePlayVariant(state, sourcePiles, index, card, false);
+  return evaluateEndlessPilePlayVariant(state, sourcePiles, index, card);
 }
 
-function evaluateEndlessPilePlayVariant(state, sourcePiles, index, card, pruneTop) {
+function evaluateEndlessPilePlayVariant(state, sourcePiles, index, card, options = {}) {
   const sourcePile = sourcePiles[index - 1];
   if (!sourcePile) return null;
-  if (pruneTop && cardAbility(card).id !== "prune") return null;
+  const toolId = endlessTool(options.toolId)?.id ?? null;
   const piles = cloneEndlessPilesForPreview({ ...state, piles: sourcePiles });
   const pile = piles[index - 1];
   const pileCardCount = sourcePile.cards?.length ?? 0;
@@ -1090,14 +1148,9 @@ function evaluateEndlessPilePlayVariant(state, sourcePiles, index, card, pruneTo
   const minCount = Math.min(...sourcePiles.map((item) => item.cards?.length ?? 0));
   const previousCard = sourcePile.cards?.[sourcePile.cards.length - 1] ?? null;
   const previousDigit = sourcePile.lastDigit ?? previousCard?.digit ?? null;
-  let prunedCard = null;
-  if (pruneTop) {
-    if (!pile.cards.length) return null;
-    prunedCard = pile.cards.pop();
-  }
 
   pile.cards.push(card);
-  const analysis = analyzeEndlessConnections(piles, index, card, { prunedCard });
+  const analysis = analyzeEndlessConnections(piles, index, card, { toolId });
   const connected = previousDigit == null || analysis.verticalConnected || analysis.layerConnections > 0 || analysis.componentSize > 1;
   const matches = connected && previousDigit != null ? ["neighbor"] : [];
   const addValue = cardAddValue(card);
@@ -1108,31 +1161,36 @@ function evaluateEndlessPilePlayVariant(state, sourcePiles, index, card, pruneTo
   const nextMultiplyTotal = analysis.harvestReady ? analysis.harvestTotals.multiplyTotal : componentTotals.multiplyTotal;
   const harvestReady = analysis.harvestReady;
   const harvestScore = harvestReady ? analysis.harvestTotals.score : 0;
-  const overCapacity = pileCardCount >= capacity && !pruneTop;
+  const overCapacity = pileCardCount >= capacity;
   const verticalRunAllowed = previousDigit != null && analysis.verticalConnected;
-  const heightAllowed = pileCardCount === minCount || harvestReady || pruneTop || verticalRunAllowed;
-  const playable = heightAllowed && (!overCapacity || harvestReady);
+  const heightAllowed = toolId === "relocate" || pileCardCount === minCount || harvestReady || verticalRunAllowed;
+  const graftApplied = toolId === "graft" && analysis.extraEdges.some((edge) => edge.kind === "graft");
+  const toolAllowed = toolId !== "graft" || graftApplied;
+  const playable = toolAllowed && heightAllowed && (!overCapacity || harvestReady);
   const cardCountAfter = countAfterHarvest(piles, index, analysis.harvestGroup);
   const primaryKey = harvestReady
     ? "harvest"
-    : pruneTop
-      ? "prune"
-      : analysis.extraEdges.some((edge) => edge.kind === "bridge")
-        ? "bridge"
-        : analysis.extraEdges.some((edge) => edge.kind === "graft")
-          ? "graft"
-          : connected && previousDigit != null
-            ? "neighbor"
-            : "start";
+    : toolId === "relocate"
+      ? "relocate"
+      : graftApplied
+        ? "graft"
+        : connected && previousDigit != null
+          ? "neighbor"
+          : "start";
   const primaryText = {
     harvest: "수확",
-    prune: "가지치기",
-    bridge: "건너잇기",
+    relocate: "옮겨심기",
     graft: "접붙이기",
     neighbor: analysis.layerConnections > 0 ? "층 이웃수" : "이웃수",
     start: "새 줄기",
   }[primaryKey];
-  const reason = playable ? null : !heightAllowed ? "height_locked" : "pile_full";
+  const reason = playable
+    ? null
+    : !toolAllowed
+      ? "no_graft_target"
+      : !heightAllowed
+        ? "height_locked"
+        : "pile_full";
   return {
     playable,
     reason,
@@ -1167,9 +1225,8 @@ function evaluateEndlessPilePlayVariant(state, sourcePiles, index, card, pruneTo
     verticalConnected: analysis.verticalConnected,
     verticalRunAllowed,
     extraEdges: copy(analysis.extraEdges),
-    prunedCard: copy(prunedCard),
-    prunedCardId: prunedCard?.id ?? null,
-    pruneTop: pruneTop === true,
+    toolId,
+    toolApplied: toolId != null,
     heightAllowed,
     minPileCardCount: minCount,
     pileIndex: index,
@@ -1196,70 +1253,11 @@ function evaluateEndlessPilePlayVariant(state, sourcePiles, index, card, pruneTo
   };
 }
 
-function evaluateEndlessPruneCleanup(state, sourcePiles, pileIndex, card) {
-  if (cardAbility(card).id !== "prune") return null;
-  const sourcePile = sourcePiles[pileIndex - 1];
-  const prunedCard = sourcePile?.cards?.[sourcePile.cards.length - 1] ?? null;
-  if (!sourcePile || !prunedCard) return null;
-  const pileCardCount = sourcePile.cards.length;
-  const capacity = sourcePile.capacity ?? state.pileCapacity ?? ENDLESS_PILE_CAPACITY;
-  const minCount = Math.min(...sourcePiles.map((item) => item.cards?.length ?? 0));
-  return {
-    playable: true,
-    reason: null,
-    connected: false,
-    breaksCombo: false,
-    previousDigit: prunedCard.digit,
-    digit: card.digit,
-    matches: [],
-    primaryLabel: "가지치기",
-    primaryKey: "prune",
-    addValue: cardAddValue(card),
-    multiplyValue: cardMultiplyValue(card),
-    addTotalBefore: Math.max(0, Math.floor(Number(sourcePile.addTotal) || 0)),
-    multiplyTotalBefore: Math.max(0, Math.floor(Number(sourcePile.multiplyTotal) || 0)),
-    nextAddTotal: Math.max(0, Math.floor(Number(sourcePile.addTotal) || 0)),
-    nextMultiplyTotal: Math.max(0, Math.floor(Number(sourcePile.multiplyTotal) || 0)),
-    nextComboStep: Math.max(0, Math.floor(Number(sourcePile.comboStep) || 0)),
-    harvestReady: false,
-    harvestScore: 0,
-    potentialScore: 0,
-    harvestLength: ENDLESS_HARVEST_LENGTH,
-    cardsToHarvest: ENDLESS_HARVEST_LENGTH,
-    harvestGroup: [],
-    harvestCards: [],
-    componentSize: 0,
-    layerConnections: 0,
-    verticalConnected: false,
-    verticalRunAllowed: false,
-    extraEdges: [],
-    prunedCard: copy(prunedCard),
-    prunedCardId: prunedCard.id ?? null,
-    pruneTop: true,
-    pruneCleanup: true,
-    heightAllowed: true,
-    minPileCardCount: minCount,
-    pileIndex,
-    pileId: sourcePile.id,
-    pileLabel: sourcePile.label,
-    pileComboStep: sourcePile.comboStep ?? 0,
-    pileCardCount,
-    cardCountAfter: Math.max(0, pileCardCount - 1),
-    capacity,
-    slotsRemaining: Math.max(0, capacity - pileCardCount + 1),
-    scoreFormula: "방해카드 퇴비",
-    expectedReputation: 0,
-    nextMultiplier: Math.max(0, Math.floor(Number(sourcePile.multiplyTotal) || 0)),
-    pileBaseAfter: Math.max(0, Math.floor(Number(sourcePile.addTotal) || 0)),
-    glow: "yellow",
-  };
-}
-
 export function evaluateAllEndlessPileTargets(state, handIndex) {
   const card = state?.hand?.[handIndex - 1];
   if (!card) return [];
-  const sourcePiles = ensureEndlessPiles(state);
-  const normalPreviews = Array.from({ length: PILE_COUNT }, (_, i) => {
+  ensureEndlessPiles(state);
+  return Array.from({ length: PILE_COUNT }, (_, i) => {
     const preview = evaluateEndlessPilePlay(state, i + 1, card) ?? {
       playable: false,
       reason: "blocked_pile",
@@ -1271,22 +1269,54 @@ export function evaluateAllEndlessPileTargets(state, handIndex) {
     preview.cardId = card.id;
     return preview;
   });
-  if (normalPreviews.some((preview) => preview.playable)) return normalPreviews;
-  if (cardAbility(card).id !== "prune") return normalPreviews;
-  const cleanupIndex = sourcePiles.findIndex((pile) => (pile.cards?.length ?? 0) > 0);
-  if (cleanupIndex < 0) return normalPreviews;
-  const cleanup = evaluateEndlessPruneCleanup(state, sourcePiles, cleanupIndex + 1, card);
-  if (!cleanup) return normalPreviews;
-  cleanup.handIndex = handIndex;
-  cleanup.cardId = card.id;
-  return normalPreviews.map((preview) => preview.pileIndex === cleanup.pileIndex ? cleanup : preview);
+}
+
+export function evaluateEndlessToolTargets(state, toolOrId, handIndex = null) {
+  const tool = endlessTool(toolOrId);
+  if (!state || !tool) return [];
+  const sourcePiles = ensureEndlessPiles(state);
+  if (tool.id === "prune") {
+    return sourcePiles.map((pile, index) => {
+      const removedCard = pile.cards?.[pile.cards.length - 1] ?? null;
+      return {
+        playable: removedCard != null,
+        reason: removedCard ? null : "empty_pile",
+        primaryKey: "prune",
+        primaryLabel: "가지치기",
+        toolId: "prune",
+        toolApplied: true,
+        pileIndex: index + 1,
+        pileId: pile.id,
+        pileLabel: pile.label,
+        pileCardCount: pile.cards?.length ?? 0,
+        cardCountAfter: Math.max(0, (pile.cards?.length ?? 0) - 1),
+        slotsRemaining: Math.max(0, (pile.capacity ?? ENDLESS_PILE_CAPACITY) - (pile.cards?.length ?? 0) + 1),
+        removedCard: copy(removedCard),
+        removedCardId: removedCard?.id ?? null,
+        scoreFormula: removedCard ? "1칸 확보" : "빈 정원",
+        glow: removedCard ? "yellow" : "break",
+      };
+    });
+  }
+  const card = state.hand?.[handIndex - 1];
+  if (!card) return [];
+  return sourcePiles.map((pile, index) => {
+    const preview = evaluateEndlessPilePlayVariant(state, sourcePiles, index + 1, card, { toolId: tool.id }) ?? {
+      playable: false,
+      reason: "blocked_pile",
+      pileIndex: index + 1,
+      pileId: pile.id,
+      pileLabel: pile.label,
+    };
+    preview.handIndex = handIndex;
+    preview.cardId = card.id;
+    return preview;
+  });
 }
 
 function endlessPilePreviewScore(preview) {
   if (!preview?.playable) return -Infinity;
   return (preview.harvestReady ? 500000 : 0)
-    + (preview.pruneTop ? 25000 : 0)
-    + (preview.primaryKey === "bridge" ? 20000 : preview.primaryKey === "graft" ? 14000 : 0)
     + (preview.verticalConnected ? 32000 : preview.layerConnections > 0 ? 12000 : 0)
     + (preview.breaksCombo ? -80000 : 100000)
     + (preview.glow === "gold" ? 20000 : preview.glow === "yellow" ? 8000 : preview.glow === "open" ? 2000 : 0)
@@ -1420,9 +1450,6 @@ function applyEndlessHarvest(state, pileIndex, preview) {
   state.bestScore = Math.max(state.bestScore ?? 0, state.score ?? 0);
   state.bestHarvestScore = Math.max(state.bestHarvestScore ?? 0, score);
   state.bestPotentialScore = Math.max(state.bestPotentialScore ?? 0, preview.potentialScore ?? 0);
-  if (state.harvestCount % 3 === 0) {
-    state.discardsRemaining = Math.min(state.maxDiscards ?? ENDLESS_MAX_DISCARDS, (state.discardsRemaining ?? 0) + 1);
-  }
   recomputeAllEndlessPileStats(state);
   const pile = piles[pileIndex - 1];
   pile.bestComboStep = Math.max(pile.bestComboStep ?? 0, preview.nextComboStep ?? 0);
@@ -1438,6 +1465,9 @@ function applyEndlessHarvest(state, pileIndex, preview) {
   pile.harvestHistory.push(copy(harvest));
   state.lastHarvest = copy(harvest);
   state.message = `${pile.label} 수확 +${score}점`;
+  if (state.harvestCount % ENDLESS_TOOL_REWARD_INTERVAL === 0) {
+    offerEndlessToolReward(state);
+  }
   return harvest;
 }
 
@@ -1446,10 +1476,23 @@ export function hasAnyEndlessMove(state) {
   return state.hand.some((_, index) => evaluateAllEndlessPileTargets(state, index + 1).some((preview) => preview.playable));
 }
 
+export function hasAnyEndlessToolMove(state) {
+  if (!state || state.phase !== "play") return false;
+  for (const tool of state.tools ?? []) {
+    if (tool.id === "prune" && evaluateEndlessToolTargets(state, tool.id).some((preview) => preview.playable)) return true;
+    if (tool.id === "relocate" || tool.id === "graft") {
+      for (let handIndex = 1; handIndex <= (state.hand?.length ?? 0); handIndex += 1) {
+        if (evaluateEndlessToolTargets(state, tool.id, handIndex).some((preview) => preview.playable)) return true;
+      }
+    }
+  }
+  return false;
+}
+
 export function checkEndlessEnd(state) {
   if (!state || state.phase !== "play") return state?.phase ?? "missing";
   refillEndlessHand(state);
-  if (hasAnyEndlessMove(state)) {
+  if (hasAnyEndlessMove(state) || hasAnyEndlessToolMove(state)) {
     state.phase = "play";
     return "play";
   }
@@ -1464,50 +1507,27 @@ export function checkEndlessEnd(state) {
   return "lost";
 }
 
-export function playEndlessCardToPile(state, handIndex, pileIndex) {
-  if (!state || state.phase !== "play") return { ok: false, reason: "not_playing" };
+function consumeEndlessTool(state, toolIndex, detail = {}) {
+  const index = clampInt(toolIndex, 1, ENDLESS_TOOL_CAPACITY);
+  const tool = state.tools?.[index - 1];
+  if (!tool) return null;
+  state.tools.splice(index - 1, 1);
+  state.toolsUsed = (state.toolsUsed ?? 0) + 1;
+  const record = {
+    toolId: tool.id,
+    turnCount: state.turnCount ?? 0,
+    scoreBefore: detail.scoreBefore ?? state.score ?? 0,
+    scoreAfter: state.score ?? 0,
+    ...copy(detail),
+  };
+  state.toolHistory.push(record);
+  return tool;
+}
+
+function resolveEndlessCardPlacement(state, handIndex, targetIndex, preview, toolUse = null) {
   const card = state.hand?.[handIndex - 1];
-  if (!card) return { ok: false, reason: "missing_card" };
-  const target = bestEndlessPileTargetForCard(state, handIndex);
-  const preview = target.bestPreview;
-  if (!preview?.playable || !target.bestIndex) return { ok: false, reason: preview?.reason ?? "blocked_pile", preview };
-  const requestedPileIndex = pileIndex == null ? null : clampInt(pileIndex, 1, PILE_COUNT);
-  const targetIndex = target.bestIndex;
+  if (!card) return { ok: false, reason: "missing_card", preview };
   const pile = ensureEndlessPiles(state)[targetIndex - 1];
-  let prunedCard = null;
-  if (preview.pruneCleanup) {
-    prunedCard = pile.cards.pop() ?? null;
-    if (!prunedCard) return { ok: false, reason: "missing_prune_target", preview };
-    state.hand.splice(handIndex - 1, 1);
-    syncEndlessDiscardAlias(state);
-    state.compostPile.push(prunedCard, card);
-    state.turnCount = (state.turnCount ?? 0) + 1;
-    recomputeAllEndlessPileStats(state);
-    state.lastPlay = {
-      card: copy(card),
-      preview: copy(preview),
-      scoreGained: 0,
-      harvested: false,
-      brokeCombo: false,
-      pileIndex: targetIndex,
-      requestedPileIndex,
-      pileLabel: pile.label,
-      prunedCard: copy(prunedCard),
-      cleanupOnly: true,
-    };
-    pile.history.push(copy(state.lastPlay));
-    state.message = `${pile.label} 가지치기 · 방해카드 퇴비`;
-    refillEndlessHand(state);
-    const result = checkEndlessEnd(state);
-    return { ok: true, preview, result, harvest: null };
-  }
-  if (preview.pruneTop) {
-    prunedCard = pile.cards.pop() ?? null;
-    if (prunedCard) {
-      syncEndlessDiscardAlias(state);
-      state.compostPile.push(prunedCard);
-    }
-  }
   state.hand.splice(handIndex - 1, 1);
   pile.cards.push(card);
   state.turnCount = (state.turnCount ?? 0) + 1;
@@ -1521,9 +1541,9 @@ export function playEndlessCardToPile(state, handIndex, pileIndex) {
     harvested: false,
     brokeCombo: preview.breaksCombo,
     pileIndex: targetIndex,
-    requestedPileIndex,
+    requestedPileIndex: targetIndex,
     pileLabel: pile.label,
-    prunedCard: copy(prunedCard),
+    toolId: toolUse?.toolId ?? null,
   };
   pile.history.push(copy(state.lastPlay));
   let harvest = null;
@@ -1534,9 +1554,123 @@ export function playEndlessCardToPile(state, handIndex, pileIndex) {
   } else {
     state.message = `${pile.label} ${preview.primaryLabel} · ${preview.scoreFormula}`;
   }
+  let usedTool = null;
+  if (toolUse) {
+    usedTool = consumeEndlessTool(state, toolUse.toolIndex, {
+      pileIndex: targetIndex,
+      cardId: card.id,
+      harvested: harvest != null,
+      scoreBefore: toolUse.scoreBefore,
+      scoreAfter: state.score ?? 0,
+    });
+  }
   refillEndlessHand(state);
+  const result = state.phase === "tool_reward" ? "tool_reward" : checkEndlessEnd(state);
+  return { ok: true, preview, result, harvest, tool: copy(usedTool) };
+}
+
+export function playEndlessCardToPile(state, handIndex, pileIndex) {
+  if (!state || state.phase !== "play") return { ok: false, reason: "not_playing" };
+  const card = state.hand?.[handIndex - 1];
+  if (!card) return { ok: false, reason: "missing_card" };
+  const target = bestEndlessPileTargetForCard(state, handIndex);
+  const preview = target.bestPreview;
+  if (!preview?.playable || !target.bestIndex) return { ok: false, reason: preview?.reason ?? "blocked_pile", preview };
+  return resolveEndlessCardPlacement(state, handIndex, target.bestIndex, preview);
+}
+
+export function playEndlessCardWithTool(state, toolIndex, handIndex, pileIndex) {
+  if (!state || state.phase !== "play") return { ok: false, reason: "not_playing" };
+  const tool = state.tools?.[toolIndex - 1];
+  if (!tool) return { ok: false, reason: "missing_tool" };
+  if (!["relocate", "graft"].includes(tool.id)) return { ok: false, reason: "tool_requires_pile_only" };
+  const card = state.hand?.[handIndex - 1];
+  if (!card) return { ok: false, reason: "missing_card" };
+  const targetIndex = clampInt(pileIndex, 1, PILE_COUNT);
+  const preview = evaluateEndlessToolTargets(state, tool.id, handIndex).find((item) => item.pileIndex === targetIndex);
+  if (!preview?.playable) return { ok: false, reason: preview?.reason ?? "blocked_pile", preview };
+  return resolveEndlessCardPlacement(state, handIndex, targetIndex, preview, {
+    toolIndex,
+    toolId: tool.id,
+    scoreBefore: state.score ?? 0,
+  });
+}
+
+export function useEndlessPruneTool(state, toolIndex, pileIndex) {
+  if (!state || state.phase !== "play") return { ok: false, reason: "not_playing" };
+  const tool = state.tools?.[toolIndex - 1];
+  if (tool?.id !== "prune") return { ok: false, reason: tool ? "wrong_tool" : "missing_tool" };
+  const targetIndex = clampInt(pileIndex, 1, PILE_COUNT);
+  const preview = evaluateEndlessToolTargets(state, "prune").find((item) => item.pileIndex === targetIndex);
+  if (!preview?.playable) return { ok: false, reason: preview?.reason ?? "empty_pile", preview };
+  const pile = ensureEndlessPiles(state)[targetIndex - 1];
+  const removedCard = pile.cards.pop() ?? null;
+  if (!removedCard) return { ok: false, reason: "empty_pile", preview };
+  syncEndlessDiscardAlias(state);
+  state.compostPile.push(removedCard);
+  state.turnCount = (state.turnCount ?? 0) + 1;
+  recomputeAllEndlessPileStats(state);
+  state.lastPlay = {
+    card: null,
+    preview: copy(preview),
+    scoreGained: 0,
+    harvested: false,
+    brokeCombo: false,
+    pileIndex: targetIndex,
+    requestedPileIndex: targetIndex,
+    pileLabel: pile.label,
+    toolId: "prune",
+    prunedCard: copy(removedCard),
+    cleanupOnly: true,
+  };
+  pile.history.push(copy(state.lastPlay));
+  consumeEndlessTool(state, toolIndex, {
+    pileIndex: targetIndex,
+    cardId: null,
+    removedCardId: removedCard.id,
+    harvested: false,
+    scoreBefore: state.score ?? 0,
+    scoreAfter: state.score ?? 0,
+  });
+  state.message = `${pile.label} 가지치기 · 1칸 확보`;
   const result = checkEndlessEnd(state);
-  return { ok: true, preview, result, harvest };
+  return { ok: true, preview, result, harvest: null, tool: { id: "prune" }, removedCard: copy(removedCard) };
+}
+
+function finishEndlessToolReward(state, message) {
+  state.pendingToolReward = null;
+  state.phase = "play";
+  state.message = message;
+  const result = checkEndlessEnd(state);
+  return result;
+}
+
+export function chooseEndlessToolReward(state, toolOrId, replaceIndex = null) {
+  if (!state?.pendingToolReward || state.phase !== "tool_reward") return { ok: false, reason: "no_tool_reward" };
+  const tool = endlessTool(toolOrId);
+  if (!tool || !state.pendingToolReward.options.includes(tool.id)) return { ok: false, reason: "invalid_tool_reward" };
+  state.tools = normalizeEndlessTools(state.tools);
+  if (state.tools.length < ENDLESS_TOOL_CAPACITY) {
+    state.tools.push({ id: tool.id });
+    const result = finishEndlessToolReward(state, `${tool.label} 도구를 보관했습니다.`);
+    return { ok: true, tool: { id: tool.id }, result };
+  }
+  if (replaceIndex == null) {
+    state.pendingToolReward.selectedToolId = tool.id;
+    return { ok: true, pendingReplacement: true, tool: { id: tool.id }, result: "tool_reward" };
+  }
+  const index = clampInt(replaceIndex, 1, ENDLESS_TOOL_CAPACITY);
+  const replaced = state.tools[index - 1];
+  if (!replaced) return { ok: false, reason: "missing_replacement_tool" };
+  state.tools[index - 1] = { id: tool.id };
+  const result = finishEndlessToolReward(state, `${endlessTool(replaced)?.label ?? "기존 도구"} 대신 ${tool.label}를 보관했습니다.`);
+  return { ok: true, tool: { id: tool.id }, replaced: copy(replaced), result };
+}
+
+export function skipEndlessToolReward(state) {
+  if (!state?.pendingToolReward || state.phase !== "tool_reward") return { ok: false, reason: "no_tool_reward" };
+  const result = finishEndlessToolReward(state, "도구 보상을 건너뛰었습니다.");
+  return { ok: true, result };
 }
 
 export function playEndlessCard(state, handIndex) {
@@ -2225,6 +2359,13 @@ export function recordEndlessResult(profile, state) {
   out.numberEndless.bestSurvivalTurns = Math.max(out.numberEndless.bestSurvivalTurns ?? 0, turns);
   out.numberEndless.bestPotentialScore = Math.max(out.numberEndless.bestPotentialScore ?? 0, potential);
   out.numberEndless.runs = (out.numberEndless.runs ?? 0) + 1;
+  const toolsUsed = Math.max(0, Math.floor(Number(state?.toolsUsed) || 0));
+  out.numberEndless.toolsUsed = (out.numberEndless.toolsUsed ?? 0) + toolsUsed;
+  for (const item of state?.toolHistory ?? []) {
+    const id = endlessTool(item?.toolId)?.id;
+    if (!id) continue;
+    out.numberEndless.toolUses[id] = (out.numberEndless.toolUses[id] ?? 0) + 1;
+  }
   return {
     profile: out,
     score,
@@ -2253,6 +2394,7 @@ export function snapshotState(state) {
 }
 
 function restoreEndlessState(snapshot) {
+  if (snapshot.endlessRulesVersion !== ENDLESS_RULES_VERSION) return null;
   const state = newEndlessRun(defaultMetaProfile(), {
     ...snapshot,
     shuffle: false,

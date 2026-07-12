@@ -3,11 +3,13 @@ import { test } from "node:test";
 
 import { DIGITS, REWARDS, cardImagePath } from "../src/game/catalog.js";
 import {
+  ENDLESS_RULES_VERSION,
   applyReward,
   campaignStageRunOptions,
   cardAbilitySummary,
   catalogSummary,
   checkEndlessEnd,
+  chooseEndlessToolReward,
   codexEntries,
   defaultMetaProfile,
   discardEndlessCards,
@@ -15,6 +17,7 @@ import {
   endlessStarterDeck,
   endlessHandPreviewSummary,
   evaluateEndlessPilePlay,
+  evaluateEndlessToolTargets,
   evaluatePilePlay,
   getComboMatches,
   handPreviewSummary,
@@ -26,6 +29,7 @@ import {
   newGame,
   offerRewards,
   playEndlessCardToPile,
+  playEndlessCardWithTool,
   playCardToPile,
   priorityPileTargetForCard,
   purchaseMetaUpgrade,
@@ -36,8 +40,10 @@ import {
   restoreState,
   runShopOptions,
   snapshotState,
+  skipEndlessToolReward,
   starterDeck,
   uniqueBestPileTargetForCard,
+  useEndlessPruneTool,
 } from "../src/game/number-solitaire.js";
 import {
   loadProfile,
@@ -65,7 +71,7 @@ test("starts a campaign number-solitaire run with the required defaults", () => 
   const profile = defaultMetaProfile();
   const state = newCampaignRun(profile, 1);
 
-  assert.equal(state.version, "4.1-web-number-solitaire");
+  assert.equal(state.version, "4.2-web-active-tools");
   assert.equal(state.mode, "number");
   assert.equal(state.phase, "play");
   assert.equal(state.stageIndex, 1);
@@ -91,15 +97,12 @@ test("starts an endless run with score pressure instead of stage pressure", () =
   assert.equal(state.discardsRemaining, 3);
   assert.equal(state.hand.length, 5);
   const endlessDeck = endlessStarterDeck();
-  assert.equal(endlessDeck.length, 50);
-  assert.deepEqual(
-    Object.groupBy(endlessDeck, (card) => card.ability).normal.map((card) => card.digit),
-    [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 8, 9, 9, 9],
-  );
-  assert.equal(Object.groupBy(endlessDeck, (card) => card.ability).bridge.length, 6);
-  assert.equal(Object.groupBy(endlessDeck, (card) => card.ability).graft.length, 5);
-  assert.equal(Object.groupBy(endlessDeck, (card) => card.ability).prune.length, 3);
-  assert.equal(state.deck.length, 45);
+  assert.equal(endlessDeck.length, 40);
+  assert.deepEqual(Object.values(Object.groupBy(endlessDeck, (card) => card.digit)).map((cards) => cards.length), Array(10).fill(4));
+  assert.equal(endlessDeck.some((card) => Object.hasOwn(card, "ability") || Object.hasOwn(card, "abilityId")), false);
+  assert.deepEqual(state.tools, [{ id: "relocate" }]);
+  assert.equal(state.endlessRulesVersion, ENDLESS_RULES_VERSION);
+  assert.equal(state.deck.length, 35);
   assert.equal(state.compostPile.length, 0);
   assert.equal(state.piles.length, 4);
   assert.equal(state.piles[0].capacity, 10);
@@ -112,8 +115,8 @@ test("endless opening shuffle changes when the run seed changes", () => {
   const second = newEndlessRun(defaultMetaProfile(), { seed: 12 });
 
   assert.notDeepEqual(
-    first.hand.map((card) => `${card.digit}:${card.ability}`),
-    second.hand.map((card) => `${card.digit}:${card.ability}`),
+    first.hand.map((card) => card.digit),
+    second.hand.map((card) => card.digit),
   );
 });
 
@@ -226,29 +229,39 @@ test("endless layer combo harvests five connected cards and sends them to compos
   assert.deepEqual([...state.compostPile].map((card) => card.digit).sort((a, b) => a - b), [1, 2, 3, 4, 5]);
 });
 
-test("endless P0 abilities bridge, graft, and prune change connection previews", () => {
-  const bridgeState = newEndlessRun(defaultMetaProfile(), {
+test("endless active tools separately control placement, connection, and space", () => {
+  const relocateState = newEndlessRun(defaultMetaProfile(), {
     shuffle: false,
     skipRefill: true,
-    hand: [makeCard(4, 1, { ability: "bridge" })],
+    handSize: 0,
+    hand: [makeCard(4, 1)],
     deck: [],
+    tools: [{ id: "relocate" }],
     piles: [
       { cards: [makeCard(1, 1), makeCard(2, 1), makeCard(3, 1), makeCard(9, 1)] },
-      { cards: [makeCard(7, 1), makeCard(7, 2), makeCard(7, 3), makeCard(7, 4)] },
-      { cards: [makeCard(8, 1), makeCard(8, 2), makeCard(8, 3), makeCard(8, 4)] },
-      { cards: [makeCard(6, 1), makeCard(6, 2), makeCard(6, 3), makeCard(6, 4)] },
+      { cards: [makeCard(7, 1), makeCard(7, 2)] },
+      { cards: [makeCard(8, 1), makeCard(8, 2)] },
+      { cards: [makeCard(6, 1), makeCard(6, 2)] },
     ],
   });
-  const bridge = evaluateEndlessPilePlay(bridgeState, 1, bridgeState.hand[0]);
-  assert.equal(bridge.primaryKey, "bridge");
-  assert.equal(bridge.componentSize, 4);
-  assert.equal(bridge.extraEdges.some((edge) => edge.kind === "bridge"), true);
+  const normalTarget = evaluateEndlessPilePlay(relocateState, 1, relocateState.hand[0]);
+  const relocateTarget = evaluateEndlessToolTargets(relocateState, "relocate", 1)[0];
+  assert.equal(normalTarget.playable, false);
+  assert.equal(normalTarget.reason, "height_locked");
+  assert.equal(relocateTarget.playable, true);
+  const relocate = playEndlessCardWithTool(relocateState, 1, 1, 1);
+  assert.equal(relocate.ok, true);
+  assert.equal(relocate.preview.primaryKey, "relocate");
+  assert.equal(relocateState.piles[0].cards.at(-1).digit, 4);
+  assert.equal(relocateState.tools.length, 0);
 
   const graftState = newEndlessRun(defaultMetaProfile(), {
     shuffle: false,
     skipRefill: true,
-    hand: [makeCard(5, 1, { ability: "graft" })],
+    handSize: 0,
+    hand: [makeCard(5, 1)],
     deck: [],
+    tools: [{ id: "graft" }],
     piles: [
       { cards: [makeCard(1, 1)] },
       { cards: [makeCard(3, 1)] },
@@ -256,54 +269,139 @@ test("endless P0 abilities bridge, graft, and prune change connection previews",
       { cards: [makeCard(8, 1)] },
     ],
   });
-  const graft = evaluateEndlessPilePlay(graftState, 1, graftState.hand[0]);
-  assert.equal(graft.primaryKey, "graft");
-  assert.equal(graft.componentSize, 2);
-  assert.equal(graft.extraEdges.some((edge) => edge.kind === "graft"), true);
+  const graftTarget = evaluateEndlessToolTargets(graftState, "graft", 1)[1];
+  assert.equal(graftTarget.playable, true);
+  assert.equal(graftTarget.primaryKey, "graft");
+  assert.equal(graftTarget.extraEdges.some((edge) => edge.kind === "graft"), true);
+  const graft = playEndlessCardWithTool(graftState, 1, 1, 2);
+  assert.equal(graft.ok, true);
+  assert.equal(graftState.lastPlay.toolId, "graft");
+  assert.equal(graftState.tools.length, 0);
 
-  const prunePlaceState = newEndlessRun(defaultMetaProfile(), {
+  const graftTieState = newEndlessRun(defaultMetaProfile(), {
     shuffle: false,
     skipRefill: true,
     handSize: 0,
-    hand: [makeCard(4, 1, { ability: "prune" })],
+    hand: [makeCard(5, 2)],
     deck: [],
+    tools: [{ id: "graft" }],
     piles: [
-      { cards: [makeCard(1, 1), makeCard(2, 1), makeCard(3, 1)] },
-      { cards: [makeCard(8, 2), makeCard(8, 3), makeCard(8, 4)] },
-      { cards: [makeCard(7, 1), makeCard(7, 2), makeCard(7, 3)] },
-      { cards: [makeCard(6, 1), makeCard(6, 2), makeCard(6, 3)] },
+      { cards: [makeCard(0, 1), makeCard(2, 1)] },
+      { cards: [makeCard(0, 2)] },
+      { cards: [makeCard(0, 3), makeCard(2, 2)] },
+      { cards: [makeCard(0, 4)] },
     ],
   });
-  const prunePlace = playEndlessCardToPile(prunePlaceState, 1, 1);
-  assert.equal(prunePlace.ok, true);
-  assert.equal(prunePlace.preview.primaryKey, "neighbor");
-  assert.equal(prunePlace.preview.pruneTop, false);
-  assert.deepEqual(prunePlaceState.piles[0].cards.map((card) => card.digit), [1, 2, 3, 4]);
-  assert.deepEqual(prunePlaceState.compostPile.map((card) => card.digit), []);
+  const graftTieTarget = evaluateEndlessToolTargets(graftTieState, "graft", 1)[1];
+  assert.equal(graftTieTarget.extraEdges[0].to, "1:1");
 
   const pruneState = newEndlessRun(defaultMetaProfile(), {
     shuffle: false,
     skipRefill: true,
-    handSize: 0,
-    hand: [makeCard(4, 1, { ability: "prune" })],
+    handSize: 1,
+    hand: [makeCard(4, 1)],
     deck: [],
+    tools: [{ id: "prune" }],
     piles: [
-      { cards: [makeCard(1, 1), makeCard(2, 1), makeCard(3, 1), ...Array.from({ length: 7 }, (_, index) => makeCard(8, index + 1))] },
-      { cards: Array.from({ length: 10 }, (_, index) => makeCard(8, index + 11)) },
-      { cards: Array.from({ length: 10 }, (_, index) => makeCard(7, index + 1)) },
-      { cards: Array.from({ length: 10 }, (_, index) => makeCard(6, index + 1)) },
+      { cards: [makeCard(1, 1), makeCard(2, 1), makeCard(8, 1)] },
+      { cards: [makeCard(4, 2)] },
+      { cards: [makeCard(6, 1)] },
+      { cards: [makeCard(9, 1)] },
     ],
   });
-  const prune = playEndlessCardToPile(pruneState, 1, 4);
+  const prune = useEndlessPruneTool(pruneState, 1, 1);
   assert.equal(prune.ok, true);
-  assert.equal(prune.preview.primaryKey, "prune");
-  assert.equal(prune.preview.pruneTop, true);
-  assert.equal(prune.preview.pruneCleanup, true);
-  assert.equal(prune.preview.pileIndex, 1);
   assert.equal(pruneState.lastPlay.prunedCard.digit, 8);
   assert.equal(pruneState.lastPlay.cleanupOnly, true);
-  assert.deepEqual(pruneState.piles[0].cards.map((card) => card.digit), [1, 2, 3, 8, 8, 8, 8, 8, 8]);
-  assert.deepEqual(pruneState.compostPile.map((card) => card.digit), [8, 4]);
+  assert.deepEqual(pruneState.piles[0].cards.map((card) => card.digit), [1, 2]);
+  assert.deepEqual(pruneState.compostPile.map((card) => card.digit), [8]);
+  assert.equal(pruneState.hand[0].digit, 4);
+  assert.equal(pruneState.tools.length, 0);
+  assert.equal(pruneState.turnCount, 1);
+});
+
+test("endless tool rewards replace discard recovery and persist deterministic choices", () => {
+  const makeRewardState = () => newEndlessRun(defaultMetaProfile(), {
+    seed: 91,
+    shuffle: false,
+    skipRefill: true,
+    handSize: 0,
+    hand: [makeCard(3, 1)],
+    deck: [],
+    tools: [],
+    harvestCount: 2,
+    piles: [
+      { cards: [makeCard(1, 1), makeCard(2, 1)] },
+      { cards: [makeCard(8, 1)] },
+      { cards: [makeCard(9, 1), makeCard(4, 1)] },
+      { cards: [makeCard(9, 2), makeCard(5, 1)] },
+    ],
+  });
+  const first = makeRewardState();
+  const second = makeRewardState();
+  const firstResult = playEndlessCardToPile(first, 1, 4);
+  const secondResult = playEndlessCardToPile(second, 1, 4);
+
+  assert.equal(firstResult.ok, true);
+  assert.equal(first.phase, "tool_reward");
+  assert.equal(first.harvestCount, 3);
+  assert.equal(first.discardsRemaining, 3);
+  assert.equal(first.pendingToolReward.options.length, 2);
+  assert.deepEqual(first.pendingToolReward.options, second.pendingToolReward.options);
+  const chosen = chooseEndlessToolReward(first, first.pendingToolReward.options[0]);
+  assert.equal(chosen.ok, true);
+  assert.equal(first.phase, "play");
+  assert.equal(first.tools.length, 1);
+});
+
+test("full tool rewards require replacement or can be skipped", () => {
+  const full = newEndlessRun(defaultMetaProfile(), {
+    shuffle: false,
+    skipRefill: true,
+    phase: "tool_reward",
+    tools: [{ id: "relocate" }, { id: "prune" }],
+    pendingToolReward: {
+      id: "tool_reward_3",
+      harvestCount: 3,
+      options: ["graft", "relocate"],
+    },
+  });
+  const pending = chooseEndlessToolReward(full, "graft");
+  assert.equal(pending.ok, true);
+  assert.equal(pending.pendingReplacement, true);
+  assert.equal(full.pendingToolReward.selectedToolId, "graft");
+  const replaced = chooseEndlessToolReward(full, "graft", 2);
+  assert.equal(replaced.ok, true);
+  assert.deepEqual(full.tools, [{ id: "relocate" }, { id: "graft" }]);
+  assert.equal(full.pendingToolReward, null);
+
+  const skipped = newEndlessRun(defaultMetaProfile(), {
+    shuffle: false,
+    skipRefill: true,
+    phase: "tool_reward",
+    tools: [{ id: "relocate" }, { id: "prune" }],
+    pendingToolReward: { harvestCount: 3, options: ["graft", "relocate"] },
+  });
+  assert.equal(skipEndlessToolReward(skipped).ok, true);
+  assert.deepEqual(skipped.tools, [{ id: "relocate" }, { id: "prune" }]);
+  assert.equal(skipped.phase, "play");
+});
+
+test("invalid tool targets do not consume the tool", () => {
+  const state = newEndlessRun(defaultMetaProfile(), {
+    shuffle: false,
+    skipRefill: true,
+    handSize: 0,
+    hand: [makeCard(5, 1)],
+    deck: [],
+    tools: [{ id: "graft" }],
+    piles: [{ cards: [] }, { cards: [] }, { cards: [] }, { cards: [] }],
+  });
+  const result = playEndlessCardWithTool(state, 1, 1, 1);
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, "no_graft_target");
+  assert.deepEqual(state.tools, [{ id: "graft" }]);
+  assert.equal(state.hand.length, 1);
 });
 
 test("endless capacity blocks non-harvest placement and game over waits for swaps", () => {
@@ -582,6 +680,8 @@ test("endless result records best score, harvest, and survival turns", () => {
     bestHarvestScore: 450,
     bestPotentialScore: 460,
     turnCount: 5,
+    toolsUsed: 2,
+    toolHistory: [{ toolId: "relocate" }, { toolId: "prune" }],
   });
   state.phase = "game_over";
 
@@ -592,6 +692,8 @@ test("endless result records best score, harvest, and survival turns", () => {
   assert.equal(result.profile.numberEndless.bestPotentialScore, 460);
   assert.equal(result.profile.numberEndless.bestSurvivalTurns, 5);
   assert.equal(result.profile.numberEndless.runs, 1);
+  assert.equal(result.profile.numberEndless.toolsUsed, 2);
+  assert.deepEqual(result.profile.numberEndless.toolUses, { relocate: 1, prune: 1 });
 });
 
 test("snapshot restore and storage round-trip preserve run and profile", () => {
@@ -622,6 +724,9 @@ test("snapshot restore and storage round-trip preserve endless run state", () =>
     hand: [makeCard(6, 1)],
     compostPile: [makeCard(1, 1), makeCard(2, 1)],
     deck: [],
+    tools: [{ id: "relocate" }, { id: "graft" }],
+    phase: "tool_reward",
+    pendingToolReward: { harvestCount: 3, options: ["prune", "graft"], selectedToolId: "graft" },
   });
 
   const restored = restoreState(snapshotState(state));
@@ -629,12 +734,30 @@ test("snapshot restore and storage round-trip preserve endless run state", () =>
   assert.equal(restored.score, 123);
   assert.equal(restored.hand.length, 1);
   assert.equal(restored.compostPile.length, 2);
+  assert.deepEqual(restored.tools, [{ id: "relocate" }, { id: "graft" }]);
+  assert.equal(restored.phase, "tool_reward");
+  assert.equal(restored.pendingToolReward.selectedToolId, "graft");
 
   assert.equal(saveRun(state, storage), true);
   const loaded = loadRun(storage);
   assert.equal(loaded.mode, "endless");
   assert.equal(loaded.score, 123);
   assert.equal(loaded.compostPile.length, 2);
+  assert.deepEqual(loaded.tools, [{ id: "relocate" }, { id: "graft" }]);
+  assert.deepEqual(loaded.pendingToolReward.options, ["prune", "graft"]);
+});
+
+test("legacy endless runs are discarded while profile records remain normalizable", () => {
+  const state = newEndlessRun(defaultMetaProfile(), { seed: 13 });
+  const legacy = snapshotState(state);
+  delete legacy.endlessRulesVersion;
+  assert.equal(restoreState(legacy), null);
+
+  const profile = defaultMetaProfile();
+  profile.numberEndless.bestScore = 777;
+  const storage = memoryStorage();
+  assert.equal(saveProfile(profile, storage), true);
+  assert.equal(loadProfile(storage).numberEndless.bestScore, 777);
 });
 
 test("codex summary separates seen and discovered rewards", () => {
