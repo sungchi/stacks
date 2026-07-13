@@ -28,6 +28,7 @@
 | [docs/analysis/garden-stacks-active-tools-balance-2026-07-11.md](docs/analysis/garden-stacks-active-tools-balance-2026-07-11.md) | 능동형 정원 도구 20시드 초기 밸런스 검증 | 분석 |
 | [docs/analysis/garden-stacks-unique-card-art-2026-07-12.md](docs/analysis/garden-stacks-unique-card-art-2026-07-12.md) | 40장 카드별 고유 이미지의 재미·위험·단계 도입 분석 | 분석 |
 | [docs/analysis/garden-stacks-harvest-solitaire-concept-2026-07-12.md](docs/analysis/garden-stacks-harvest-solitaire-concept-2026-07-12.md) | 윗묶음 이동·공간 압박·매시간 seed 기반 수확 솔리테어 제안 | 제안 |
+| [docs/analysis/garden-stacks-hourly-four-harvest-concept-2026-07-13.md](docs/analysis/garden-stacks-hourly-four-harvest-concept-2026-07-13.md) | 최대 점수 별 목표·4연속 합/합×4·말잇못식 시간 도전 제안 | 제안 |
 | [docs/analysis/garden-stacks-ui-proposal-2026-07-04.md](docs/analysis/garden-stacks-ui-proposal-2026-07-04.md) | 깔끔하고 직관적인 게임 UI 제안 보고서 | 제안 |
 | [docs/analysis/garden-stacks-endless-mode-proposal-2026-07-07.md](docs/analysis/garden-stacks-endless-mode-proposal-2026-07-07.md) | 무한 정원 고득점 모드 규칙·제한·재미요소 제안서 | 제안 |
 | [docs/mockups/garden-stacks-ui-2026-07-04/bw-style-guide.md](docs/mockups/garden-stacks-ui-2026-07-04/bw-style-guide.md) | B/W UI 기본 스타일 가이드 | 기준 |
