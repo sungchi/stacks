@@ -1,114 +1,141 @@
 import {
-  CAMPAIGN_STAGES,
-  DIGITS,
-  LANDS,
-  cardImagePath,
-  colorCss,
-  landLabel,
-  rewardById,
-  stageByIndex,
-} from "./game/catalog.js";
-import {
-  applyReward,
-  bestEndlessPileTargetForCard,
-  bestPileTargetForCard,
-  campaignStageStatus,
-  catalogSummary,
-  codexEntries,
-  defaultMetaProfile,
-  discardEndlessCards,
-  discardNumberCards,
-  endlessHandPreviewSummary,
-  endlessToolSummary,
-  evaluateEndlessToolTargets,
-  handPreviewSummary,
-  isCampaignStageUnlocked,
-  newCampaignRun,
-  newEndlessRun,
-  chooseEndlessToolReward,
-  playEndlessCardWithTool,
-  playEndlessCardToPile,
-  playCardToPile,
-  priorityEndlessPileTargetForCard,
-  priorityPileTargetForCard,
-  purchaseMetaUpgrade,
-  purchaseRunShop,
-  recordCampaignResult,
-  recordEndlessResult,
-  rewardEffectSummary,
-  runShopOptions,
-  skipEndlessToolReward,
-  storeOptions,
-  useEndlessPruneTool,
-} from "./game/number-solitaire.js";
-import {
-  clearRun,
-  loadProfile,
-  loadRun,
-  loadSettings,
-  resetAllStorage,
-  saveProfile,
-  saveRun,
-  saveSettings,
-} from "./game/storage.js";
-import {
-  initialRunForRequest,
-  requestedPlayMode,
-} from "./game/run-mode.js";
+  HOURLY_ACTIVE_SEED_KEY,
+  HOURLY_RULES_VERSION,
+  formatDuration,
+  hourlyBestStorageKey,
+  hourlyResultShareText,
+  hourlyRunStorageKey,
+  hourlySolutionStorageKey,
+  kstHourSeed,
+  newHourlyRun,
+  playHourlyCard,
+  previewHourlyPlacement,
+  replayHourlySolution,
+  restoreHourlyRun,
+  secondsUntilNextHour,
+  snapshotHourlyRun,
+  solveHourlyHarvestMaximum,
+} from "./game/hourly-harvest.js";
 import {
   createPerformanceMonitor,
   installPerformanceTools,
 } from "./performance.js";
 
 const app = document.querySelector("#app");
-const perfMonitor = createPerformanceMonitor("Stacks (스택스) Simple");
-const CARD_FLIGHT_MS = 420;
-const HAND_SHIFT_DELAY_MS = 80;
-const HAND_SHIFT_STAGGER_MS = 22;
-const HAND_SHIFT_MS = 240;
-const HAND_REFILL_DELAY_MS = 420;
-const HAND_REFILL_MS = 430;
-const LANDING_MOTION_MS = HAND_REFILL_DELAY_MS + HAND_REFILL_MS + 120;
-const HARVEST_MOTION_MS = CARD_FLIGHT_MS + 1120;
-const HARVEST_REWARD_SFX_DELAY_MS = CARD_FLIGHT_MS + 180;
+const perfMonitor = createPerformanceMonitor("Stacks Hourly");
+const SOLVER_BEAM_WIDTH = 2000;
+const SOLVER_VERSION = `${HOURLY_RULES_VERSION}:beam-${SOLVER_BEAM_WIDTH}`;
+const FLIGHT_MS = 340;
+const HARVEST_MS = 620;
+const FALLBACK_CARD_IMAGE = "public/assets/garden-stacks/generated/cards/card_locked_unknown.png";
 
 const ui = {
-  profile: loadProfile(),
   state: null,
-  settings: loadSettings(),
+  solution: null,
   selectedHandIndex: null,
-  hoveredHandIndex: null,
-  armedToolIndex: null,
-  discardMode: false,
-  discardSelection: new Set(),
-  menuOpen: false,
-  menuTab: "stages",
+  pendingSeed: "",
+  helpOpen: false,
+  resultOpen: false,
   toast: null,
   motion: null,
+  harvestPulse: null,
   drag: null,
   suppressNextClick: false,
-  hoverPreviewTimer: null,
-  handHoverLockUntil: 0,
-  handHoverUnlockTimer: null,
+  loading: true,
 };
 
-const audio = {
-  context: null,
-};
+function readJson(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
 
-const requestedMode = requestedPlayMode(window.location.search);
-const savedRun = loadRun();
-ui.state = initialRunForRequest(savedRun, ui.profile, requestedMode, { seed: freshRunSeed() });
-if (!ui.state) ui.state = newEndlessRun(defaultMetaProfile(), { seed: freshRunSeed() });
+function writeJson(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+}
 
-function performanceDetail() {
-  return {
-    phase: ui.state?.phase ?? "unknown",
-    handCount: ui.state?.hand?.length ?? 0,
-    menuOpen: ui.menuOpen,
-    menuTab: ui.menuTab,
-    motion: ui.motion?.type ?? null,
-  };
+function activeSeed() {
+  try {
+    return localStorage.getItem(HOURLY_ACTIVE_SEED_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function setActiveSeed(seed) {
+  try {
+    localStorage.setItem(HOURLY_ACTIVE_SEED_KEY, seed);
+  } catch {
+    // The game still works for the current tab when storage is unavailable.
+  }
+}
+
+function loadSolution(seed) {
+  const cached = readJson(hourlySolutionStorageKey(seed));
+  if (cached?.seed === seed
+    && cached.solverVersion === SOLVER_VERSION
+    && cached.path?.length === 40
+    && cached.maximumScore > 0) {
+    const replay = replayHourlySolution(seed, cached);
+    if (replay.ok) return cached;
+  }
+  const stop = perfMonitor.start("solver.hourly", { seed, beamWidth: SOLVER_BEAM_WIDTH });
+  const solution = solveHourlyHarvestMaximum(seed, { beamWidth: SOLVER_BEAM_WIDTH });
+  const replay = replayHourlySolution(seed, solution);
+  stop({ exploredStates: solution.exploredStates, maximumScore: solution.maximumScore, verified: replay.ok });
+  if (!replay.ok) throw new Error("시간 게임 목표 경로를 검증하지 못했습니다.");
+  writeJson(hourlySolutionStorageKey(seed), solution);
+  return solution;
+}
+
+function saveRun() {
+  if (!ui.state) return;
+  writeJson(hourlyRunStorageKey(ui.state.seed), snapshotHourlyRun(ui.state));
+  setActiveSeed(ui.state.seed);
+}
+
+function loadBest(seed) {
+  const best = readJson(hourlyBestStorageKey(seed));
+  return best && Number.isFinite(best.score) ? best : { score: 0, stars: 0, perfect: false, attempts: 0 };
+}
+
+function recordResult() {
+  if (ui.state?.phase !== "result") return;
+  const previous = loadBest(ui.state.seed);
+  writeJson(hourlyBestStorageKey(ui.state.seed), {
+    score: Math.max(previous.score ?? 0, ui.state.score),
+    stars: Math.max(previous.stars ?? 0, ui.state.stars),
+    perfect: previous.perfect === true || ui.state.perfect === true,
+    attempts: Math.max(1, (previous.attempts ?? 0) + 1),
+    completedAt: Date.now(),
+  });
+}
+
+function createRun(seed) {
+  ui.solution = loadSolution(seed);
+  return newHourlyRun(seed, { solution: ui.solution });
+}
+
+function restoreOrCreateRun() {
+  const currentSeed = kstHourSeed();
+  const savedActiveSeed = activeSeed();
+  const candidateSeed = savedActiveSeed || currentSeed;
+  let state = restoreHourlyRun(readJson(hourlyRunStorageKey(candidateSeed)));
+  if (!state) state = createRun(currentSeed);
+  else ui.solution = loadSolution(state.seed);
+  ui.state = state;
+  ui.resultOpen = state.phase === "result";
+  setActiveSeed(state.seed);
+  ui.pendingSeed = currentSeed !== state.seed ? currentSeed : "";
+  saveRun();
 }
 
 function escapeHtml(value) {
@@ -119,864 +146,190 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;");
 }
 
-function pct(value, total) {
-  if (!total) return 0;
-  return Math.max(0, Math.min(100, Math.round((value / total) * 100)));
-}
-
 function requestedViewMode() {
-  const params = new URLSearchParams(window.location.search);
-  const view = (params.get("view") ?? params.get("layout") ?? params.get("device") ?? "").toLowerCase();
+  const params = new URLSearchParams(location.search);
+  const view = (params.get("view") ?? "auto").toLowerCase();
   return ["mobile", "desktop"].includes(view) ? view : "auto";
 }
 
-function clampSelectedHand() {
-  if (!ui.state.hand.length) {
-    ui.selectedHandIndex = null;
-    ui.hoveredHandIndex = null;
-    return;
-  }
-  if (ui.selectedHandIndex && !ui.state.hand[ui.selectedHandIndex - 1]) ui.selectedHandIndex = null;
-  if (ui.hoveredHandIndex && !ui.state.hand[ui.hoveredHandIndex - 1]) ui.hoveredHandIndex = null;
+function viewClass() {
+  const requested = requestedViewMode();
+  if (requested !== "auto") return `is-view-${requested}`;
+  return matchMedia("(max-width: 640px)").matches ? "is-view-mobile" : "is-view-desktop";
 }
 
-function rewardPresentationBlocked() {
-  return ui.motion?.type === "landing";
+function starsText(count, empty = "☆") {
+  return `${"★".repeat(Math.max(0, count))}${empty.repeat(Math.max(0, 3 - count))}`;
 }
 
-function handHoverLocked() {
-  return ui.drag != null
-    || ui.motion?.type === "landing"
-    || ui.motion?.type === "deal"
-    || Date.now() < (ui.handHoverLockUntil ?? 0);
+function seedLabel(seed) {
+  const text = String(seed);
+  if (!/^\d{10}$/.test(text)) return `#${text}`;
+  return `${Number(text.slice(4, 6))}월 ${Number(text.slice(6, 8))}일 ${text.slice(8, 10)}시`;
 }
 
-function lockHandHover(duration = 0) {
-  ui.handHoverLockUntil = Math.max(ui.handHoverLockUntil ?? 0, Date.now() + duration);
-  clearHoverPreview();
-  if (ui.handHoverUnlockTimer) window.clearTimeout(ui.handHoverUnlockTimer);
-  const delay = Math.max(0, ui.handHoverLockUntil - Date.now() + 20);
-  ui.handHoverUnlockTimer = window.setTimeout(() => {
-    ui.handHoverUnlockTimer = null;
-    render();
-  }, delay);
+function currentTimerText() {
+  return ui.pendingSeed ? "준비됨" : formatDuration(secondsUntilNextHour());
 }
 
-function motionAllowed() {
-  return ui.settings.animations && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function selectedPreviews() {
+  if (ui.selectedHandIndex == null || ui.state.phase !== "play") return [];
+  return ui.state.piles.map((_, pileIndex) => previewHourlyPlacement(ui.state, ui.selectedHandIndex, pileIndex));
 }
 
-function soundAllowed() {
-  return ui.settings.sfx !== false;
+function previewLabel(preview) {
+  if (!preview?.ok) return "";
+  if (!preview.harvest) return `${preview.countAfter}/4 · ${preview.cardsUntilHarvest}장 남음`;
+  if (preview.connection.length > 1) return `합 ${preview.chainSum} × 연결 ${preview.connection.length} = +${preview.points}`;
+  return `연쇄 합 ${preview.chainSum} · +${preview.points}`;
 }
 
-function dealMotionDuration(count = 1) {
-  return 620 + Math.max(0, count - 1) * 82;
-}
-
-function midiFrequency(note) {
-  return 440 * 2 ** ((note - 69) / 12);
-}
-
-function audioContext() {
-  if (!soundAllowed()) return null;
-  const AudioContextClass = window.AudioContext ?? window.webkitAudioContext;
-  if (!AudioContextClass) return null;
-  try {
-    if (!audio.context) audio.context = new AudioContextClass({ latencyHint: "interactive" });
-    return audio.context;
-  } catch {
-    return null;
-  }
-}
-
-function playMidiTone(ctx, note, opts = {}) {
-  const start = ctx.currentTime + (opts.delay ?? 0);
-  const duration = opts.duration ?? 0.08;
-  const gainValue = opts.gain ?? 0.016;
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = opts.type ?? "triangle";
-  osc.frequency.setValueAtTime(midiFrequency(note), start);
-  gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.01);
-  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-  osc.connect(gain).connect(ctx.destination);
-  osc.start(start);
-  osc.stop(start + duration + 0.03);
-}
-
-function playSfx(name, detail = {}) {
-  const ctx = audioContext();
-  if (!ctx) return;
-  const run = () => {
-    if (name === "select") {
-      playMidiTone(ctx, 76, { duration: 0.045, gain: 0.011 });
-    } else if (name === "hover") {
-      playMidiTone(ctx, 72, { duration: 0.035, gain: 0.0065 });
-      playMidiTone(ctx, 79, { delay: 0.028, duration: 0.045, gain: 0.0055 });
-    } else if (name === "reject") {
-      playMidiTone(ctx, 47, { duration: 0.09, gain: 0.017, type: "sawtooth" });
-      playMidiTone(ctx, 42, { delay: 0.055, duration: 0.11, gain: 0.013, type: "sawtooth" });
-    } else if (name === "deal") {
-      const count = Math.max(1, Math.min(5, Math.floor(Number(detail.count) || 1)));
-      const notes = [57, 60, 64, 67, 72];
-      notes.slice(0, count).forEach((note, i) => {
-        playMidiTone(ctx, note, { delay: i * 0.045, duration: 0.055, gain: 0.009, type: "square" });
-      });
-    } else if (name === "reward") {
-      [72, 76, 79, 84].forEach((note, i) => {
-        playMidiTone(ctx, note, { delay: i * 0.055, duration: 0.12, gain: 0.013 });
-      });
-    } else if (name === "place") {
-      if (detail.preview?.breaksCombo) {
-        playMidiTone(ctx, 55, { duration: 0.065, gain: 0.014 });
-        playMidiTone(ctx, 50, { delay: 0.06, duration: 0.09, gain: 0.012 });
-        return;
-      }
-      const notes = detail.preview?.glow === "gold" ? [72, 79, 84] : detail.preview?.glow === "yellow" ? [67, 72, 76] : [60, 67, 72];
-      notes.forEach((note, i) => {
-        playMidiTone(ctx, note, { delay: i * 0.045, duration: 0.09, gain: 0.012 });
-      });
-    }
-  };
-  if (ctx.state === "suspended") {
-    void ctx.resume().then(run).catch(() => {});
-  } else {
-    run();
-  }
-}
-
-function queueMotion(motion, duration = 520) {
-  if (!motionAllowed()) return;
-  const id = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
-  ui.motion = { ...motion, id };
-  if (motion.type === "landing" || motion.type === "deal") {
-    lockHandHover(duration + 140);
-  }
-  if (motion.type === "landing" && duration > CARD_FLIGHT_MS) {
-    window.setTimeout(() => {
-      if (ui.motion?.id === id && ui.motion.type === "landing") {
-        ui.motion = { ...ui.motion, settled: true };
-        render();
-      }
-    }, CARD_FLIGHT_MS);
-  }
-  window.setTimeout(() => {
-    if (ui.motion?.id === id) {
-      ui.motion = null;
-      render();
-    }
-  }, duration);
-}
-
-function clearMotion() {
-  ui.motion = null;
-}
-
-function clearHoverPreview() {
-  if (ui.hoverPreviewTimer) {
-    window.clearTimeout(ui.hoverPreviewTimer);
-    ui.hoverPreviewTimer = null;
-  }
-  ui.hoveredHandIndex = null;
-}
-
-function showToast(message) {
-  const id = Date.now();
-  ui.toast = { message, id };
-  render();
-  window.setTimeout(() => {
-    if (ui.toast?.id === id) {
-      ui.toast = null;
-      render();
-    }
-  }, 1600);
-}
-
-function persist() {
-  if (!ui.settings.autosave) return;
-  perfMonitor.measure("persist", () => {
-    saveProfile(ui.profile);
-    saveRun(ui.state);
-    saveSettings(ui.settings);
-  }, performanceDetail());
-}
-
-function maybeFinalizeRun() {
-  if (!["won", "game_over"].includes(ui.state.phase) || ui.state.resultRecorded) return;
-  if (isEndlessRun()) {
-    if (ui.state.phase !== "game_over") return;
-    const result = recordEndlessResult(ui.profile, ui.state);
-    ui.profile = result.profile;
-    ui.state.resultRecorded = true;
-    ui.state.resultImproved = result.improved;
-    ui.state.resultBestScore = result.bestScore;
-    ui.state.message = result.improved ? `새 최고 점수 ${result.score}점` : `최종 점수 ${result.score}점`;
-    persist();
-    return;
-  }
-  const result = recordCampaignResult(ui.profile, ui.state);
-  ui.profile = result.profile;
-  ui.state.resultRecorded = true;
-  ui.state.resultPayout = result.payout;
-  ui.state.resultCleared = result.cleared;
-  ui.state.message = result.cleared
-    ? `${result.stage.name} 클리어 · 씨앗 ${result.payout} 획득`
-    : `재도전 씨앗 ${result.payout} 획득`;
-  persist();
-}
-
-function isEndlessRun(state = ui.state) {
-  return state?.mode === "endless";
-}
-
-function armedToolEntry() {
-  if (!isEndlessRun() || !ui.armedToolIndex) return null;
-  const item = ui.state.tools?.[ui.armedToolIndex - 1];
-  const detail = endlessToolSummary(item);
-  return item && detail ? { ...detail, index: ui.armedToolIndex } : null;
-}
-
-function clearToolSelection() {
-  ui.armedToolIndex = null;
-  ui.selectedHandIndex = null;
-  ui.hoveredHandIndex = null;
-}
-
-function gameplayInteractionBlocked() {
-  return ui.motion != null;
-}
-
-function toolTargetPreviews() {
-  const tool = armedToolEntry();
-  if (!tool) return [];
-  if (tool.id === "prune") return evaluateEndlessToolTargets(ui.state, tool.id);
-  const handIndex = ui.hoveredHandIndex ?? ui.selectedHandIndex;
-  return handIndex ? evaluateEndlessToolTargets(ui.state, tool.id, handIndex) : [];
-}
-
-function currentHandSummary() {
-  return isEndlessRun() ? endlessHandPreviewSummary(ui.state) : handPreviewSummary(ui.state);
-}
-
-function currentBestTarget(handIndex) {
-  return isEndlessRun() ? bestEndlessPileTargetForCard(ui.state, handIndex) : bestPileTargetForCard(ui.state, handIndex);
-}
-
-function currentPriorityTarget(handIndex) {
-  return isEndlessRun() ? priorityEndlessPileTargetForCard(ui.state, handIndex) : priorityPileTargetForCard(ui.state, handIndex);
-}
-
-function playCurrentCard(handIndex, pileIndex) {
-  return isEndlessRun() ? playEndlessCardToPile(ui.state, handIndex, pileIndex) : playCardToPile(ui.state, handIndex, pileIndex);
-}
-
-function discardCurrentCards(indices) {
-  return isEndlessRun() ? discardEndlessCards(ui.state, indices) : discardNumberCards(ui.state, indices);
-}
-
-function previewPoints(preview) {
-  return isEndlessRun() ? (preview?.harvestScore ?? 0) : (preview?.expectedReputation ?? 0);
-}
-
-function hasPlayableTarget(handIndex) {
-  const { previews } = currentBestTarget(handIndex);
-  return previews.some((preview) => preview && preview.playable !== false);
-}
-
-function hasPlayableToolTarget(handIndex) {
-  const tool = armedToolEntry();
-  if (!tool || tool.id === "prune") return false;
-  return evaluateEndlessToolTargets(ui.state, tool.id, handIndex).some((preview) => preview.playable);
-}
-
-function rejectUnplayableHand(handIndex) {
-  ui.selectedHandIndex = null;
-  clearHoverPreview();
-  ui.discardSelection.clear();
-  queueMotion({ type: "reject", handIndex }, 360);
-  playSfx("reject");
-  showToast("놓을 수 있는 정원 더미가 없습니다.");
-}
-
-function freshRunSeed() {
-  const randomPart = globalThis.crypto?.getRandomValues
-    ? globalThis.crypto.getRandomValues(new Uint32Array(1))[0]
-    : Math.floor(Math.random() * 0xffffffff);
-  const clockPart = Math.floor((globalThis.performance?.now?.() ?? 0) * 1000);
-  return `${Date.now()}:${clockPart}:${randomPart}`;
-}
-
-function startEndlessMode() {
-  ui.state = newEndlessRun(ui.profile, { seed: freshRunSeed() });
-  ui.selectedHandIndex = null;
-  ui.armedToolIndex = null;
-  clearHoverPreview();
-  ui.discardMode = false;
-  ui.discardSelection.clear();
-  ui.menuOpen = false;
-  const dealtIds = ui.state.hand.map((card) => card.id);
-  queueMotion({ type: "deal", dealtIds }, dealMotionDuration(dealtIds.length));
-  playSfx("deal", { count: dealtIds.length });
-  persist();
-  render();
-}
-
-function startStage(stageIndex) {
-  if (!isCampaignStageUnlocked(ui.profile.numberCampaign, stageIndex)) {
-    showToast("아직 잠긴 스테이지입니다.");
-    return;
-  }
-  ui.profile.numberCampaign.lastSelectedStage = stageIndex;
-  ui.state = newCampaignRun(ui.profile, stageIndex);
-  ui.selectedHandIndex = null;
-  ui.armedToolIndex = null;
-  clearHoverPreview();
-  ui.discardMode = false;
-  ui.discardSelection.clear();
-  ui.menuOpen = false;
-  const dealtIds = ui.state.hand.map((card) => card.id);
-  queueMotion({ type: "deal", dealtIds }, dealMotionDuration(dealtIds.length));
-  playSfx("deal", { count: dealtIds.length });
-  persist();
-  render();
-}
-
-function startNextStage() {
-  const next = Math.min(CAMPAIGN_STAGES.length, (ui.state.stageIndex ?? 1) + 1);
-  startStage(next);
-}
-
-function selectedTarget() {
-  const tool = armedToolEntry();
-  if (tool) {
-    return { bestIndex: null, bestPreview: null, previews: toolTargetPreviews() };
-  }
-  const hovering = ui.state.phase === "play" && !ui.discardMode && ui.hoveredHandIndex;
-  const handIndex = hovering ? ui.hoveredHandIndex : ui.selectedHandIndex;
-  if (!handIndex) return { bestIndex: null, bestPreview: null, previews: [] };
-  const target = hovering ? currentPriorityTarget(handIndex) : currentBestTarget(handIndex);
-  if (hovering || isEndlessRun()) {
-    return {
-      ...target,
-      previews: target.bestPreview ? [target.bestPreview] : [],
-    };
-  }
-  return target;
-}
-
-function visiblePileCardsForRender(pile, pileNumber) {
-  const motion = ui.motion;
-  if (motion?.type !== "landing" || motion.settled || motion.pileIndex !== pileNumber || !motion.card?.id) return pile.cards;
-  return pile.cards.filter((card) => card.id !== motion.card.id);
-}
-
-function pilePreviewGlows(preview) {
-  return ui.state.phase === "play" && ["gold", "yellow", "open"].includes(preview?.glow);
-}
-
-function endlessPreviewLabel(preview) {
-  if (!preview) return "";
-  if (preview.playable) return preview.primaryLabel;
-  if (preview.reason === "height_locked") return "높이 제한";
-  if (preview.reason === "pile_full") return "가득 참";
-  if (preview.reason === "no_graft_target") return "접붙임 없음";
-  if (preview.reason === "empty_pile") return "빈 정원";
-  return "배치 불가";
-}
-
-function pilePreviewContent(preview) {
-  if (!preview) return "";
-  if (isEndlessRun()) {
-    if (preview.toolId === "prune") return `<span>${escapeHtml(endlessPreviewLabel(preview))}</span><span>${preview.playable ? "1칸 확보" : "-"}</span>`;
-    if (!preview.playable) return `<span>${escapeHtml(endlessPreviewLabel(preview))}</span><span>-</span>`;
-    return `<span>${escapeHtml(endlessPreviewLabel(preview))}</span><span>${preview.harvestReady ? "수확" : `${preview.cardsToHarvest}장`}</span>`;
-  }
-  return `<span>${escapeHtml(preview.primaryLabel)}</span><span>x${preview.nextMultiplier}</span>`;
-}
-
-function pilePreviewMarkup(preview) {
-  const content = pilePreviewContent(preview);
-  return `<div class="pile-preview" ${content ? "" : "hidden"}>${content}</div>`;
-}
-
-function cardArt(card, className = "") {
-  const alt = card ? `${card.cardName} ${card.digit}` : "카드";
-  const src = cardImagePath(card?.imageId ?? "card_locked_unknown");
-  return `<img class="${className}" src="${src}" alt="${escapeHtml(alt)}" loading="lazy" decoding="async" />`;
-}
-
-function toolArt(toolOrId, className = "") {
-  const tool = endlessToolSummary(toolOrId);
-  const src = cardImagePath(tool?.imageId ?? "card_locked_unknown");
-  return `<img class="${className}" src="${src}" alt="${escapeHtml(tool?.label ?? "도구")}" loading="lazy" decoding="async" />`;
-}
-
-function rewardArt(item, className = "") {
-  return `<img class="${className}" src="${cardImagePath(item?.imageId ?? "card_locked_unknown")}" alt="${escapeHtml(item?.name ?? "발견")}" loading="lazy" decoding="async" />`;
-}
-
-function cardAddMarkup(card) {
-  const digit = Math.max(0, Math.min(9, Math.floor(Number(card?.digit) || 0)));
-  return digit === 0
-    ? `<span class="card-add-number">0</span>`
-    : `<span class="card-add-prefix">+</span><span class="card-add-number">${digit}</span>`;
-}
-
-function cardMultiplyMarkup(card) {
-  const digit = Math.max(0, Math.min(9, Math.floor(Number(card?.digit) || 0)));
-  const value = 9 - digit;
-  return value === 0
-    ? `<span class="card-multiply-number">0</span>`
-    : `<span class="card-multiply-prefix">x</span><span class="card-multiply-number">${value}</span>`;
-}
-
-function cardAriaLabel(card) {
-  return `${card?.digit ?? ""} ${card?.cardName ?? "카드"}`.trim();
-}
-
-function cardFace(card, artClass) {
+function cardMarkup(card, compact = false) {
   return `
-    <span class="card-add">${cardAddMarkup(card)}</span>
-    <span class="card-identity">
-      ${cardArt(card, artClass)}
-      <span class="card-name">${escapeHtml(card?.cardName ?? "카드")}</span>
-    </span>
-    <span class="card-multiply">${cardMultiplyMarkup(card)}</span>
+    <span class="card-digit">${card.digit}</span>
+    <img src="${escapeHtml(card.imagePath)}" alt="" draggable="false" />
+    <strong>${escapeHtml(card.cardName)}</strong>
+    ${compact ? "" : `<small>${card.digit} 정원 카드</small>`}
   `;
 }
 
-function rewardChoiceText(reward) {
-  const current = rewardById(reward?.id) ?? reward;
-  const effect = rewardEffectSummary(ui.state, current);
-  return {
-    name: current?.name ?? "보상",
-    line: effect.line || current?.short || current?.name || "보상 선택",
-    detail: effect.detail || current?.description || "",
-  };
-}
-
-function renderStatus() {
-  if (isEndlessRun()) {
-    const best = Math.max(ui.profile.numberEndless?.bestScore ?? 0, ui.state.bestScore ?? 0, ui.state.score ?? 0);
-    const progress = Math.min(100, Math.round(((ui.state.score ?? 0) / Math.max(1, best)) * 100));
-    return `
-      <header class="simple-status">
-        <div class="title-lockup">
-          <span>무한 정원</span>
-          <strong>Stacks (스택스)</strong>
-        </div>
-        <div class="status-meter" aria-label="점수 ${ui.state.score}">
-          <div><span>점수</span><b>${ui.state.score}</b></div>
-          <div class="meter-track"><i style="width:${progress}%"></i></div>
-        </div>
-        <div class="status-pills" aria-label="런 상태">
-          <span>최고 ${best}</span>
-          <span>교체 ${ui.state.discardsRemaining}</span>
-          <span>수확 ${ui.state.harvestCount ?? 0}</span>
-          <span>퇴비 ${ui.state.compostPile?.length ?? 0}</span>
-        </div>
-        <button class="menu-trigger" type="button" data-action="open-deck" aria-label="덱 보기">덱</button>
-        <button class="menu-trigger" type="button" data-action="open-menu" aria-label="메뉴 열기">메뉴</button>
-      </header>
-    `;
-  }
-  const stage = stageByIndex(ui.state.stageIndex ?? 1);
-  const land = LANDS[ui.state.activeLand] ?? LANDS.meadow;
-  const progress = pct(ui.state.reputation, ui.state.targetReputation);
+function renderHeader() {
+  const best = loadBest(ui.state.seed);
   return `
-    <header class="simple-status">
-      <div class="title-lockup">
-        <span>${escapeHtml(stage.name)}</span>
-        <strong>Stacks (스택스)</strong>
+    <header class="hourly-header">
+      <div class="brand-lockup">
+        <h1>Stacks</h1>
+        <span>${escapeHtml(seedLabel(ui.state.seed))}</span>
       </div>
-      <div class="status-meter" aria-label="평판 ${ui.state.reputation}/${ui.state.targetReputation}">
-        <div><span>평판</span><b>${ui.state.reputation}/${ui.state.targetReputation}</b></div>
-        <div class="meter-track"><i style="width:${progress}%"></i></div>
+      <div class="header-actions">
+        <button class="icon-button" type="button" data-action="help" aria-label="게임방법">?</button>
+        <button class="text-button" type="button" data-action="share">결과공유</button>
+        <div class="timer-box" aria-label="${ui.pendingSeed ? "새 게임 준비됨" : "다음 게임까지"}">
+          <span>${ui.pendingSeed ? "새 게임" : "다음 게임"}</span>
+          <strong data-timer>${currentTimerText()}</strong>
+        </div>
       </div>
-      <div class="status-pills" aria-label="런 상태">
-        <span>${escapeHtml(land.label)}</span>
-        <span>놓기 ${ui.state.playsRemaining}</span>
-        <span>교체 ${ui.state.discardsRemaining}</span>
-        <span>씨앗 ${ui.profile.numberMoney}</span>
+      <div class="score-line">
+        <div><span>점수</span><strong>${ui.state.score}</strong></div>
+        <div><span>별</span><strong>${starsText(ui.state.stars)}</strong></div>
+        <div><span>수확</span><strong>${ui.state.harvests}</strong></div>
+        <div><span>최고</span><strong>${best.score}</strong></div>
       </div>
-      <button class="menu-trigger" type="button" data-action="open-menu" aria-label="메뉴 열기">메뉴</button>
+      <div class="star-targets" aria-label="별 목표 점수">
+        <span class="${ui.state.score >= ui.state.thresholds.one ? "is-earned" : ""}">★ ${ui.state.thresholds.one}</span>
+        <span class="${ui.state.score >= ui.state.thresholds.two ? "is-earned" : ""}">★★ ${ui.state.thresholds.two}</span>
+        <span class="${ui.state.score >= ui.state.thresholds.three ? "is-earned" : ""}">★★★ ${ui.state.thresholds.three}</span>
+        <span class="perfect-target">MAX ${ui.state.maximumScore}</span>
+      </div>
     </header>
   `;
 }
 
-function renderPiles() {
-  const tool = armedToolEntry();
-  const { previews } = selectedTarget();
-  const previewByPile = new Map(previews.map((preview) => [preview.pileIndex, preview]));
+function renderPendingBanner() {
+  if (!ui.pendingSeed) return "";
   return `
-    <section class="pile-grid" aria-label="4정원 더미">
-      ${ui.state.piles.map((pile, index) => {
-        const pileNumber = index + 1;
-        const preview = previewByPile.get(pileNumber);
-        const landing = ui.motion?.type === "landing" && ui.motion.settled && ui.motion.pileIndex === pileNumber;
-        const toolMotion = ui.motion?.type === "tool" && ui.motion.pileIndex === pileNumber;
-        const harvested = landing && ui.motion?.harvested;
-        const showScore = landing && (!isEndlessRun() || (ui.motion?.points ?? 0) > 0);
-          const stack = visiblePileCardsForRender(pile, pileNumber).slice(-4);
-          const match = pilePreviewGlows(preview);
-          return `
-            <button class="pile-card ${match ? "is-match" : ""} ${preview?.breaksCombo ? "is-break" : ""} ${tool && preview?.playable ? "is-tool-target" : ""} ${tool?.id === "relocate" && preview?.playable ? "is-relocate-target" : ""} ${tool?.id === "graft" && preview?.playable ? "is-graft-target" : ""} ${tool?.id === "prune" && preview?.playable ? "is-prune-target" : ""} ${landing ? "is-landing" : ""} ${harvested ? "is-landing-harvest" : ""} ${toolMotion ? "is-tool-landing" : ""}" type="button" data-action="play-pile" data-pile-index="${pileNumber}" aria-label="정원 ${pileNumber}${preview ? `, ${escapeHtml(endlessPreviewLabel(preview))}` : ""}" ${ui.state.phase !== "play" ? "disabled" : ""}>
-              <div class="mini-stack" aria-hidden="true">
-              ${stack.length
-                ? stack.map((card, cardIndex) => {
-                  const fanX = Math.round((cardIndex - (stack.length - 1) / 2) * 25);
-                  const fanRot = (cardIndex - (stack.length - 1) / 2) * 3.5;
-                  return `
-                  <span class="mini-card" style="--fan-x:${fanX}px; --fan-rot:${fanRot}deg; --color:${colorCss(card.color)}">
-                    <span class="card-add">${cardAddMarkup(card)}</span>
-                    ${cardArt(card, "mini-art")}
-                    <span class="card-multiply">${cardMultiplyMarkup(card)}</span>
-                  </span>
-                `;
-                }).join("")
-                  : `<span class="empty-slot"></span>`}
-              </div>
-              ${pilePreviewMarkup(preview)}
-              ${harvested ? `<span class="harvest-ring" aria-hidden="true"></span>
-                <span class="harvest-sparks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>` : ""}
-              ${showScore ? `<span class="score-pop ${harvested ? "is-harvest" : ""}">
-              ${harvested ? `<span>수확</span><strong>+${ui.motion.points ?? 0}</strong><em>${escapeHtml(ui.motion.formula ?? "")}</em>` : `+${ui.motion.points ?? 0}`}
-            </span>` : ""}
-          </button>
-        `;
-      }).join("")}
+    <section class="new-game-banner" aria-live="polite">
+      <div><strong>새 게임이 준비됐어요.</strong><span>${escapeHtml(seedLabel(ui.pendingSeed))} 정원</span></div>
+      <button type="button" data-action="start-ready">시작</button>
     </section>
   `;
 }
 
-function renderTools() {
-  if (!isEndlessRun()) return "";
-  const armed = armedToolEntry();
+function renderGarden(pile, pileIndex, preview) {
+  const isPulse = ui.harvestPulse?.pileIndex === pileIndex;
+  const isConnected = preview?.harvest && preview.connection.pileIndices.includes(pileIndex);
+  const slots = Array.from({ length: 4 }, (_, index) => {
+    const card = pile[index];
+    return card
+      ? `<span class="garden-card" style="--slot:${index}">${cardMarkup(card, true)}</span>`
+      : `<span class="garden-slot" aria-hidden="true">${index + 1}</span>`;
+  }).join("");
   return `
-    <section class="tool-belt ${armed ? "is-armed" : ""}" aria-label="정원 도구">
-      <div class="tool-belt-head">
-        <span>정원 도구</span>
-        <strong>${escapeHtml(armed ? armed.text : "보관함 2칸")}</strong>
-        ${armed ? `<button class="tool-cancel" type="button" data-action="cancel-tool">취소</button>` : ""}
+    <button class="garden ${preview ? "is-target" : ""} ${preview?.harvest ? "will-harvest" : ""} ${isConnected ? "is-connected" : ""} ${isPulse ? "is-harvesting" : ""}" type="button" data-action="place-card" data-pile-index="${pileIndex}" ${ui.state.phase !== "play" || ui.motion ? "disabled" : ""}>
+      <span class="garden-head"><strong>정원 ${pileIndex + 1}</strong><small>${pile.length}/4</small></span>
+      <span class="garden-slots">${slots}</span>
+      <span class="garden-preview">${escapeHtml(previewLabel(preview)) || "\u00a0"}</span>
+    </button>
+  `;
+}
+
+function renderBoard() {
+  const previews = selectedPreviews();
+  return `
+    <section class="board-section" aria-label="네 정원">
+      <div class="clockwise-label" aria-label="시계방향 정원 순서"><span>1</span><i>→</i><span>2</span><i>→</i><span>4</span><i>→</i><span>3</span></div>
+      <div class="garden-grid">
+        ${ui.state.piles.map((pile, index) => renderGarden(pile, index, previews[index])).join("")}
       </div>
-      <div class="tool-slots">
-        ${Array.from({ length: 2 }, (_, index) => {
-          const toolIndex = index + 1;
-          const item = ui.state.tools?.[index];
-          const tool = endlessToolSummary(item);
-          if (!tool) return `<span class="tool-slot is-empty" aria-label="빈 도구 슬롯"></span>`;
-          const selected = ui.armedToolIndex === toolIndex;
-          return `
-            <button class="tool-slot ${selected ? "is-selected" : ""}" type="button" data-action="select-tool" data-tool-index="${toolIndex}" aria-pressed="${selected}" aria-label="${escapeHtml(`${tool.label}, 1회 남음. ${tool.description}${selected ? " 준비됨" : ""}`)}" ${ui.state.phase !== "play" ? "disabled" : ""}>
-              ${toolArt(tool, "tool-art")}
-              <span>${escapeHtml(tool.label)}</span>
-              <small class="tool-use">1회</small>
-            </button>
-          `;
-        }).join("")}
-      </div>
+      <p class="rule-line">네 장 연쇄는 합 · 시계방향 정원 연결은 곱</p>
     </section>
   `;
 }
 
 function renderHand() {
-  const handMotion = ui.motion?.type === "landing" ? ui.motion : null;
-  const handFlowReady = handMotion?.settled === true;
-  const playedHandIndex = handMotion?.playedHandIndex ?? 0;
+  const remaining = ui.state.deck.length + ui.state.hand.length;
   return `
-    <section class="hand-panel" aria-label="손패">
-      <div class="hand-head">
-        <div>
-          <span>손패</span>
-          <strong>${ui.state.message ? escapeHtml(ui.state.message) : "카드를 놓아 흐름을 만드세요"}</strong>
-        </div>
-      </div>
+    <section class="hand-section" aria-label="손패">
+      <div class="hand-head"><div><strong>손패</strong><span>카드를 정원으로 옮기세요</span></div><div><span>남은 카드</span><strong>${remaining}</strong></div></div>
       <div class="hand-row">
-        ${ui.state.hand.map((card, index) => {
-          const handIndex = index + 1;
-          const selected = ui.selectedHandIndex === handIndex;
-          const hovered = ui.hoveredHandIndex === handIndex;
-          const discardSelected = ui.discardSelection.has(handIndex);
-          const dealtIndex = ui.motion?.type === "deal" ? (ui.motion.dealtIds?.indexOf(card.id) ?? -1) : -1;
-          const beforeIndex = handMotion?.beforeHandIds?.indexOf(card.id) ?? -1;
-          const shifted = beforeIndex >= playedHandIndex && beforeIndex > index;
-          const shiftOrder = shifted ? Math.max(0, beforeIndex - playedHandIndex) : 0;
-          const shiftDelay = HAND_SHIFT_DELAY_MS + shiftOrder * HAND_SHIFT_STAGGER_MS;
-          const refillIndex = handMotion?.dealtIds?.indexOf(card.id) ?? -1;
-          const refilling = refillIndex >= 0;
-          const preShift = shifted && !handFlowReady;
-          const preRefill = refilling && !handFlowReady;
-          const activeShift = shifted && handFlowReady;
-          const activeRefill = refilling && handFlowReady;
-          const dealt = dealtIndex >= 0;
-          const dealCount = ui.motion?.dealtIds?.length ?? 0;
-          const dealX = dealt ? Math.round((dealtIndex - (dealCount - 1) / 2) * -14) : 0;
-          const dealDelay = dealt ? dealtIndex * 82 : 0;
-          const dealRotate = dealt ? Math.round((dealtIndex - (dealCount - 1) / 2) * 2) : 0;
-          const rejected = ui.motion?.type === "reject" && ui.motion.handIndex === handIndex;
-          return `
-            <button class="hand-card ${selected ? "is-selected" : ""} ${hovered ? "is-hovered" : ""} ${discardSelected ? "is-discard-selected" : ""} ${preShift ? "is-hand-pre-shift" : ""} ${preRefill ? "is-hand-pre-refill" : ""} ${activeShift ? "is-hand-shifting" : ""} ${activeRefill ? "is-hand-refill" : ""} ${dealt ? "is-dealt" : ""} ${rejected ? "is-rejected" : ""}" type="button" data-action="select-card" data-hand-index="${handIndex}" aria-label="${escapeHtml(cardAriaLabel(card))}" style="--color:${colorCss(card.color)}; --deal-index:${Math.max(0, dealtIndex)}; --deal-delay:${dealDelay}ms; --deal-x:${dealX}px; --deal-rotate:${dealRotate}deg; --hand-shift-delay:${shiftDelay}ms; --hand-shift-duration:${HAND_SHIFT_MS}ms; --hand-refill-delay:${HAND_REFILL_DELAY_MS}ms; --hand-refill-duration:${HAND_REFILL_MS}ms" ${ui.state.phase !== "play" ? "disabled" : ""}>
-              ${cardFace(card, "card-art")}
-            </button>
-          `;
-        }).join("")}
-      </div>
-    </section>
-  `;
-}
-
-function renderResultPanel() {
-  if (!["won", "game_over"].includes(ui.state.phase)) return "";
-  if (isEndlessRun()) {
-    return `
-      <section class="result-sheet is-loss">
-        <div>
-          <span>${ui.state.resultImproved ? "새 기록" : "기록 종료"}</span>
-          <strong>${escapeHtml(ui.state.failureReason ?? "더 이상 놓을 수 없습니다.")}</strong>
-        </div>
-        <b>${ui.state.score}점</b>
-        <button class="primary-button" type="button" data-action="restart-run">다시</button>
-      </section>
-    `;
-  }
-  const cleared = ui.state.phase === "won";
-  return `
-    <section class="result-sheet ${cleared ? "is-win" : "is-loss"}">
-      <div>
-        <span>${cleared ? "클리어" : "재도전"}</span>
-        <strong>${cleared ? "정원길을 열었습니다." : escapeHtml(ui.state.failureReason ?? "목표 평판 미달")}</strong>
-      </div>
-      <b>+${ui.state.resultPayout ?? 0} 씨앗</b>
-      ${cleared && (ui.state.stageIndex ?? 1) < CAMPAIGN_STAGES.length ? `<button class="primary-button" type="button" data-action="next-stage">다음</button>` : ""}
-      <button class="plain-button" type="button" data-action="restart-run">다시</button>
-    </section>
-  `;
-}
-
-function renderRewardSheet() {
-  if (ui.state.phase !== "reward" || rewardPresentationBlocked()) return "";
-  return `
-    <section class="sheet-backdrop" aria-label="보상">
-      <div class="bottom-sheet">
-        <div class="sheet-title">
-          <span>${ui.state.rewardReason === "firstFiveCombo" ? "새 발견" : "스테이지 보상"}</span>
-          <strong>하나를 고르세요</strong>
-        </div>
-        <div class="reward-row">
-          ${ui.state.rewardOptions.map((reward, index) => {
-            const text = rewardChoiceText(reward);
-            return `
-              <button class="reward-card" type="button" data-action="choose-reward" data-reward-index="${index + 1}">
-                ${rewardArt(reward, "reward-art")}
-                <span>${escapeHtml(text.name)}</span>
-                <b>${escapeHtml(text.line)}</b>
-                <small>${escapeHtml(text.detail)}</small>
-              </button>
-            `;
-          }).join("")}
-        </div>
-      </div>
-    </section>
-  `;
-}
-
-function renderToolRewardSheet() {
-  if (ui.state.phase !== "tool_reward" || rewardPresentationBlocked()) return "";
-  const reward = ui.state.pendingToolReward;
-  if (!reward) return "";
-  const selected = endlessToolSummary(reward.selectedToolId);
-  const full = (ui.state.tools?.length ?? 0) >= 2;
-  return `
-    <section class="sheet-backdrop tool-reward-backdrop" aria-label="도구 보상">
-      <div class="bottom-sheet tool-reward-sheet">
-        <div class="sheet-title">
-          <span>수확 ${reward.harvestCount}</span>
-          <strong>${selected && full ? `${selected.label}와 바꿀 도구를 고르세요` : "정원 도구 하나를 고르세요"}</strong>
-        </div>
-        ${selected && full ? `
-          <div class="tool-replace-row">
-            ${ui.state.tools.map((item, index) => {
-              const tool = endlessToolSummary(item);
-              return `<button class="tool-replace-option" type="button" data-action="replace-tool-reward" data-tool-id="${selected.id}" data-replace-index="${index + 1}">
-                ${toolArt(tool, "tool-reward-art")}
-                <span>${escapeHtml(tool.label)}</span><small>${escapeHtml(`${selected.label}로 교체`)}</small>
-              </button>`;
-            }).join("")}
-          </div>
-          <button class="plain-button" type="button" data-action="skip-tool-reward">건너뛰기</button>
-        ` : `
-          <div class="tool-reward-row">
-            ${reward.options.map((id) => {
-              const tool = endlessToolSummary(id);
-              return `<button class="tool-reward-option" type="button" data-action="choose-tool-reward" data-tool-id="${tool.id}">
-                ${toolArt(tool, "tool-reward-art")}
-                <span>${escapeHtml(tool.label)}</span><strong>${escapeHtml(tool.role)}</strong><small>${escapeHtml(tool.description)}</small>
-              </button>`;
-            }).join("")}
-          </div>
-          ${full ? `<button class="plain-button" type="button" data-action="skip-tool-reward">건너뛰기</button>` : ""}
-        `}
-      </div>
-    </section>
-  `;
-}
-
-function renderMenu() {
-  if (!ui.menuOpen) return "";
-  const summary = currentHandSummary();
-  return `
-    <section class="menu-backdrop">
-      <div class="menu-panel">
-        <div class="menu-head">
-          <strong>메뉴</strong>
-          <button class="icon-button" type="button" data-action="close-menu" aria-label="닫기">X</button>
-        </div>
-        <div class="menu-quick-actions">
-          <button class="primary-button" type="button" data-action="auto-play" ${ui.state.phase !== "play" || !summary.bestIndex ? "disabled" : ""}>추천</button>
-          <button class="plain-button" type="button" data-action="swap-hand" ${ui.state.phase !== "play" || ui.state.discardsRemaining <= 0 ? "disabled" : ""}>교체 5</button>
-          <button class="plain-button" type="button" data-action="new-run">새 런</button>
-          <button class="plain-button" type="button" data-action="new-endless">무한</button>
-        </div>
-        <div class="menu-tabs">
-          ${["stages", "deck", "store", "codex", "settings"].map((tab) => `
-            <button class="${ui.menuTab === tab ? "is-active" : ""}" type="button" data-action="set-menu-tab" data-tab="${tab}">${tabLabel(tab)}</button>
-          `).join("")}
-        </div>
-        ${renderMenuContent()}
-      </div>
-    </section>
-  `;
-}
-
-function tabLabel(tab) {
-  return { stages: "스테이지", deck: "덱", store: "상점", codex: "도감", settings: "설정" }[tab] ?? tab;
-}
-
-function renderMenuContent() {
-  if (ui.menuTab === "deck") return renderDeck();
-  if (ui.menuTab === "store") return renderStore();
-  if (ui.menuTab === "codex") return renderCodex();
-  if (ui.menuTab === "settings") return renderSettings();
-  return renderStages();
-}
-
-function renderDeck() {
-  const deck = ui.state.deck ?? [];
-  const compost = ui.state.compostPile ?? [];
-  return `
-    <div class="deck-stack">
-      <div class="deck-counts">
-        <span>남은 덱 ${deck.length}</span>
-        <span>퇴비 ${compost.length}</span>
-      </div>
-      <div class="deck-list" role="list">
-        ${deck.length ? deck.map((card, index) => `
-            <div class="deck-row" role="listitem">
-              <b>${index + 1}</b>
-              <i>${card.digit}</i>
-              <span><strong>${escapeHtml(card.cardName)}</strong><small>${escapeHtml(card.categoryLabel)} · ${escapeHtml(card.colorLabel)}</small></span>
-            </div>
-          `).join("") : `<p class="empty-note">덱이 비어 있습니다. 다음 뽑기 전에 퇴비가 섞입니다.</p>`}
-      </div>
-    </div>
-  `;
-}
-
-function renderStages() {
-  return `
-    <div class="stage-list">
-      <button class="menu-row stage-row ${isEndlessRun() ? "cleared" : "unlocked"}" type="button" data-action="new-endless">
-        <b>E</b>
-        <span><strong>무한 정원</strong><small>수확 점수 · 최고 ${ui.profile.numberEndless?.bestScore ?? 0}</small></span>
-      </button>
-      ${CAMPAIGN_STAGES.map((stage) => {
-        const status = campaignStageStatus(ui.profile.numberCampaign, stage.index);
-        const locked = status === "locked";
-        return `
-          <button class="menu-row stage-row ${status}" type="button" data-action="select-stage" data-stage-index="${stage.index}" ${locked ? "disabled" : ""}>
-            <b>${stage.index}</b>
-            <span><strong>${escapeHtml(stage.name)}</strong><small>${landLabel(stage.activeLand)} · 목표 ${stage.targetReputation}</small></span>
-          </button>
-        `;
-      }).join("")}
-    </div>
-  `;
-}
-
-function renderStore() {
-  const runOptions = ui.state.phase === "play" && !isEndlessRun() ? runShopOptions(ui.state) : [];
-  const metaOptions = storeOptions(ui.profile);
-  return `
-    <div class="store-stack">
-      <section>
-        <h3>이번 런 · 코인 ${ui.state.shopCoins ?? 0}</h3>
-        ${runOptions.length ? runOptions.map((option, index) => `
-          <button class="menu-row store-row" type="button" data-action="buy-run-shop" data-shop-index="${index + 1}" ${ui.state.shopCoins < option.cost ? "disabled" : ""}>
-            ${cardArt({ imageId: option.imageId, cardName: option.name, digit: option.digit ?? "" }, "row-art")}
-            <span><strong>${escapeHtml(option.name)}</strong><small>${escapeHtml(option.previewLine)}</small></span>
-            <b>${option.cost}</b>
-          </button>
-        `).join("") : `<p class="empty-note">${isEndlessRun() ? "무한 정원은 현재 런 보급 없이 진행됩니다." : "완료된 런에서는 보급을 쓸 수 없습니다."}</p>`}
-      </section>
-      <section>
-        <h3>메타 성장 · 씨앗 ${ui.profile.numberMoney}</h3>
-        ${metaOptions.map((option) => `
-          <button class="menu-row store-row" type="button" data-action="buy-meta" data-upgrade-id="${option.id}" ${option.maxed || !option.affordable ? "disabled" : ""}>
-            <b>${option.level}/${option.max}</b>
-            <span><strong>${escapeHtml(option.name)}</strong><small>${escapeHtml(option.description)}</small></span>
-            <b>${option.maxed ? "MAX" : option.nextCost}</b>
+        ${ui.state.hand.map((card, index) => `
+          <button class="hand-card ${ui.selectedHandIndex === index ? "is-selected" : ""}" type="button" data-action="select-card" data-hand-index="${index}" aria-pressed="${ui.selectedHandIndex === index}" aria-label="${escapeHtml(`${card.cardName} ${card.digit}, 손패 ${index + 1}`)}" ${ui.state.phase !== "play" || ui.motion ? "disabled" : ""}>
+            ${cardMarkup(card)}
           </button>
         `).join("")}
+      </div>
+      <div class="run-actions">
+        <button type="button" data-action="retry">다시하기</button>
+        <span>${ui.state.cardsPlayed}/40 사용</span>
+      </div>
+    </section>
+  `;
+}
+
+function renderMotion() {
+  if (!ui.motion) return "";
+  const { source, target, card } = ui.motion;
+  const x = target.left + target.width / 2 - (source.left + source.width / 2);
+  const y = target.top + target.height / 2 - (source.top + source.height / 2);
+  return `<div class="flight-card" style="--flight-left:${source.left}px;--flight-top:${source.top}px;--flight-width:${source.width}px;--flight-x:${x}px;--flight-y:${y}px">${cardMarkup(card)}</div>`;
+}
+
+function renderHelp() {
+  if (!ui.helpOpen) return "";
+  return `
+    <div class="overlay" data-action="close-help">
+      <section class="dialog help-dialog" role="dialog" aria-modal="true" aria-labelledby="help-title">
+        <header><h2 id="help-title">게임방법</h2><button type="button" data-action="close-help" aria-label="닫기">×</button></header>
+        <ol>
+          <li>손패 카드 한 장을 원하는 정원으로 옮깁니다.</li>
+          <li>정원에 네 장이 쌓이면 네 숫자를 더해 수확합니다.</li>
+          <li>놓은 정원부터 시계방향 숫자가 이어지면 연결 수만큼 곱합니다.</li>
+          <li>40장을 모두 사용한 점수로 별을 받습니다.</li>
+          <li>새 시간 게임은 준비된 뒤 직접 시작합니다.</li>
+        </ol>
+        <p><strong>예:</strong> 네 장 합 19 × 정원 연결 3 = 57점</p>
+        <button class="primary-action" type="button" data-action="close-help">시작하기</button>
       </section>
     </div>
   `;
 }
 
-function renderCodex() {
-  const summary = catalogSummary(ui.state);
-  const entries = codexEntries(ui.state);
-  const nextGoal = entries.discoveries.find((item) => item.status !== "discovered") ?? entries.discoveries[0];
+function renderResult() {
+  if (!ui.resultOpen || ui.state.phase !== "result") return "";
+  const best = loadBest(ui.state.seed);
   return `
-    <div class="codex-stack">
-      <section class="codex-next">
-        ${rewardArt(nextGoal, "codex-next-art")}
-        <span><small>다음 발견</small><strong>${escapeHtml(nextGoal?.name ?? "정원 기록")}</strong></span>
+    <div class="overlay result-overlay">
+      <section class="dialog result-dialog" role="dialog" aria-modal="true" aria-labelledby="result-title">
+        <span class="result-seed">#${ui.state.seed}</span>
+        <h2 id="result-title">${ui.state.perfect ? "PERFECT" : starsText(ui.state.stars)}</h2>
+        <strong class="result-score">${ui.state.score}점</strong>
+        <p>최대 목표 ${ui.state.maximumScore} · 이번 시간 최고 ${best.score}</p>
+        <div class="result-actions">
+          <button type="button" data-action="share">결과공유</button>
+          <button class="primary-action" type="button" data-action="retry">다시하기</button>
+          ${ui.pendingSeed ? '<button type="button" data-action="start-ready">새 게임 시작</button>' : ""}
+        </div>
       </section>
-      <div class="codex-counts">
-        <span>숫자 ${summary.digits.known}/${summary.digits.total}</span>
-        <span>족보 ${summary.combos.known}/${summary.combos.total}</span>
-        <span>땅 ${summary.lands.known}/${summary.lands.total}</span>
-        <span>발견 ${summary.discoveries.discovered}/${summary.discoveries.total}</span>
-      </div>
-      <div class="codex-grid">
-        ${entries.discoveries.map((item) => `
-          <div class="codex-cell ${item.status}">
-            ${rewardArt(item, "codex-art")}
-            <span>${item.status === "hidden" ? "???" : escapeHtml(item.name)}</span>
-          </div>
-        `).join("")}
-      </div>
-      <div class="digit-strip">
-        ${DIGITS.map((item) => `<span style="--color:${colorCss(item.color)}">${item.digit} ${escapeHtml(item.cardName)}</span>`).join("")}
-      </div>
-    </div>
-  `;
-}
-
-function renderSettings() {
-  return `
-    <div class="settings-stack">
-      <label><input type="checkbox" data-action="toggle-setting" data-setting="animations" ${ui.settings.animations ? "checked" : ""} /> 애니메이션</label>
-      <label><input type="checkbox" data-action="toggle-setting" data-setting="cardGlow" ${ui.settings.cardGlow ? "checked" : ""} /> 카드 강조</label>
-      <label><input type="checkbox" data-action="toggle-setting" data-setting="sfx" ${ui.settings.sfx !== false ? "checked" : ""} /> 효과음</label>
-      <label><input type="checkbox" data-action="toggle-setting" data-setting="autosave" ${ui.settings.autosave ? "checked" : ""} /> 자동 저장</label>
-      <div class="danger-row">
-        <button class="plain-button" type="button" data-action="new-run">새 런</button>
-        <button class="plain-button" type="button" data-action="new-endless">새 무한</button>
-        <button class="danger-button" type="button" data-action="reset-storage">저장 초기화</button>
-      </div>
     </div>
   `;
 }
@@ -985,604 +338,233 @@ function renderToast() {
   return ui.toast ? `<div class="toast" role="status">${escapeHtml(ui.toast.message)}</div>` : "";
 }
 
-function renderMotionLayer() {
-  const motion = ui.motion;
-  if (motion?.type !== "landing" || motion.settled || !motion.source || !motion.target || !motion.card) return "";
-  const { source, target, card } = motion;
-  const tx = target.left + target.width * 0.5 - (source.left + source.width * 0.5);
-  const ty = target.top + target.height * 0.5 - (source.top + source.height * 0.5);
-  return `
-    <div class="motion-layer" aria-hidden="true">
-      <div class="flight-card" style="--x:${source.left}px; --y:${source.top}px; --w:${source.width}px; --h:${source.height}px; --tx:${tx}px; --ty:${ty}px; --color:${colorCss(card.color)}">
-        ${cardFace(card, "card-art")}
-      </div>
-    </div>
-  `;
-}
-
 function render() {
-  const stopRender = perfMonitor.start("render", performanceDetail());
-  clampSelectedHand();
-  maybeFinalizeRun();
-  const viewMode = requestedViewMode();
-  try {
-    app.innerHTML = `
-      <main class="simple-shell is-view-${viewMode} ${ui.settings.animations ? "" : "no-motion"} ${ui.settings.cardGlow ? "" : "no-glow"}">
-        ${renderStatus()}
-        ${renderResultPanel()}
-        ${renderPiles()}
-        ${renderTools()}
-        ${renderHand()}
-        ${renderRewardSheet()}
-        ${renderToolRewardSheet()}
-        ${renderMenu()}
-        ${renderToast()}
-        ${renderMotionLayer()}
-      </main>
-    `;
-    document.body.dataset.phase = ui.state.phase;
-    document.body.dataset.mode = ui.state.mode ?? "number";
-    document.body.classList.toggle("no-motion-body", !motionAllowed());
-    document.body.classList.toggle("is-hand-hover-locked", handHoverLocked());
-  } finally {
-    stopRender({
-      ...performanceDetail(),
-      viewMode,
-      nodeCount: app.getElementsByTagName("*").length,
-    });
-  }
+  if (ui.loading || !ui.state) return;
+  const stop = perfMonitor.start("render", { seed: ui.state.seed, phase: ui.state.phase });
+  app.innerHTML = `
+    <main class="hourly-shell ${viewClass()}">
+      ${renderHeader()}
+      ${renderPendingBanner()}
+      ${renderBoard()}
+      ${renderHand()}
+      ${renderHelp()}
+      ${renderResult()}
+      ${renderToast()}
+      ${renderMotion()}
+    </main>
+  `;
+  document.body.dataset.mode = "hourly";
+  stop({ nodeCount: app.getElementsByTagName("*").length });
 }
 
-function actionButton(target) {
-  return target.closest("[data-action]");
+function showToast(message) {
+  const id = Date.now();
+  ui.toast = { id, message };
+  render();
+  window.setTimeout(() => {
+    if (ui.toast?.id !== id) return;
+    ui.toast = null;
+    document.querySelector(".toast")?.remove();
+  }, 1800);
 }
 
-function setHoveredHandIndex(handIndex) {
-  const next = handIndex && !handHoverLocked() && ui.state.phase === "play" && !ui.discardMode ? handIndex : null;
-  if (ui.hoveredHandIndex === next) return;
-  if (ui.hoverPreviewTimer) {
-    window.clearTimeout(ui.hoverPreviewTimer);
-    ui.hoverPreviewTimer = null;
-  }
-  if (!next) {
-    ui.hoveredHandIndex = null;
-    applyHandHoverPreview();
-    return;
-  }
-  ui.hoverPreviewTimer = window.setTimeout(() => {
-    ui.hoverPreviewTimer = null;
-    ui.hoveredHandIndex = next;
-    applyHandHoverPreview();
-    playSfx("hover");
-  }, 90);
-}
-
-function applyHandHoverPreview() {
-  const tool = armedToolEntry();
-  const { previews } = selectedTarget();
-  const previewByPile = new Map(previews.map((preview) => [preview.pileIndex, preview]));
-  app.querySelectorAll(".hand-card[data-hand-index]").forEach((card) => {
-    const handIndex = Number(card.dataset.handIndex);
-    card.classList.toggle("is-hovered", ui.hoveredHandIndex === handIndex);
-    card.classList.toggle("is-selected", ui.selectedHandIndex === handIndex);
-  });
-  app.querySelectorAll(".pile-card[data-pile-index]").forEach((pile) => {
-    const pileIndex = Number(pile.dataset.pileIndex);
-    const preview = previewByPile.get(pileIndex);
-    pile.classList.toggle("is-match", pilePreviewGlows(preview));
-    pile.classList.toggle("is-break", preview?.breaksCombo === true);
-    pile.classList.toggle("is-tool-target", Boolean(tool && preview?.playable));
-    pile.classList.toggle("is-relocate-target", Boolean(tool?.id === "relocate" && preview?.playable));
-    pile.classList.toggle("is-graft-target", Boolean(tool?.id === "graft" && preview?.playable));
-    pile.classList.toggle("is-prune-target", Boolean(tool?.id === "prune" && preview?.playable));
-    const previewSlot = pile.querySelector(".pile-preview");
-    if (previewSlot) {
-      const content = pilePreviewContent(preview);
-      previewSlot.innerHTML = content;
-      previewSlot.hidden = !content;
-    }
-  });
+function selectCard(index) {
+  if (ui.motion || ui.state.phase !== "play" || !ui.state.hand[index]) return;
+  ui.selectedHandIndex = ui.selectedHandIndex === index ? null : index;
+  render();
 }
 
 function rectSnapshot(rect) {
-  if (!rect) return null;
-  return {
-    left: rect.left,
-    top: rect.top,
-    width: rect.width,
-    height: rect.height,
-  };
+  return rect ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height } : null;
 }
 
-function handCardRect(handIndex) {
-  return rectSnapshot(app.querySelector(`.hand-card[data-hand-index="${handIndex}"]`)?.getBoundingClientRect());
-}
-
-function pileLandingRect(pileIndex) {
-  return rectSnapshot(app.querySelector(`.pile-card[data-pile-index="${pileIndex}"] .mini-stack`)?.getBoundingClientRect());
-}
-
-function pileCellRect(pileIndex) {
-  return rectSnapshot(app.querySelector(`.pile-card[data-pile-index="${pileIndex}"]`)?.getBoundingClientRect());
-}
-
-function playFromHandToPile(handIndex, pileIndex, opts = {}) {
-  if (ui.state.phase !== "play") return { ok: false, reason: "not_playing" };
-  const playedCard = ui.state.hand[handIndex - 1] ? { ...ui.state.hand[handIndex - 1] } : null;
-  const sourceRect = rectSnapshot(opts.sourceRect) ?? handCardRect(handIndex);
-  const targetRect = rectSnapshot(opts.targetRect) ?? pileLandingRect(pileIndex) ?? pileCellRect(pileIndex);
-  const beforeHand = ui.state.hand.map((card) => card.id);
-  const toolIndex = opts.toolIndex ?? null;
-  const result = perfMonitor.measure("game.playCard", () => toolIndex
-    ? playEndlessCardWithTool(ui.state, toolIndex, handIndex, pileIndex)
-    : playCurrentCard(handIndex, pileIndex), {
-    ...performanceDetail(),
-    handIndex,
-    pileIndex,
-    toolIndex,
-  });
-  if (!result.ok) {
-    queueMotion({ type: "reject", handIndex }, 360);
-    playSfx("reject");
-    showToast(result.reason);
-    return result;
-  }
-  const beforeIds = new Set(beforeHand);
-  const dealtIds = ui.state.hand.filter((card) => !beforeIds.has(card.id)).map((card) => card.id);
-  if (toolIndex) clearToolSelection();
-  else ui.selectedHandIndex = null;
-  clearHoverPreview();
-  ui.discardSelection.clear();
-  const motionDuration = result.harvest ? HARVEST_MOTION_MS : LANDING_MOTION_MS;
-  queueMotion({
-    type: "landing",
-    pileIndex: result.preview?.pileIndex ?? pileIndex,
-    points: previewPoints(result.preview),
-    harvested: result.harvest != null,
-    formula: result.harvest ? `${result.harvest.addTotal} x ${result.harvest.multiplyTotal}` : result.preview?.scoreFormula,
-    brokeCombo: result.preview?.breaksCombo === true,
-    dealtIds,
-    beforeHandIds: beforeHand,
-    playedHandIndex: handIndex,
-    source: sourceRect,
-    target: targetRect,
-    card: playedCard,
-    toolId: result.tool?.id ?? null,
-  }, motionDuration);
-  playSfx("place", { preview: result.preview });
-  if (ui.state.phase === "reward" || ui.state.phase === "won" || result.harvest) {
-    const rewardDelay = result.harvest
-      ? HARVEST_REWARD_SFX_DELAY_MS
-      : ui.motion?.type === "landing" ? LANDING_MOTION_MS : 150;
-    window.setTimeout(() => playSfx("reward"), rewardDelay);
-  }
-  persist();
-  render();
-  return result;
-}
-
-function playPruneTool(pileIndex) {
-  const tool = armedToolEntry();
-  if (!tool || tool.id !== "prune") return { ok: false, reason: "wrong_tool" };
-  const result = perfMonitor.measure("game.tool", () => useEndlessPruneTool(ui.state, tool.index, pileIndex), {
-    ...performanceDetail(),
-    toolId: tool.id,
-    pileIndex,
-  });
-  if (!result.ok) {
-    playSfx("reject");
-    showToast(result.reason);
-    return result;
-  }
-  clearToolSelection();
-  clearHoverPreview();
-  queueMotion({ type: "tool", toolId: "prune", pileIndex, removedCard: result.removedCard }, 520);
-  playSfx("place", { preview: result.preview });
-  persist();
-  render();
-  return result;
-}
-
-function playBestCard(handIndex) {
-  const targetIndex = handIndex ?? currentHandSummary().bestIndex;
-  if (!targetIndex) return { ok: false, reason: "no_card" };
-  const target = currentBestTarget(targetIndex);
-  if (!target.bestIndex) {
-    rejectUnplayableHand(targetIndex);
-    return { ok: false, reason: "no_playable_pile" };
-  }
-  return playFromHandToPile(targetIndex, target.bestIndex);
-}
-
-function quickPlayPriorityTarget(handIndex, sourceRect = null) {
-  if (ui.state.phase !== "play" || ui.discardMode || armedToolEntry()) return false;
-  const target = currentPriorityTarget(handIndex);
-  if (!target.bestIndex) return false;
-  const result = playFromHandToPile(handIndex, target.bestIndex, {
-    sourceRect: sourceRect ?? handCardRect(handIndex),
-    targetRect: pileLandingRect(target.bestIndex) ?? pileCellRect(target.bestIndex),
-  });
-  return result.ok === true;
-}
-
-function swapWholeHand() {
-  const beforeIds = new Set(ui.state.hand.map((card) => card.id));
-  const indices = ui.state.hand.map((_, index) => index + 1);
-  const result = perfMonitor.measure("game.discard", () => discardCurrentCards(indices), performanceDetail());
-  if (!result.ok) {
-    playSfx("reject");
-    showToast(result.reason);
-    return result;
-  }
-  const dealtIds = ui.state.hand.filter((card) => !beforeIds.has(card.id)).map((card) => card.id);
+function finishPlacement(handIndex, pileIndex) {
+  const result = perfMonitor.measure("game.place", () => playHourlyCard(ui.state, handIndex, pileIndex), { handIndex, pileIndex });
+  ui.motion = null;
   ui.selectedHandIndex = null;
-  ui.armedToolIndex = null;
-  clearHoverPreview();
-  ui.menuOpen = false;
-  ui.discardMode = false;
-  ui.discardSelection.clear();
-  queueMotion({ type: "deal", dealtIds }, dealMotionDuration(dealtIds.length));
-  playSfx("deal", { count: dealtIds.length });
-  persist();
-  return result;
-}
-
-function handleAction(action, button) {
-  if (gameplayInteractionBlocked() && [
-    "select-card",
-    "play-pile",
-    "select-tool",
-    "cancel-tool",
-    "auto-play",
-    "swap-hand",
-    "toggle-discard",
-    "apply-discard",
-  ].includes(action)) return;
-  if (action === "select-card") {
-    const index = Number(button.dataset.handIndex);
-    const tool = armedToolEntry();
-    if (tool) {
-      if (tool.id === "prune") {
-        showToast("가지치기할 정원을 고르세요.");
-        return;
-      }
-      if (!hasPlayableToolTarget(index)) {
-        rejectUnplayableHand(index);
-        return;
-      }
-      ui.selectedHandIndex = index;
-      ui.hoveredHandIndex = index;
-      applyHandHoverPreview();
-      playSfx("select");
-      render();
-      return;
-    }
-    if (isEndlessRun()) {
-      if (!hasPlayableTarget(index)) {
-        rejectUnplayableHand(index);
-        return;
-      }
-      playBestCard(index);
-      return;
-    }
-    if (quickPlayPriorityTarget(index, rectSnapshot(button.getBoundingClientRect()))) return;
-    if (!hasPlayableTarget(index)) {
-      rejectUnplayableHand(index);
-      return;
-    }
-    ui.selectedHandIndex = index;
-    playSfx("select");
-  } else if (action === "play-pile") {
-    const tool = armedToolEntry();
-    const pileIndex = Number(button.dataset.pileIndex);
-    if (ui.state.phase === "play" && tool?.id === "prune") {
-      playPruneTool(pileIndex);
-    } else if (ui.state.phase === "play" && tool && ui.selectedHandIndex) {
-      playFromHandToPile(ui.selectedHandIndex, pileIndex, { toolIndex: tool.index });
-    } else if (ui.state.phase === "play" && ui.selectedHandIndex) {
-      playFromHandToPile(ui.selectedHandIndex, pileIndex);
-    }
+  if (!result.ok) {
+    showToast("카드를 놓지 못했습니다.");
     return;
-  } else if (action === "select-tool") {
-    const index = Number(button.dataset.toolIndex);
-    ui.armedToolIndex = ui.armedToolIndex === index ? null : index;
-    ui.selectedHandIndex = null;
-    clearHoverPreview();
-    ui.discardMode = false;
-    ui.discardSelection.clear();
-    playSfx("select");
-  } else if (action === "cancel-tool") {
-    clearToolSelection();
-    clearHoverPreview();
-  } else if (action === "auto-play") {
-    clearToolSelection();
-    ui.menuOpen = false;
-    playBestCard(ui.selectedHandIndex);
-    return;
-  } else if (action === "swap-hand" || action === "toggle-discard" || action === "apply-discard") {
-    swapWholeHand();
-  } else if (action === "choose-reward") {
-    const result = perfMonitor.measure("game.reward", () => applyReward(ui.state, Number(button.dataset.rewardIndex)), performanceDetail());
-    if (!result.ok) {
-      playSfx("reject");
-      showToast(result.reason);
-    } else {
-      playSfx("reward");
-    }
-    persist();
-  } else if (action === "choose-tool-reward") {
-    const result = chooseEndlessToolReward(ui.state, button.dataset.toolId);
-    if (!result.ok) {
-      playSfx("reject");
-      showToast(result.reason);
-    } else if (!result.pendingReplacement) {
-      playSfx("reward");
-    }
-    persist();
-  } else if (action === "replace-tool-reward") {
-    const result = chooseEndlessToolReward(ui.state, button.dataset.toolId, Number(button.dataset.replaceIndex));
-    if (!result.ok) {
-      playSfx("reject");
-      showToast(result.reason);
-    } else {
-      playSfx("reward");
-    }
-    persist();
-  } else if (action === "skip-tool-reward") {
-    const result = skipEndlessToolReward(ui.state);
-    if (!result.ok) showToast(result.reason);
-    persist();
-  } else if (action === "open-menu") {
-    ui.menuOpen = true;
-  } else if (action === "open-deck") {
-    ui.menuOpen = true;
-    ui.menuTab = "deck";
-  } else if (action === "close-menu") {
-    ui.menuOpen = false;
-  } else if (action === "set-menu-tab") {
-    ui.menuTab = button.dataset.tab || "stages";
-  } else if (action === "select-stage") {
-    startStage(Number(button.dataset.stageIndex));
-    return;
-  } else if (action === "new-endless") {
-    startEndlessMode();
-    return;
-  } else if (action === "buy-run-shop") {
-    const result = purchaseRunShop(ui.state, Number(button.dataset.shopIndex));
-    if (!result.ok) {
-      playSfx("reject");
-      showToast(result.reason);
-    }
-    persist();
-  } else if (action === "buy-meta") {
-    const result = purchaseMetaUpgrade(ui.profile, button.dataset.upgradeId);
-    if (result.ok) ui.profile = result.profile;
-    else {
-      playSfx("reject");
-      showToast(result.reason);
-    }
-    persist();
-  } else if (action === "next-stage") {
-    startNextStage();
-    return;
-  } else if (action === "restart-run" || action === "new-run") {
-    if (isEndlessRun()) {
-      startEndlessMode();
-      return;
-    }
-    startStage(ui.state.stageIndex ?? ui.profile.numberCampaign.lastSelectedStage);
-    return;
-  } else if (action === "toggle-setting") {
-    const key = button.dataset.setting;
-    ui.settings[key] = button.checked;
-    saveSettings(ui.settings);
-  } else if (action === "reset-storage") {
-    resetAllStorage();
-    clearRun();
-    ui.profile = defaultMetaProfile();
-    ui.state = newEndlessRun(ui.profile, { seed: freshRunSeed() });
-    ui.armedToolIndex = null;
-    ui.settings = loadSettings();
-    ui.menuOpen = false;
-    clearMotion();
   }
+  if (result.harvest) {
+    ui.harvestPulse = result.harvest;
+    window.setTimeout(() => {
+      ui.harvestPulse = null;
+      render();
+    }, HARVEST_MS);
+  }
+  if (ui.state.phase === "result") {
+    recordResult();
+    ui.resultOpen = true;
+  }
+  saveRun();
   render();
 }
 
-function clearDropTargets() {
-  document.querySelectorAll(".pile-card.is-drop-target, .pile-card.is-drop-valid, .pile-card.is-drop-danger").forEach((node) => {
-    node.classList.remove("is-drop-target", "is-drop-valid", "is-drop-danger");
-  });
+function placeCard(handIndex, pileIndex, sourceRect = null) {
+  if (ui.motion || ui.state.phase !== "play") return;
+  const preview = previewHourlyPlacement(ui.state, handIndex, pileIndex);
+  if (!preview.ok) return;
+  const source = sourceRect ?? rectSnapshot(document.querySelector(`[data-hand-index="${handIndex}"]`)?.getBoundingClientRect());
+  const target = rectSnapshot(document.querySelector(`[data-pile-index="${pileIndex}"]`)?.getBoundingClientRect());
+  if (!source || !target || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    finishPlacement(handIndex, pileIndex);
+    return;
+  }
+  ui.motion = { card: ui.state.hand[handIndex], source, target };
+  ui.selectedHandIndex = null;
+  render();
+  window.setTimeout(() => finishPlacement(handIndex, pileIndex), FLIGHT_MS);
 }
 
-function pileFromPoint(x, y) {
-  const target = document.elementFromPoint(x, y)?.closest(".pile-card[data-pile-index]");
-  if (!target || target.disabled) return null;
-  return Number(target.dataset.pileIndex) || null;
+function retryCurrent() {
+  ui.resultOpen = false;
+  ui.selectedHandIndex = null;
+  ui.state = newHourlyRun(ui.state.seed, { solution: ui.solution ?? loadSolution(ui.state.seed) });
+  saveRun();
+  render();
 }
 
-function updateDragGhost() {
-  const drag = ui.drag;
-  if (!drag?.ghost) return;
-  drag.ghost.style.setProperty("--drag-x", `${Math.round(drag.x - drag.offsetX)}px`);
-  drag.ghost.style.setProperty("--drag-y", `${Math.round(drag.y - drag.offsetY - 3)}px`);
-  drag.ghost.style.setProperty("--drag-w", `${Math.round(drag.sourceRect.width)}px`);
-  drag.ghost.style.setProperty("--drag-h", `${Math.round(drag.sourceRect.height)}px`);
+function startSeed(seed) {
+  ui.loading = true;
+  ui.resultOpen = false;
+  ui.selectedHandIndex = null;
+  app.innerHTML = '<main class="hourly-loading"><strong>새 정원을 준비하는 중</strong><span>최대 점수를 계산하고 있어요.</span></main>';
+  window.setTimeout(() => {
+    ui.solution = loadSolution(seed);
+    ui.state = newHourlyRun(seed, { solution: ui.solution });
+    ui.pendingSeed = "";
+    ui.loading = false;
+    saveRun();
+    render();
+  }, 30);
 }
 
-function ensureDragGhost() {
-  const drag = ui.drag;
-  if (!drag || drag.ghost) return;
-  const ghost = document.createElement("div");
-  ghost.className = `drag-card is-ready ${drag.sourceEl.classList.contains("is-selected") ? "is-selected" : ""}`;
-  ghost.innerHTML = drag.sourceEl.innerHTML;
-  ghost.style.setProperty("--color", colorCss(drag.card.color));
-  drag.ghost = ghost;
-  updateDragGhost();
-  document.body.appendChild(ghost);
-  drag.sourceEl.classList.add("is-drag-source");
-  document.body.classList.add("is-card-dragging");
+function shouldUseNativeShare() {
+  const userAgent = navigator.userAgent ?? "";
+  const iPadDesktop = /Macintosh/i.test(userAgent) && navigator.maxTouchPoints > 1;
+  return typeof navigator.share === "function" && (/Android|iPhone|iPad|iPod/i.test(userAgent) || iPadDesktop);
 }
 
-function updateDropTarget(x, y) {
-  const drag = ui.drag;
-  if (!drag) return null;
-  const pileIndex = pileFromPoint(x, y);
-  if (drag.overPileIndex === pileIndex) return pileIndex;
-  clearDropTargets();
-  drag.overPileIndex = pileIndex;
-  drag.ghost?.classList.remove("is-over-valid", "is-over-break");
-  if (!pileIndex) return null;
-  const target = document.querySelector(`.pile-card[data-pile-index="${pileIndex}"]`);
-  const preview = drag.previews.find((item) => item.pileIndex === pileIndex);
-  target?.classList.add("is-drop-target", preview?.breaksCombo || preview?.playable === false ? "is-drop-danger" : "is-drop-valid");
-  drag.ghost?.classList.add(preview?.breaksCombo || preview?.playable === false ? "is-over-break" : "is-over-valid");
-  return pileIndex;
+function fallbackCopy(text) {
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  textarea.style.top = "0";
+  document.body.append(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  textarea.remove();
+  if (!copied) throw new Error("clipboard copy failed");
 }
 
-function endDragVisuals() {
-  const drag = ui.drag;
-  clearDropTargets();
-  drag?.sourceEl?.classList.remove("is-drag-source");
-  drag?.ghost?.remove();
-  document.body.classList.remove("is-card-dragging");
-  ui.drag = null;
+async function copyShareText(text) {
+  if (navigator.clipboard?.writeText && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  fallbackCopy(text);
 }
 
-function beginCardDrag(event, sourceEl) {
-  if (ui.state.phase !== "play" || ui.discardMode || sourceEl.disabled) return;
-  if (isEndlessRun()) return;
-  const handIndex = Number(sourceEl.dataset.handIndex);
-  const card = ui.state.hand[handIndex - 1];
-  if (!card) return;
-  if (!hasPlayableTarget(handIndex)) return;
-  const stopDragStart = perfMonitor.start("drag.start", performanceDetail());
-  const sourceRect = sourceEl.getBoundingClientRect();
-  const { previews } = currentBestTarget(handIndex);
+async function shareResult() {
+  const url = `${location.origin}${location.pathname}`;
+  const text = hourlyResultShareText(ui.state, url);
+  if (shouldUseNativeShare()) {
+    try {
+      await navigator.share({ text });
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+    }
+  }
+  try {
+    await copyShareText(text);
+    showToast("결과를 클립보드에 복사했어요.");
+  } catch {
+    showToast("공유 문구를 복사하지 못했습니다.");
+  }
+}
+
+function beginDrag(event, cardButton) {
+  if (event.button !== 0 || ui.motion || ui.state.phase !== "play") return;
+  const handIndex = Number(cardButton.dataset.handIndex);
+  const rect = cardButton.getBoundingClientRect();
   ui.selectedHandIndex = handIndex;
-  ui.suppressNextClick = true;
   ui.drag = {
     pointerId: event.pointerId,
     handIndex,
-    card,
-    previews,
-    sourceEl,
-    sourceRect,
-    ghost: null,
-    offsetX: event.clientX - sourceRect.left,
-    offsetY: event.clientY - sourceRect.top,
+    sourceRect: rectSnapshot(rect),
     startX: event.clientX,
     startY: event.clientY,
-    x: event.clientX,
-    y: event.clientY,
+    offsetX: event.clientX - rect.left,
+    offsetY: event.clientY - rect.top,
+    ghost: null,
     moved: false,
-    overPileIndex: null,
   };
-  if (event.pointerId != null) sourceEl.setPointerCapture?.(event.pointerId);
+  render();
   event.preventDefault();
-  stopDragStart({ handIndex });
 }
 
-function moveCardDrag(event) {
+function moveDrag(event) {
   const drag = ui.drag;
-  if (!drag) return;
-  if (drag.pointerId != null && event.pointerId != null && drag.pointerId !== event.pointerId) return;
-  if (drag.pointerId != null && event.pointerId == null) return;
-  drag.x = event.clientX;
-  drag.y = event.clientY;
+  if (!drag || (drag.pointerId != null && drag.pointerId !== event.pointerId)) return;
   const dx = event.clientX - drag.startX;
   const dy = event.clientY - drag.startY;
-  if (dx * dx + dy * dy > 36) {
+  if (!drag.moved && dx * dx + dy * dy > 25) {
     drag.moved = true;
-    ensureDragGhost();
+    const source = document.querySelector(`[data-hand-index="${drag.handIndex}"]`);
+    const ghost = source?.cloneNode(true);
+    if (ghost) {
+      ghost.className = "drag-ghost";
+      document.body.append(ghost);
+      drag.ghost = ghost;
+    }
   }
-  perfMonitor.measure("drag.move", () => {
-    updateDragGhost();
-    if (drag.moved) updateDropTarget(event.clientX, event.clientY);
-  }, {
-    ...performanceDetail(),
-    handIndex: drag.handIndex,
-  });
+  if (drag.ghost) {
+    drag.ghost.style.left = `${event.clientX - drag.offsetX}px`;
+    drag.ghost.style.top = `${event.clientY - drag.offsetY}px`;
+    drag.ghost.style.width = `${drag.sourceRect.width}px`;
+  }
+  document.querySelectorAll(".garden.is-drag-over").forEach((item) => item.classList.remove("is-drag-over"));
+  const target = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-pile-index]");
+  target?.classList.add("is-drag-over");
   event.preventDefault();
 }
 
-function releaseCardDrag(event) {
+function endDrag(event) {
   const drag = ui.drag;
-  if (!drag) return;
-  if (drag.pointerId != null && event.pointerId != null && drag.pointerId !== event.pointerId) return;
-  if (drag.pointerId != null && event.pointerId == null) return;
-  const pileIndex = event.type === "pointercancel" ? null : pileFromPoint(event.clientX, event.clientY);
-  const moved = drag.moved;
-  const handIndex = drag.handIndex;
-  const sourceRect = drag.sourceRect;
-  const canceled = event.type === "pointercancel";
-  endDragVisuals();
+  if (!drag || (drag.pointerId != null && drag.pointerId !== event.pointerId)) return;
+  const target = drag.moved ? document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-pile-index]") : null;
+  drag.ghost?.remove();
+  document.querySelectorAll(".garden.is-drag-over").forEach((item) => item.classList.remove("is-drag-over"));
+  ui.drag = null;
+  ui.suppressNextClick = true;
+  window.setTimeout(() => {
+    ui.suppressNextClick = false;
+  }, 0);
   event.preventDefault();
-  if (pileIndex) {
-    playFromHandToPile(handIndex, pileIndex, { sourceRect });
+  if (target) {
+    placeCard(drag.handIndex, Number(target.dataset.pileIndex), drag.sourceRect);
     return;
   }
-  if (moved) {
-    queueMotion({ type: "reject", handIndex }, 360);
-    playSfx("reject");
-    showToast("정원 더미 위에 놓아야 합니다.");
-    return;
-  }
-  if (canceled) {
-    ui.selectedHandIndex = handIndex;
+  if (drag.moved) showToast("정원 위에 카드를 놓으세요.");
+  else {
+    ui.selectedHandIndex = drag.handIndex;
     render();
-    return;
   }
-  if (quickPlayPriorityTarget(handIndex, sourceRect)) return;
-  ui.selectedHandIndex = handIndex;
-  playSfx("select");
-  render();
 }
 
-app.addEventListener("pointerdown", (event) => {
-  if (event.button !== 0) return;
-  const card = event.target.closest(".hand-card[data-action='select-card']");
-  if (!card) return;
-  beginCardDrag(event, card);
-});
-
-app.addEventListener("mousedown", (event) => {
-  if (ui.drag || event.button !== 0) return;
-  const card = event.target.closest(".hand-card[data-action='select-card']");
-  if (!card) return;
-  beginCardDrag(event, card);
-});
-
-app.addEventListener("pointerover", (event) => {
-  const card = event.target.closest(".hand-card[data-action='select-card']");
-  if (!card || handHoverLocked()) return;
-  if (event.pointerType === "touch") return;
-  setHoveredHandIndex(Number(card.dataset.handIndex));
-});
-
-app.addEventListener("pointerout", (event) => {
-  const card = event.target.closest(".hand-card[data-action='select-card']");
-  if (!card || (event.relatedTarget && card.contains(event.relatedTarget))) return;
-  if (ui.hoveredHandIndex === Number(card.dataset.handIndex)) setHoveredHandIndex(null);
-});
-
-app.addEventListener("focusin", (event) => {
-  const card = event.target.closest(".hand-card[data-action='select-card']");
-  if (!card) return;
-  setHoveredHandIndex(Number(card.dataset.handIndex));
-});
-
-app.addEventListener("focusout", (event) => {
-  const card = event.target.closest(".hand-card[data-action='select-card']");
-  if (!card || card.contains(event.relatedTarget)) return;
-  if (ui.hoveredHandIndex === Number(card.dataset.handIndex)) setHoveredHandIndex(null);
-});
-
-window.addEventListener("pointermove", moveCardDrag);
-window.addEventListener("pointerup", releaseCardDrag);
-window.addEventListener("pointercancel", releaseCardDrag);
-window.addEventListener("mousemove", moveCardDrag);
-window.addEventListener("mouseup", releaseCardDrag);
+function handleAction(action, button) {
+  if (action === "select-card") selectCard(Number(button.dataset.handIndex));
+  else if (action === "place-card" && ui.selectedHandIndex != null) placeCard(ui.selectedHandIndex, Number(button.dataset.pileIndex));
+  else if (action === "retry") retryCurrent();
+  else if (action === "start-ready") startSeed(ui.pendingSeed || kstHourSeed());
+  else if (action === "help") { ui.helpOpen = true; render(); }
+  else if (action === "close-help") { ui.helpOpen = false; render(); }
+  else if (action === "share") shareResult();
+}
 
 app.addEventListener("click", (event) => {
   if (ui.suppressNextClick) {
@@ -1591,69 +573,71 @@ app.addEventListener("click", (event) => {
     event.stopPropagation();
     return;
   }
-  const button = actionButton(event.target);
+  if (ui.drag) return;
+  const button = event.target.closest("[data-action]");
   if (!button || button.disabled) return;
-  const action = button.dataset.action;
-  perfMonitor.measure("action", () => handleAction(action, button), { ...performanceDetail(), action });
+  if (button.classList.contains("overlay") && event.target !== button) return;
+  handleAction(button.dataset.action, button);
 });
 
-app.addEventListener("change", (event) => {
-  const target = event.target;
-  if (target.matches("[data-action='toggle-setting']")) {
-    perfMonitor.measure("action", () => handleAction("toggle-setting", target), {
-      ...performanceDetail(),
-      action: "toggle-setting",
-    });
+app.addEventListener("pointerdown", (event) => {
+  const card = event.target.closest(".hand-card[data-hand-index]");
+  if (card) beginDrag(event, card);
+});
+
+app.addEventListener("error", (event) => {
+  const image = event.target;
+  if (!(image instanceof HTMLImageElement) || image.dataset.fallbackApplied === "true") return;
+  image.dataset.fallbackApplied = "true";
+  image.src = FALLBACK_CARD_IMAGE;
+}, true);
+
+window.addEventListener("pointermove", moveDrag, { passive: false });
+window.addEventListener("pointerup", endDrag, { passive: false });
+window.addEventListener("pointercancel", endDrag, { passive: false });
+
+window.addEventListener("keydown", (event) => {
+  if (ui.motion || event.target instanceof HTMLInputElement) return;
+  const key = event.key.toLowerCase();
+  if (key >= "1" && key <= "5") selectCard(Number(key) - 1);
+  else if (["q", "w", "e", "r"].includes(key) && ui.selectedHandIndex != null) {
+    placeCard(ui.selectedHandIndex, { q: 0, w: 1, e: 2, r: 3 }[key]);
+  } else if (key === "escape") {
+    ui.selectedHandIndex = null;
+    ui.helpOpen = false;
+    render();
   }
 });
 
-window.addEventListener("keydown", (event) => {
-  if (event.target instanceof HTMLInputElement) return;
-  const key = event.key.toLowerCase();
-  perfMonitor.measure("keyboard", () => {
-    if (gameplayInteractionBlocked() && ["1", "2", "3", "4", "5", "6", "7", "q", "w", "e", "r", "enter", " "].includes(key)) return;
-    if (key === "6" || key === "7") {
-      const toolIndex = Number(key) - 5;
-      if (ui.state.phase === "play" && ui.state.tools?.[toolIndex - 1]) {
-        ui.armedToolIndex = ui.armedToolIndex === toolIndex ? null : toolIndex;
-        ui.selectedHandIndex = null;
-        clearHoverPreview();
-        render();
-      }
-    } else if (key >= "1" && key <= "5") {
-      const index = Number(key);
-      if (ui.state.hand[index - 1] && armedToolEntry()?.id !== "prune") ui.selectedHandIndex = index;
-      render();
-    } else if (["q", "w", "e", "r"].includes(key)) {
-      const pile = { q: 1, w: 2, e: 3, r: 4 }[key];
-      const tool = armedToolEntry();
-      if (ui.state.phase === "play" && tool?.id === "prune") {
-        playPruneTool(pile);
-      } else if (ui.state.phase === "play" && tool && ui.selectedHandIndex) {
-        playFromHandToPile(ui.selectedHandIndex, pile, { toolIndex: tool.index });
-      } else if (ui.state.phase === "play" && ui.selectedHandIndex) {
-        if (isEndlessRun()) playBestCard(ui.selectedHandIndex);
-        else playFromHandToPile(ui.selectedHandIndex, pile);
-      }
-    } else if (key === "enter" || key === " ") {
-      if (ui.state.phase === "play" && !armedToolEntry()) playBestCard(ui.selectedHandIndex ?? currentHandSummary().bestIndex);
-    } else if (key === "m") {
-      ui.menuOpen = true;
-      render();
-    } else if (key === "escape") {
-      if (armedToolEntry()) clearToolSelection();
-      else ui.menuOpen = false;
-      render();
-    }
-  }, { ...performanceDetail(), key });
-});
+function updateClock() {
+  const currentSeed = kstHourSeed();
+  if (currentSeed !== ui.state.seed && currentSeed !== ui.pendingSeed) {
+    ui.pendingSeed = currentSeed;
+    render();
+    return;
+  }
+  const timer = document.querySelector("[data-timer]");
+  if (timer) timer.textContent = currentTimerText();
+}
+
+function bootstrap() {
+  try {
+    restoreOrCreateRun();
+    ui.loading = false;
+    render();
+    window.setInterval(updateClock, 1000);
+  } catch (error) {
+    ui.loading = false;
+    app.innerHTML = `<main class="hourly-error"><strong>게임을 준비하지 못했습니다.</strong><span>${escapeHtml(error.message)}</span><button type="button" onclick="location.reload()">새로고침</button></main>`;
+  }
+}
+
+bootstrap();
 
 installPerformanceTools({
+  namespace: "gardenStacksPerf",
   monitor: perfMonitor,
   render,
   root: app,
-  getDetail: performanceDetail,
+  getDetail: () => ({ seed: ui.state?.seed, phase: ui.state?.phase, motion: ui.motion?.type ?? null }),
 });
-
-persist();
-render();

@@ -87,7 +87,18 @@ Lua manifest는 현재 원본 구조를 보존하기 위한 참고 파일이다.
 - 접붙이기와 가지치기가 혼동되면 접붙이기만 `generated/cards/hand_watering.png`와 비교한 뒤 교체한다.
 - 누락 시 `generated/cards/card_locked_unknown.png`를 사용한다.
 
-## 7. 현재 복사 범위
+## 7. 시간 정원 seed 일러스트
+
+기본 시간 정원은 새 파일을 만들지 않고 `generated/cards/`와 `generated/species/`의 기존 이미지 40개를 숫자별 네 변형으로 사용한다. 정확한 목록은 `src/game/hourly-harvest.js`의 `HOURLY_ART_VARIANTS`가 기준이다.
+
+- 변형은 `<시간 seed>:<규칙 버전>:<애셋 버전>:<카드 ID>`로 결정한다.
+- 같은 seed의 재시도와 저장 복원은 같은 `variantId`, 카드명, 이미지 경로를 유지한다.
+- 한 seed 안에서 같은 숫자의 네 장은 가능한 한 서로 다른 변형을 사용한다.
+- 일러스트는 숫자, 점수, 수확, solver 경로에 영향을 주지 않는다.
+- 참조 파일이 누락되면 해당 숫자의 대표 카드 이미지 또는 `card_locked_unknown.png`로 대체한다.
+- 현재 40개 참조 경로는 자동 검수에서 모두 존재해야 한다.
+
+## 8. 현재 복사 범위
 
 - 원본 `assets/generated/garden_stacks`를 이 저장소의 `public/assets/garden-stacks/generated`로 복사했다.
 - 원본 `assets/ui`를 이 저장소의 `public/assets/garden-stacks/ui`로 복사했다.

@@ -238,2698 +238,476 @@ function shuffled(items, rng = Math.random) {
 
 
 
-// ---- src/game/catalog.js ----
-const ASSET_BASE = "public/assets/garden-stacks";
-
-const CATEGORIES = {
-  terrain: { id: "terrain", label: "지형", short: "땅" },
-  flora: { id: "flora", label: "식물", short: "식물" },
-  fauna: { id: "fauna", label: "동물", short: "동물" },
-  action: { id: "action", label: "관리/도구", short: "관리" },
-};
-
-const CATEGORY_ORDER = ["terrain", "flora", "fauna", "action"];
-
-const COLORS = {
-  green: { id: "green", label: "초록", short: "생장", css: "#4fba55" },
-  blue: { id: "blue", label: "파랑", short: "물길", css: "#3e8ed8" },
-  yellow: { id: "yellow", label: "노랑", short: "햇빛", css: "#d7a51e" },
-  purple: { id: "purple", label: "보라", short: "밤길", css: "#8f63c8" },
-};
-
-const COLOR_ORDER = ["green", "blue", "yellow", "purple"];
-
-const DIGITS = [
-  { digit: 0, name: "영", cardName: "빈 흙", category: "terrain", color: "blue", assetKey: "number_terrain_empty_soil", imageId: "floor_meadow", resetMultiplier: 9, role: "낮은 기본점수, 끊김 뒤 x9 새 흐름 씨앗" },
-  { digit: 1, name: "하나", cardName: "새싹", category: "flora", color: "green", assetKey: "number_flora_sprout", imageId: "occupant_clover", resetMultiplier: 8, role: "초지 이웃수 흐름의 시작점, x8 씨앗" },
-  { digit: 2, name: "둘", cardName: "꽃망울", category: "flora", color: "green", assetKey: "number_flora_bud", imageId: "occupant_flower", resetMultiplier: 7, role: "낮은 숫자 콤보를 안정화하는 x7 징검" },
-  { digit: 3, name: "셋", cardName: "벌", category: "fauna", color: "purple", assetKey: "number_fauna_bee", imageId: "occupant_bee", resetMultiplier: 6, role: "중간 홀짝 흐름과 x6 재시작" },
-  { digit: 4, name: "넷", cardName: "물주기", category: "action", color: "yellow", assetKey: "number_action_watering", imageId: "hand_watering", resetMultiplier: 5, role: "4+5 더블 콤보의 절반, x5 씨앗" },
-  { digit: 5, name: "다섯", cardName: "숲그늘", category: "terrain", color: "purple", assetKey: "number_terrain_forest_shade", imageId: "floor_forest_shade_walk", resetMultiplier: 4, role: "4+5 더블 콤보의 절반, x4 씨앗" },
-  { digit: 6, name: "여섯", cardName: "나비", category: "fauna", color: "purple", assetKey: "number_fauna_butterfly", imageId: "bee_tab", resetMultiplier: 3, role: "숲 홀짝 흐름과 x3 재시작" },
-  { digit: 7, name: "일곱", cardName: "가지치기", category: "action", color: "yellow", assetKey: "number_action_pruning", imageId: "hand_pruning", resetMultiplier: 2, role: "2+7 합 9와 높은 기본점수, x2 씨앗" },
-  { digit: 8, name: "여덟", cardName: "물가", category: "terrain", color: "blue", assetKey: "number_terrain_waterside", imageId: "floor_wetland", resetMultiplier: 1, role: "1+8 합 9와 높은 기본점수, x1 씨앗" },
-  { digit: 9, name: "아홉", cardName: "철새", category: "fauna", color: "blue", assetKey: "number_fauna_migratory_bird", imageId: "bird_tab", resetMultiplier: 0, role: "가장 높은 기본점수지만 끊김 뒤 x0 씨앗" },
-];
-
-const COMBOS = [
-  { id: "same", label: "같은수", example: "7 -> 7", role: "같은 숫자를 이어 반복 흐름을 만든다." },
-  { id: "neighbor", label: "이웃수", example: "3 -> 4", role: "1 차이 숫자로 초지 흐름을 만든다." },
-  { id: "sum9", label: "합 9", example: "2 -> 7", role: "두 숫자의 합이 9인 물가 반사 흐름이다." },
-  { id: "parity", label: "홀짝", example: "2 -> 6", role: "같은 홀짝으로 끊김을 줄이는 안전망이다." },
-  { id: "double", label: "더블", example: "4 -> 5", role: "이웃수와 합 9를 동시에 만족하는 강한 순간 보정이다." },
-];
-
-const COMBO_LABELS = Object.fromEntries(COMBOS.map((combo) => [combo.id, combo.label]));
-
-const LANDS = {
-  meadow: {
-    id: "meadow",
-    label: "초지",
-    short: "연속",
-    preferred: { neighbor: true },
-    categoryAffinity: { flora: 0.08, fauna: 0.08, action: 0.04 },
-    imageId: "floor_meadow",
-    description: "이웃수를 선호한다. 식물/동물 카드는 서식 적합 보너스를 받고, 관리/도구 카드는 약한 관리 보너스를 받는다.",
-  },
-  forest: {
-    id: "forest",
-    label: "숲",
-    short: "반복",
-    preferred: { same: true, parity: true },
-    categoryAffinity: { terrain: 0.08, flora: 0.08, action: 0.04 },
-    imageId: "floor_forest",
-    description: "같은수와 홀짝을 선호한다. 지형/식물 카드는 서식 적합 보너스를 받고, 관리/도구 카드는 약한 관리 보너스를 받는다.",
-  },
-  wetland: {
-    id: "wetland",
-    label: "습지",
-    short: "합 9",
-    preferred: { sum9: true },
-    categoryAffinity: { terrain: 0.08, fauna: 0.08, action: 0.04 },
-    imageId: "floor_wetland",
-    description: "합 9를 선호한다. 지형/동물 카드는 서식 적합 보너스를 받고, 관리/도구 카드는 약한 관리 보너스를 받는다.",
-  },
-};
-
-const LAND_ORDER = ["meadow", "forest", "wetland"];
-
-const CAMPAIGN_STAGES = [
-  { index: 1, id: "number_meadow_1", name: "초지 숫자길", activeLand: "meadow", targetReputation: 295, plays: 18, discards: 3, routeKind: "origin" },
-  { index: 2, id: "number_forest_2", name: "숲 반복길", activeLand: "forest", targetReputation: 320, plays: 18, discards: 3, routeKind: "car" },
-  { index: 3, id: "number_wetland_3", name: "습지 반사길", activeLand: "wetland", targetReputation: 345, plays: 18, discards: 3, routeKind: "car" },
-  { index: 4, id: "number_meadow_4", name: "긴 초지길", activeLand: "meadow", targetReputation: 375, plays: 17, discards: 3, routeKind: "plane" },
-  { index: 5, id: "number_forest_5", name: "깊은 숲길", activeLand: "forest", targetReputation: 405, plays: 17, discards: 2, routeKind: "car" },
-  { index: 6, id: "number_wetland_6", name: "큰 물가길", activeLand: "wetland", targetReputation: 435, plays: 17, discards: 2, routeKind: "plane" },
-  { index: 7, id: "number_mixed_7", name: "갈림 정원길", activeLand: "meadow", targetReputation: 470, plays: 16, discards: 2, routeKind: "car" },
-  { index: 8, id: "number_final_8", name: "마지막 숫자정원", activeLand: "wetland", targetReputation: 510, plays: 16, discards: 2, routeKind: "plane" },
-];
-
-const META_UPGRADES = {
-  extraPlay: { id: "extraPlay", name: "긴 산책로", max: 2, cost: [6, 10], description: "새 런의 내기를 +1 늘립니다." },
-  extraDiscard: { id: "extraDiscard", name: "넓은 모종판", max: 2, cost: [5, 9], description: "새 런의 갈아엎기를 +1 늘립니다." },
-  targetDiscount: { id: "targetDiscount", name: "동네 소문", max: 2, cost: [7, 12], description: "스테이지 목표 평판을 20 낮춥니다." },
-  handSize: { id: "handSize", name: "손수레 확장", max: 1, cost: [12], description: "손패를 1장 늘립니다." },
-  starterSprout: { id: "starterSprout", name: "새싹 보관함", max: 1, cost: [4], description: "새 런 시작 덱에 새싹 1을 1장 추가합니다." },
-};
-
-const META_UPGRADE_ORDER = ["extraPlay", "extraDiscard", "targetDiscount", "handSize", "starterSprout"];
-
-const REWARDS = [
-  { id: "discoverDandelionPath", name: "1 카드 추가", kind: "addDigit", digit: 1, imageId: "occupant_clover", short: "새싹 1 +1장", description: "새싹 1 카드 1장을 덱 맨 위에 추가합니다.", codexNote: "초지 가장자리에서 낮은 숫자 흐름을 다시 시작하게 해주는 발견입니다." },
-  { id: "discoverCloverStep", name: "2 카드 추가", kind: "addDigit", digit: 2, imageId: "occupant_flower", short: "꽃망울 2 +1장", description: "꽃망울 2 카드 1장을 덱 맨 위에 추가합니다.", codexNote: "초반 손패에서 1-2-3 흐름과 2+7 합 9를 동시에 노리게 합니다." },
-  { id: "discoverWaterReflection", name: "합 9 연결 보충", kind: "chooseDigit", digits: [0, 9], imageId: "floor_wetland", short: "0/9 중 필요한 카드", description: "현재 흐름에 맞춰 빈 흙 0 또는 철새 9를 덱 맨 위에 추가합니다.", codexNote: "약한 0을 합 9의 핵심 연결점으로 바꾸는 습지 발견입니다." },
-  { id: "discoverTreeRing", name: "같은수 점수 강화", kind: "comboBonus", combo: "same", amount: 0.1, imageId: "tree_tab", short: "같은수 +10%", description: "이번 런 동안 같은수 콤보 점수를 10% 올립니다.", codexNote: "반복되는 숫자가 숲의 나이테처럼 쌓여 같은수 콤보를 강화합니다." },
-  { id: "discoverBeeRoute", name: "합 9 점수 강화", kind: "comboBonus", combo: "sum9", amount: 0.1, imageId: "occupant_bee", short: "합 9 +10%", description: "이번 런 동안 합 9 콤보 점수를 10% 올립니다.", codexNote: "먼 숫자끼리 왕복하는 항로를 기록해 합 9 콤보의 보상을 키웁니다." },
-  { id: "discoverColorGraft", name: "4색 완성 보정", kind: "colorGraft", imageId: "plan_clover_seed", short: "부족 색으로 변경", description: "덱/손패 카드 1장의 색상 마크를 현재 가장 부족한 색으로 바꿉니다.", codexNote: "4개의 정원 더미 중 색상 세트가 가까운 흐름에 마지막 색을 붙여 4색 완성을 노리게 합니다." },
-  { id: "discoverTypeGraft", name: "유형 순서 보정", kind: "typeGraft", imageId: "work_flora_comparison", short: "다음 유형으로 변경", description: "덱/손패 카드 1장의 유형을 현재 흐름의 다음 생태 순서에 맞게 바꿉니다.", codexNote: "지형-식물-동물-관리/도구 루트를 이어가기 쉽도록 카드의 생태 유형을 바꿔 줍니다." },
-  { id: "discoverSeedSorting", name: "덱 압축", kind: "removeDigit", imageId: "reward_seed_bank", short: "많은 숫자 1장 제거", description: "덱에서 현재 가장 많은 숫자 카드 1장을 제거합니다.", codexNote: "불필요한 숫자를 덜어 콤보 흐름을 더 자주 만나게 하는 정리 발견입니다." },
-];
-
-function digitCard(digit) {
-  return DIGITS.find((item) => item.digit === Number(digit)) ?? null;
-}
-
-function categoryLabel(id) {
-  return CATEGORIES[id]?.label ?? "카드";
-}
-
-function categoryShort(id) {
-  return CATEGORIES[id]?.short ?? "카드";
-}
-
-function colorLabel(id) {
-  return COLORS[id]?.label ?? "무색";
-}
-
-function colorShort(id) {
-  return COLORS[id]?.short ?? "기본";
-}
-
-function colorCss(id) {
-  return COLORS[id]?.css ?? "#8b918a";
-}
-
-function landLabel(id) {
-  return LANDS[id]?.label ?? "초지";
-}
-
-function stageByIndex(index) {
-  const normalized = Math.max(1, Math.min(CAMPAIGN_STAGES.length, Math.floor(Number(index) || 1)));
-  return CAMPAIGN_STAGES[normalized - 1];
-}
-
-function rewardById(id) {
-  return REWARDS.find((reward) => reward.id === id) ?? null;
-}
-
-function cardImagePath(imageId) {
-  const key = imageId || "card_locked_unknown";
-  return `${ASSET_BASE}/generated/cards/${key}.png`;
-}
-
-function discoveryImagePath(fileName) {
-  return `${ASSET_BASE}/generated/discovery/${fileName}`;
-}
-
-function worldMapImagePath(fileName) {
-  return `${ASSET_BASE}/generated/world_map/${fileName}`;
-}
+// ---- src/game/hourly-harvest.js ----
 
 
+const HOURLY_MODE = "hourly";
+const HOURLY_RULES_VERSION = "hourly-four-harvest-v1";
+const HOURLY_ASSET_VERSION = "seed-art-v1";
+const HOURLY_HAND_SIZE = 5;
+const HOURLY_DECK_SIZE = 40;
+const HOURLY_PILE_COUNT = 4;
+const HOURLY_HARVEST_SIZE = 4;
+const HOURLY_CLOCKWISE_ORDER = [0, 1, 3, 2];
+const HOURLY_SHARE_URL = "https://plan9.kr/stacks";
 
-// ---- src/game/number-solitaire.js ----
+const CARDS = "public/assets/garden-stacks/generated/cards";
+const SPECIES = "public/assets/garden-stacks/generated/species";
 
-
-
-const VERSION = "4.2-web-active-tools";
-const STARTER_TARGET_REPUTATION = 295;
-const STARTER_PLAYS = 18;
-const STARTER_DISCARDS = 3;
-const HAND_SIZE = 5;
-const STARTER_SHOP_COINS = 2;
-const STAGE_CLEAR_BASE_PAYOUT = 4;
-const STAGE_FAILURE_PAYOUT = META_UPGRADES.starterSprout.cost[0];
-const PILE_COUNT = 4;
-const ENDLESS_MODE = "endless";
-const ENDLESS_PILE_CAPACITY = 10;
-const ENDLESS_HARVEST_LENGTH = 5;
-const ENDLESS_STARTER_DISCARDS = 3;
-const ENDLESS_MAX_DISCARDS = 5;
-const ENDLESS_RULES_VERSION = "active-garden-tools-v1";
-const ENDLESS_TOOL_CAPACITY = 2;
-const ENDLESS_TOOL_REWARD_INTERVAL = 3;
-
-const ENDLESS_TOOLS = {
-  relocate: {
-    id: "relocate",
-    label: "옮겨심기",
-    role: "위치 조작",
-    description: "카드와 정원을 직접 골라 높이 제한을 무시한다.",
-    imageId: "reward_ecology_kit",
-  },
-  graft: {
-    id: "graft",
-    label: "접붙이기",
-    role: "연결 조작",
-    description: "비이웃수 카드 1개를 이번 배치만 이어준다.",
-    imageId: "plan_conservation_work",
-  },
-  prune: {
-    id: "prune",
-    label: "가지치기",
-    role: "공간 조작",
-    description: "선택한 정원의 맨 위 카드 1장을 퇴비로 보낸다.",
-    imageId: "hand_pruning",
-  },
-};
-
-const ENDLESS_ABILITIES = {
-  normal: {
-    id: "normal",
-    label: "일반",
-    description: "이웃 숫자로 세로/층 줄기를 잇는다.",
-  },
-};
-
-const TYPE_ORDER_NEXT = {
-  terrain: "flora",
-  flora: "fauna",
-  fauna: "action",
-  action: "terrain",
+const HOURLY_ART_VARIANTS = {
+  0: [
+    ["meadow", "초지", `${CARDS}/floor_meadow.png`],
+    ["forest", "숲길", `${CARDS}/floor_forest.png`],
+    ["wetland", "물가", `${CARDS}/floor_wetland.png`],
+    ["shade-walk", "그늘길", `${CARDS}/floor_forest_shade_walk.png`],
+  ],
+  1: [
+    ["dandelion", "민들레", `${SPECIES}/bio_0001_dandelion.png`],
+    ["white-clover", "흰토끼풀", `${SPECIES}/bio_0002_white_clover.png`],
+    ["yarrow", "서양톱풀", `${SPECIES}/bio_0011_common_yarrow.png`],
+    ["red-clover", "붉은토끼풀", `${SPECIES}/bio_0012_red_clover.png`],
+  ],
+  2: [
+    ["sunflower", "해바라기", `${SPECIES}/bio_0003_common_sunflower.png`],
+    ["hydrangea", "수국", `${SPECIES}/bio_0004_bigleaf_hydrangea.png`],
+    ["lawn-daisy", "잔디데이지", `${SPECIES}/bio_0030_lawn_daisy.png`],
+    ["oxeye-daisy", "큰데이지", `${SPECIES}/bio_0039_oxeye_daisy.png`],
+  ],
+  3: [
+    ["honey-bee", "꿀벌", `${SPECIES}/bio_0008_western_honey_bee.png`],
+    ["bumble-bee", "뒤영벌", `${SPECIES}/bio_0657_common_eastern_bumble_bee.png`],
+    ["carpenter-bee", "목수벌", `${SPECIES}/bio_0669_eastern_carpenter_bee.png`],
+    ["lady-beetle", "무당벌레", `${SPECIES}/bio_0658_seven_spotted_lady_beetle.png`],
+  ],
+  4: [
+    ["watering", "물주기", `${CARDS}/hand_watering.png`],
+    ["soil-test", "흙살피기", `${CARDS}/work_soil_test.png`],
+    ["puddle", "빗물받기", `${CARDS}/work_temporary_puddle.png`],
+    ["conservation", "정원돌봄", `${CARDS}/plan_conservation_work.png`],
+  ],
+  5: [
+    ["maple", "단풍나무", `${SPECIES}/bio_0005_japanese_maple.png`],
+    ["oak", "상수리나무", `${SPECIES}/bio_0006_sawtooth_oak.png`],
+    ["white-oak", "흰참나무", `${SPECIES}/bio_0133_white_oak.png`],
+    ["birch", "자작나무", `${SPECIES}/bio_0162_silver_birch.png`],
+  ],
+  6: [
+    ["small-white", "배추흰나비", `${SPECIES}/bio_0009_small_white.png`],
+    ["monarch", "제왕나비", `${SPECIES}/bio_0656_monarch.png`],
+    ["red-admiral", "붉은줄나비", `${SPECIES}/bio_0659_red_admiral.png`],
+    ["swallowtail", "호랑나비", `${SPECIES}/bio_0662_eastern_tiger_swallowtail.png`],
+  ],
+  7: [
+    ["pruning", "가지치기", `${CARDS}/hand_pruning.png`],
+    ["flora-watch", "꽃살피기", `${CARDS}/work_flora_comparison.png`],
+    ["survey", "정원조사", `${CARDS}/work_region_ecology_survey.png`],
+    ["habitat", "꽃자리", `${CARDS}/plan_pollinator_habitat.png`],
+  ],
+  8: [
+    ["reed", "갈대", `${SPECIES}/bio_0007_common_reed.png`],
+    ["cattail", "부들", `${SPECIES}/bio_0156_broadleaf_cattail.png`],
+    ["waterlily", "수련", `${SPECIES}/bio_0444_american_white_waterlily.png`],
+    ["watercress", "물냉이", `${SPECIES}/bio_0586_watercress.png`],
+  ],
+  9: [
+    ["mallard", "청둥오리", `${SPECIES}/bio_0793_mallard.png`],
+    ["sparrow", "참새", `${SPECIES}/bio_0794_house_sparrow.png`],
+    ["robin", "울새", `${SPECIES}/bio_0796_american_robin.png`],
+    ["cardinal", "홍관조", `${SPECIES}/bio_0799_northern_cardinal.png`],
+  ],
 };
 
 function copy(value) {
-  return value == null ? value : JSON.parse(JSON.stringify(value));
+  return JSON.parse(JSON.stringify(value));
 }
 
-function clampInt(value, min, max = null) {
-  const parsed = Math.floor(Number(value) || min);
-  if (parsed < min) return min;
-  if (max != null && parsed > max) return max;
-  return parsed;
+function safeInt(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.floor(number) : fallback;
 }
 
-function rounded(value) {
-  return Math.floor(Number(value) + 0.5);
+function kstHourSeed(date = new Date()) {
+  const kst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+  const year = kst.getUTCFullYear();
+  const month = String(kst.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(kst.getUTCDate()).padStart(2, "0");
+  const hour = String(kst.getUTCHours()).padStart(2, "0");
+  return `${year}${month}${day}${hour}`;
 }
 
-function nextRng(state, purpose = "rng") {
-  const cursor = state.rngCursor ?? 0;
-  state.rngCursor = cursor + 1;
-  return createRng(`${state.seed ?? 4040}:${purpose}:${cursor}`);
+function secondsUntilNextHour(date = new Date()) {
+  const next = new Date(date);
+  next.setUTCMinutes(0, 0, 0);
+  next.setUTCHours(next.getUTCHours() + 1);
+  return Math.max(0, Math.ceil((next.getTime() - date.getTime()) / 1000));
 }
 
-function shuffle(state, list, purpose = "shuffle") {
-  return shuffleInPlace(list, nextRng(state, purpose));
+function formatDuration(totalSeconds) {
+  const safe = Math.max(0, safeInt(totalSeconds));
+  return `${String(Math.floor(safe / 60)).padStart(2, "0")}:${String(safe % 60).padStart(2, "0")}`;
 }
 
-function cardCategory(card) {
-  return card?.category ?? digitCard(card?.digit)?.category ?? null;
-}
-
-function cardColor(card) {
-  return card?.color ?? digitCard(card?.digit)?.color ?? null;
-}
-
-function defaultPile(index) {
+function variantFor(seed, digit, occurrence) {
+  const variants = HOURLY_ART_VARIANTS[digit] ?? HOURLY_ART_VARIANTS[0];
+  const order = variants.map((_, index) => index);
+  shuffleInPlace(order, createRng(`${seed}:${HOURLY_RULES_VERSION}:${HOURLY_ASSET_VERSION}:${digit}`));
+  const variant = variants[order[occurrence % order.length]] ?? variants[0];
   return {
-    id: `pile_${index}`,
-    label: `정원 ${index}`,
-    cards: [],
-    lastDigit: null,
-    baseTotal: 0,
-    comboStep: 0,
-    comboMultiplier: 1,
-    bestComboStep: 0,
-    nextScoreBonus: 0,
-    history: [],
+    variantId: `${digit}:${variant[0]}`,
+    cardName: variant[1],
+    imagePath: variant[2],
   };
 }
 
-function defaultEndlessPile(index) {
-  return {
-    id: `endless_pile_${index}`,
-    label: `정원 ${index}`,
-    cards: [],
-    lastDigit: null,
-    addTotal: 0,
-    multiplyTotal: 0,
-    comboStep: 0,
-    bestComboStep: 0,
-    capacity: ENDLESS_PILE_CAPACITY,
-    history: [],
-    harvestHistory: [],
-  };
-}
-
-function fallbackMultiplierForTopDigit(source) {
-  let digit = source?.lastDigit;
-  if (digit == null && source?.cards?.length) {
-    digit = source.cards[source.cards.length - 1]?.digit;
-  }
-  return digit == null ? 1 : resetMultiplierForDigit(digit);
-}
-
-function normalizePiles(piles) {
-  const out = [];
-  for (let i = 1; i <= PILE_COUNT; i += 1) {
-    const source = piles?.[i - 1] ?? {};
-    const pile = defaultPile(i);
-    pile.id = source.id ?? pile.id;
-    pile.label = source.label ?? pile.label;
-    pile.cards = copy(source.cards ?? []);
-    pile.lastDigit = source.lastDigit ?? source.last_digit ?? null;
-    if (pile.lastDigit == null && pile.cards.length > 0) {
-      pile.lastDigit = pile.cards[pile.cards.length - 1]?.digit ?? null;
-    }
-    pile.baseTotal = Math.max(0, Math.floor(Number(source.baseTotal ?? source.base_total) || 0));
-    if (pile.baseTotal <= 0 && pile.cards.length > 0) {
-      pile.baseTotal = pile.cards.reduce((sum, card) => sum + Math.max(0, Math.floor(Number(card.digit) || 0)), 0);
-    }
-    pile.comboStep = Math.max(0, Math.floor(Number(source.comboStep ?? source.combo_step) || 0));
-    pile.comboMultiplier = Number(source.comboMultiplier ?? source.combo_multiplier) || fallbackMultiplierForTopDigit(pile);
-    pile.bestComboStep = Math.max(0, Math.floor(Number(source.bestComboStep ?? source.best_combo_step ?? pile.comboStep) || 0));
-    pile.nextScoreBonus = Math.max(0, Number(source.nextScoreBonus ?? source.next_score_bonus) || 0);
-    pile.history = copy(source.history ?? []);
-    out.push(pile);
-  }
-  return out;
-}
-
-function ensurePiles(state) {
-  state.piles = normalizePiles(state?.piles);
-  return state.piles;
-}
-
-function normalizeEndlessPiles(piles) {
-  const out = [];
-  for (let i = 1; i <= PILE_COUNT; i += 1) {
-    const source = piles?.[i - 1] ?? {};
-    const pile = defaultEndlessPile(i);
-    pile.id = source.id ?? pile.id;
-    pile.label = source.label ?? pile.label;
-    pile.cards = copy(source.cards ?? []);
-    pile.lastDigit = source.lastDigit ?? source.last_digit ?? null;
-    if (pile.lastDigit == null && pile.cards.length > 0) {
-      pile.lastDigit = pile.cards[pile.cards.length - 1]?.digit ?? null;
-    }
-    pile.addTotal = Math.max(0, Math.floor(Number(source.addTotal ?? source.add_total) || 0));
-    pile.multiplyTotal = Math.max(0, Math.floor(Number(source.multiplyTotal ?? source.multiply_total) || 0));
-    pile.comboStep = Math.max(0, Math.floor(Number(source.comboStep ?? source.combo_step) || 0));
-    pile.bestComboStep = Math.max(0, Math.floor(Number(source.bestComboStep ?? source.best_combo_step ?? pile.comboStep) || 0));
-    pile.capacity = Math.max(ENDLESS_PILE_CAPACITY, clampInt(source.capacity ?? ENDLESS_PILE_CAPACITY, 1, 99));
-    pile.history = copy(source.history ?? []);
-    pile.harvestHistory = copy(source.harvestHistory ?? source.harvest_history ?? []);
-    out.push(pile);
-  }
-  return out;
-}
-
-function ensureEndlessPiles(state) {
-  state.piles = normalizeEndlessPiles(state?.piles);
-  return state.piles;
-}
-
-function makeCard(digit, serial = 1, opts = {}) {
-  const archetype = digitCard(digit) ?? {};
-  const ability = opts.ability ?? opts.abilityId ?? opts.ability_id ?? "normal";
-  return {
-    id: opts.id ?? `num_${digit}_${String(serial).padStart(2, "0")}`,
-    digit: Number(digit),
-    cardName: opts.cardName ?? archetype.cardName ?? `숫자 ${digit}`,
-    category: opts.category ?? archetype.category,
-    categoryLabel: categoryLabel(opts.category ?? archetype.category),
-    color: opts.color ?? archetype.color,
-    colorLabel: colorLabel(opts.color ?? archetype.color),
-    assetKey: opts.assetKey ?? archetype.assetKey,
-    imageId: opts.imageId ?? archetype.imageId,
-    landMark: opts.landMark,
-    bonus: opts.bonus,
-    ability,
-    abilityId: ability,
-    temporary: opts.temporary === true,
-  };
-}
-
-function starterDeck() {
-  const deck = [];
-  for (let copyIndex = 1; copyIndex <= 2; copyIndex += 1) {
-    for (let digit = 0; digit <= 9; digit += 1) {
-      deck.push(makeCard(digit, copyIndex));
-    }
-  }
-  return deck;
-}
-
-function cardAbility(card) {
-  const id = card?.ability ?? card?.abilityId ?? card?.ability_id ?? "normal";
-  return ENDLESS_ABILITIES[id] ?? ENDLESS_ABILITIES.normal;
-}
-
-function cardAbilitySummary(card) {
-  const ability = cardAbility(card);
-  return {
-    id: ability.id,
-    label: ability.label,
-    description: ability.description,
-    text: `${ability.label}. ${ability.description}`,
-  };
-}
-
-function endlessTool(toolOrId) {
-  const id = typeof toolOrId === "string" ? toolOrId : toolOrId?.id;
-  return ENDLESS_TOOLS[id] ?? null;
-}
-
-function endlessToolSummary(toolOrId) {
-  const tool = endlessTool(toolOrId);
-  if (!tool) return null;
-  return {
-    ...tool,
-    text: `${tool.label}. ${tool.description}`,
-  };
-}
-
-function normalizeEndlessTools(tools = []) {
-  return (tools ?? [])
-    .map((tool) => endlessTool(tool))
-    .filter(Boolean)
-    .slice(0, ENDLESS_TOOL_CAPACITY)
-    .map((tool) => ({ id: tool.id }));
-}
-
-function endlessStarterDeck() {
-  const deck = [];
-  let serial = 1;
-  for (let copyIndex = 1; copyIndex <= 4; copyIndex += 1) {
-    for (let digit = 0; digit <= 9; digit += 1) {
-      const card = makeCard(digit, serial, {
-        id: `endless_${digit}_${String(serial).padStart(2, "0")}`,
+function createHourlyDeck(seed) {
+  const cards = [];
+  for (let digit = 0; digit <= 9; digit += 1) {
+    for (let occurrence = 0; occurrence < 4; occurrence += 1) {
+      cards.push({
+        id: `${seed}:${digit}:${occurrence}`,
+        digit,
+        occurrence,
+        ...variantFor(seed, digit, occurrence),
       });
-      delete card.ability;
-      delete card.abilityId;
-      deck.push(card);
-      serial += 1;
     }
   }
-  return deck;
+  return shuffleInPlace(cards, createRng(`${seed}:${HOURLY_RULES_VERSION}:deck`));
 }
 
-function ensureCodex(codex = {}) {
-  const out = copy(codex) ?? {};
-  out.knownDigits = out.knownDigits ?? {};
-  out.knownCombos = out.knownCombos ?? {};
-  out.knownLands = out.knownLands ?? {};
-  out.seenRewards = out.seenRewards ?? {};
-  out.discoveredRewards = out.discoveredRewards ?? {};
-  for (const item of DIGITS) out.knownDigits[item.digit] = true;
-  for (const id of ["same", "neighbor", "sum9", "parity", "double"]) out.knownCombos[id] = true;
-  for (const id of Object.keys(LANDS)) out.knownLands[id] = true;
-  return out;
+function clockwisePileIndices(startIndex) {
+  const safe = Math.max(0, Math.min(HOURLY_PILE_COUNT - 1, safeInt(startIndex)));
+  const position = HOURLY_CLOCKWISE_ORDER.indexOf(safe);
+  return Array.from({ length: HOURLY_PILE_COUNT }, (_, offset) => (
+    HOURLY_CLOCKWISE_ORDER[(position + offset) % HOURLY_PILE_COUNT]
+  ));
 }
 
-function defaultCampaignProgress() {
+function circularDirection(from, to) {
+  if (to === (from + 1) % 10) return 1;
+  if (to === (from + 9) % 10) return -1;
+  return 0;
+}
+
+function gardenConnection(piles, triggerIndex, triggerDigit = null) {
+  const order = clockwisePileIndices(triggerIndex);
+  const firstPile = piles[triggerIndex] ?? [];
+  const firstDigit = triggerDigit ?? firstPile[firstPile.length - 1]?.digit;
+  if (firstDigit == null) return { length: 1, direction: 0, pileIndices: [triggerIndex], digits: [] };
+
+  const pileIndices = [triggerIndex];
+  const digits = [Number(firstDigit)];
+  let direction = 0;
+  let previous = Number(firstDigit);
+
+  for (const pileIndex of order.slice(1)) {
+    const pile = piles[pileIndex] ?? [];
+    const digit = pile[pile.length - 1]?.digit;
+    if (digit == null) break;
+    if (!direction) direction = circularDirection(previous, Number(digit));
+    if (!direction || Number(digit) !== (previous + direction + 10) % 10) break;
+    pileIndices.push(pileIndex);
+    digits.push(Number(digit));
+    previous = Number(digit);
+  }
+
   return {
-    highestUnlockedStage: 1,
-    lastSelectedStage: 1,
-    cleared: {},
-    bestReputation: {},
-    bestCombo: {},
-    attempts: {},
+    length: pileIndices.length,
+    direction: pileIndices.length >= 2 ? direction : 0,
+    pileIndices,
+    digits,
   };
 }
 
-function normalizeCampaignProgress(progress = {}) {
-  const out = defaultCampaignProgress();
-  out.highestUnlockedStage = clampInt(progress.highestUnlockedStage ?? progress.highest_unlocked_stage ?? 1, 1, CAMPAIGN_STAGES.length);
-  out.lastSelectedStage = clampInt(progress.lastSelectedStage ?? progress.last_selected_stage ?? out.highestUnlockedStage, 1, CAMPAIGN_STAGES.length);
-  for (let i = 1; i <= CAMPAIGN_STAGES.length; i += 1) {
-    const key = String(i);
-    if (progress.cleared?.[i] || progress.cleared?.[key]) out.cleared[i] = true;
-    out.bestReputation[i] = Math.max(0, Math.floor(Number(progress.bestReputation?.[i] ?? progress.bestReputation?.[key] ?? progress.best_reputation?.[i] ?? progress.best_reputation?.[key]) || 0));
-    out.bestCombo[i] = Math.max(0, Math.floor(Number(progress.bestCombo?.[i] ?? progress.bestCombo?.[key] ?? progress.best_combo?.[i] ?? progress.best_combo?.[key]) || 0));
-    out.attempts[i] = Math.max(0, Math.floor(Number(progress.attempts?.[i] ?? progress.attempts?.[key]) || 0));
-  }
-  return out;
+function thresholdsForMaximum(maxScore) {
+  const maximum = Math.max(1, safeInt(maxScore, 1));
+  const rounded = (ratio) => Math.max(10, Math.floor((maximum * ratio) / 10) * 10);
+  let one = rounded(0.35);
+  let two = Math.max(one + 10, rounded(0.6));
+  let three = Math.max(two + 10, rounded(0.8));
+  if (three >= maximum) three = Math.max(three, maximum);
+  if (two >= three) two = Math.max(10, three - 10);
+  if (one >= two) one = Math.max(10, two - 10);
+  return { one, two, three, perfect: maximum };
 }
 
-function defaultEndlessProgress() {
-  return {
-    bestScore: 0,
-    bestHarvestScore: 0,
-    bestSurvivalTurns: 0,
-    bestPotentialScore: 0,
-    runs: 0,
-    toolsUsed: 0,
-    toolUses: {},
-  };
+function starsForScore(score, thresholds) {
+  const points = Math.max(0, safeInt(score));
+  if (points >= thresholds.three) return 3;
+  if (points >= thresholds.two) return 2;
+  if (points >= thresholds.one) return 1;
+  return 0;
 }
 
-function normalizeEndlessProgress(progress = {}) {
-  const out = defaultEndlessProgress();
-  out.bestScore = Math.max(0, Math.floor(Number(progress.bestScore ?? progress.best_score) || 0));
-  out.bestHarvestScore = Math.max(0, Math.floor(Number(progress.bestHarvestScore ?? progress.best_harvest_score) || 0));
-  out.bestSurvivalTurns = Math.max(0, Math.floor(Number(progress.bestSurvivalTurns ?? progress.best_survival_turns) || 0));
-  out.bestPotentialScore = Math.max(0, Math.floor(Number(progress.bestPotentialScore ?? progress.best_potential_score) || 0));
-  out.runs = Math.max(0, Math.floor(Number(progress.runs) || 0));
-  out.toolsUsed = Math.max(0, Math.floor(Number(progress.toolsUsed ?? progress.tools_used) || 0));
-  const toolUses = progress.toolUses ?? progress.tool_uses ?? {};
-  for (const id of Object.keys(ENDLESS_TOOLS)) {
-    const count = Math.max(0, Math.floor(Number(toolUses[id]) || 0));
-    if (count > 0) out.toolUses[id] = count;
-  }
-  return out;
-}
+function previewHourlyPlacement(state, handIndex, pileIndex) {
+  const hand = state?.hand ?? [];
+  const piles = state?.piles ?? [];
+  const card = hand[safeInt(handIndex)];
+  const targetIndex = safeInt(pileIndex, -1);
+  if (state?.phase !== "play") return { ok: false, reason: "not_playing" };
+  if (!card) return { ok: false, reason: "missing_card" };
+  if (targetIndex < 0 || targetIndex >= HOURLY_PILE_COUNT) return { ok: false, reason: "missing_pile" };
 
-function defaultMetaProfile() {
-  return {
-    version: VERSION,
-    numberMoney: 0,
-    numberUpgrades: {},
-    numberCodex: ensureCodex(),
-    numberCampaign: defaultCampaignProgress(),
-    numberEndless: defaultEndlessProgress(),
-  };
-}
-
-function normalizeMetaProfile(profile = {}) {
-  const out = defaultMetaProfile();
-  out.numberMoney = Math.max(0, Math.floor(Number(profile.numberMoney ?? profile.number_money) || 0));
-  out.numberUpgrades = {};
-  const sourceUpgrades = profile.numberUpgrades ?? profile.number_upgrades ?? {};
-  for (const id of META_UPGRADE_ORDER) {
-    const level = Math.max(0, Math.floor(Number(sourceUpgrades[id]) || 0));
-    if (level > 0) out.numberUpgrades[id] = Math.min(level, META_UPGRADES[id].max);
-  }
-  out.numberCodex = ensureCodex(profile.numberCodex ?? profile.number_codex ?? {});
-  out.numberCampaign = normalizeCampaignProgress(profile.numberCampaign ?? profile.number_campaign ?? {});
-  out.numberEndless = normalizeEndlessProgress(profile.numberEndless ?? profile.number_endless ?? {});
-  return out;
-}
-
-function upgradeLevel(meta, id) {
-  return Math.max(0, Math.floor(Number(normalizeMetaProfile(meta).numberUpgrades[id]) || 0));
-}
-
-function metaUpgradeStatus(meta, id) {
-  const normalized = normalizeMetaProfile(meta);
-  const upgrade = META_UPGRADES[id];
-  if (!upgrade) return null;
-  const level = normalized.numberUpgrades[id] ?? 0;
-  const nextCost = upgrade.cost[level] ?? null;
-  return {
-    ...upgrade,
-    level,
-    max: upgrade.max,
-    nextCost,
-    affordable: nextCost != null && normalized.numberMoney >= nextCost,
-    maxed: level >= upgrade.max,
-  };
-}
-
-function storeOptions(meta) {
-  return META_UPGRADE_ORDER.map((id) => metaUpgradeStatus(meta, id));
-}
-
-function purchaseMetaUpgrade(meta, id) {
-  const normalized = normalizeMetaProfile(meta);
-  const status = metaUpgradeStatus(normalized, id);
-  if (!status) return { ok: false, reason: "missing_upgrade", profile: normalized };
-  if (status.maxed) return { ok: false, reason: "maxed", profile: normalized };
-  if (!status.affordable) return { ok: false, reason: "not_enough_money", profile: normalized };
-  normalized.numberMoney -= status.nextCost;
-  normalized.numberUpgrades[id] = (normalized.numberUpgrades[id] ?? 0) + 1;
-  return { ok: true, profile: normalized, upgrade: status };
-}
-
-function campaignStageRunOptions(stageIndex = 1, opts = {}) {
-  const meta = normalizeMetaProfile(opts.meta ?? {});
-  const stage = stageByIndex(stageIndex);
-  const deck = starterDeck();
-  if (upgradeLevel(meta, "starterSprout") > 0) {
-    deck.push(makeCard(1, 80, { id: "upgrade_starter_sprout_card" }));
-  }
-  return {
-    seed: opts.seed ?? 4040 + stage.index * 101,
-    activeLand: stage.activeLand,
-    targetReputation: Math.max(120, stage.targetReputation - upgradeLevel(meta, "targetDiscount") * 20),
-    plays: stage.plays + upgradeLevel(meta, "extraPlay"),
-    discards: stage.discards + upgradeLevel(meta, "extraDiscard"),
-    handSize: HAND_SIZE + upgradeLevel(meta, "handSize"),
-    deck,
-    stageIndex: stage.index,
-    stageId: stage.id,
-    stageLabel: stage.name,
-    stageRouteKind: stage.routeKind,
-    campaignEnabled: true,
-    numberCodex: meta.numberCodex,
-  };
-}
-
-function isCampaignStageUnlocked(progress, stageIndex) {
-  const normalized = normalizeCampaignProgress(progress);
-  return stageByIndex(stageIndex).index <= normalized.highestUnlockedStage;
-}
-
-function campaignStageStatus(progress, stageIndex) {
-  const normalized = normalizeCampaignProgress(progress);
-  const index = stageByIndex(stageIndex).index;
-  if (normalized.cleared[index]) return "cleared";
-  if (index <= normalized.highestUnlockedStage) return "unlocked";
-  return "locked";
-}
-
-function comboMultiplier(step) {
-  return Math.max(1, Number(step) || 1);
-}
-
-function resetMultiplierForDigit(digit) {
-  const normalized = Math.max(0, Math.min(9, Math.floor(Number(digit) || 0)));
-  return 9 - normalized;
-}
-
-function getComboMatches(previousDigit, nextDigit) {
-  if (previousDigit == null) return [];
-  const prev = Number(previousDigit);
-  const next = Number(nextDigit);
-  const matches = [];
-  if (prev === next) matches.push("same");
-  if (Math.abs(prev - next) === 1) matches.push("neighbor");
-  if (prev + next === 9) matches.push("sum9");
-  if (prev % 2 === next % 2) matches.push("parity");
-  return matches;
-}
-
-function containsMatch(matches, key) {
-  return matches.includes(key);
-}
-
-function primaryLabel(matches, previousDigit) {
-  if (previousDigit == null) return { label: "새 흐름", key: "start" };
-  if (containsMatch(matches, "neighbor") && containsMatch(matches, "sum9")) return { label: "더블", key: "double" };
-  if (containsMatch(matches, "neighbor")) return { label: "이웃수", key: "neighbor" };
-  if (containsMatch(matches, "same")) return { label: "같은수", key: "same" };
-  if (containsMatch(matches, "sum9")) return { label: "합 9", key: "sum9" };
-  if (containsMatch(matches, "parity")) return { label: "홀짝", key: "parity" };
-  return { label: "새 흐름", key: "start" };
-}
-
-function landPrefers(activeLand, matches) {
-  const land = LANDS[activeLand ?? "meadow"];
-  return matches.some((key) => land?.preferred?.[key]);
-}
-
-function categoryAffinity(activeLand, card) {
-  const land = LANDS[activeLand ?? "meadow"];
-  const category = cardCategory(card);
-  return {
-    amount: land?.categoryAffinity?.[category] ?? 0,
-    category,
-  };
-}
-
-function pileColorSetBonus(pile, color) {
-  if (!pile || !color) return { amount: 0, completed: false };
-  const before = new Set();
-  const after = new Set();
-  for (const card of pile.cards ?? []) {
-    const id = cardColor(card);
-    if (id) {
-      before.add(id);
-      after.add(id);
-    }
-  }
-  after.add(color);
-  if (before.size < COLOR_ORDER.length && after.size >= COLOR_ORDER.length) {
-    return { amount: 0.12, completed: true };
-  }
-  return { amount: 0, completed: false };
-}
-
-function numberBaseBonus({
-  matches,
-  sameColorBonus,
-  colorShiftBonus,
-  typeChainBonus,
-  sameTypeBonus,
-  colorSetBonus,
-  categoryAffinityBonus,
-  card,
-}) {
-  let bonus = 0;
-  if (containsMatch(matches, "same")) bonus += 2;
-  if (containsMatch(matches, "sum9")) bonus += 3;
-  if (containsMatch(matches, "parity")) bonus += 1;
-  if (sameColorBonus > 0) bonus += 1;
-  if (colorShiftBonus > 0) bonus += 1;
-  if (typeChainBonus > 0) bonus += 2;
-  if (sameTypeBonus > 0) bonus += 1;
-  if (colorSetBonus > 0) bonus += 3;
-  if (categoryAffinityBonus > 0) bonus += 1;
-  if (card?.bonus === "shiny") bonus += 2;
-  return bonus;
-}
-
-function buildBonusIcons(preview) {
-  const candidates = [];
-  if ((preview.pileScoreBonus ?? 0) > 0) candidates.push({ label: "비료", weight: 45 });
-  if (preview.colorSetCompleted) candidates.push({ label: "4색", weight: 40 });
-  if ((preview.typeChainBonus ?? 0) > 0) candidates.push({ label: "순서", weight: 30 });
-  if ((preview.sameColorBonus ?? 0) > 0) candidates.push({ label: "같은색", weight: 20 });
-  if ((preview.colorShiftBonus ?? 0) > 0) candidates.push({ label: "색전환", weight: 15 });
-  if ((preview.sameTypeBonus ?? 0) > 0) candidates.push({ label: "같은유형", weight: 10 });
-  return candidates.sort((a, b) => b.weight - a.weight).slice(0, 2).map((item) => item.label);
-}
-
-function evaluateNumberPlayWithPrevious(state, card, previousDigit, comboStep, previousCard, pile) {
-  const matches = getComboMatches(previousDigit, card.digit);
-  const connected = previousDigit == null || containsMatch(matches, "neighbor");
-  const nextStep = previousDigit == null ? 1 : connected ? (comboStep ?? 0) + 1 : 1;
-  const primary = primaryLabel(matches, previousDigit);
-  const resetMultiplier = resetMultiplierForDigit(card.digit);
-  const previousMultiplier = Number(pile?.comboMultiplier ?? state?.comboMultiplier) || 1;
-  const baseMultiplier = connected && previousDigit != null ? Math.max(0, previousMultiplier) + 1 : resetMultiplier;
-  const landBonus = landPrefers(state?.activeLand, matches);
-  const affinity = categoryAffinity(state?.activeLand, card);
-  const currentCategory = cardCategory(card);
-  const previousCategory = cardCategory(previousCard);
-  const currentColor = cardColor(card);
-  const previousColor = cardColor(previousCard);
-  const sameColorBonus = previousColor != null && currentColor === previousColor ? 0.06 : 0;
-  const colorShiftBonus = previousColor != null && currentColor != null && currentColor !== previousColor ? 0.03 : 0;
-  const typeChainBonus = previousCategory != null && TYPE_ORDER_NEXT[previousCategory] === currentCategory ? 0.08 : 0;
-  const sameTypeBonus = previousCategory != null && previousCategory === currentCategory ? 0.04 : 0;
-  const colorSet = pileColorSetBonus(pile, currentColor);
-  const pileScoreBonus = pile?.nextScoreBonus ?? 0;
-  const comboBonus = matches.reduce((sum, key) => sum + (state?.comboBonuses?.[key] ?? 0), 0);
-  const ecologyBonus = sameColorBonus + colorShiftBonus + typeChainBonus + sameTypeBonus + colorSet.amount;
-  const digitBase = Math.max(0, Math.floor(Number(card.digit) || 0));
-  let baseBonus = numberBaseBonus({
-    matches,
-    sameColorBonus,
-    colorShiftBonus,
-    typeChainBonus,
-    sameTypeBonus,
-    colorSetBonus: colorSet.amount,
-    categoryAffinityBonus: affinity.amount,
-    card,
-  });
-  if (connected && landBonus) baseBonus += 1;
-  if (connected && comboBonus > 0) baseBonus += Math.max(1, rounded(comboBonus * 10));
-  if (connected && pileScoreBonus > 0) baseBonus += Math.max(1, rounded(pileScoreBonus * 10));
-  const baseScore = digitBase + baseBonus;
-  let pileBaseBefore = Math.max(0, Math.floor(Number(pile?.baseTotal) || 0));
-  if (pile && pileBaseBefore <= 0 && pile.cards?.length) {
-    pileBaseBefore = pile.cards.reduce((sum, item) => sum + Math.max(0, Math.floor(Number(item.digit) || 0)), 0);
-  }
-  const pileBaseAfter = pileBaseBefore + baseScore;
-  const scoreBasis = pileBaseAfter;
-  const expectedReputation = rounded(scoreBasis * baseMultiplier);
-  const preview = {
-    playable: true,
-    connected,
-    breaksCombo: previousDigit != null && !connected,
-    previousDigit,
-    digit: card.digit,
-    color: currentColor,
-    colorLabel: colorLabel(currentColor),
-    colorShort: colorShort(currentColor),
-    previousColor,
-    category: currentCategory,
-    categoryLabel: categoryLabel(currentCategory),
-    categoryShort: categoryShort(currentCategory),
-    previousCategory,
-    matches,
-    primaryLabel: primary.label,
-    primaryKey: primary.key,
-    nextComboStep: nextStep,
-    nextMultiplier: baseMultiplier,
-    baseMultiplier,
-    resetMultiplier,
-    landBonus,
-    categoryAffinityBonus: affinity.amount,
-    categoryAffinity: affinity.category,
-    comboBonus,
-    sameColorBonus,
-    colorShiftBonus,
-    colorSetBonus: colorSet.amount,
-    colorSetCompleted: colorSet.completed,
-    pileScoreBonus,
-    typeChainBonus,
-    sameTypeBonus,
-    ecologyBonus,
-    baseScore,
-    digitBase,
-    baseBonus,
-    pileBaseBefore,
-    pileBaseAfter,
-    scoreBasis,
-    expectedReputation,
-    scoreFormula: `${scoreBasis} × ${Math.floor(baseMultiplier)}`,
-    glow: previousDigit == null
-      ? "neutral"
-      : !connected
-        ? "break"
-        : landBonus || primary.key === "double" || baseBonus >= 4 || pileScoreBonus > 0
-          ? "gold"
-          : "yellow",
-  };
-  preview.bonusIcons = buildBonusIcons(preview);
-  return preview;
-}
-
-function evaluateNumberPlay(state, card) {
-  const previous = state?.comboHistory?.[state.comboHistory.length - 1];
-  return evaluateNumberPlayWithPrevious(state, card, state?.lastDigit ?? null, state?.comboStep ?? 0, previous?.card ?? null, null);
-}
-
-function evaluatePilePlay(state, pileIndex, card) {
-  if (!state || !card) return null;
-  const piles = ensurePiles(state);
-  const index = clampInt(pileIndex, 1, PILE_COUNT);
-  const pile = piles[index - 1];
-  const previousCard = pile.cards?.[pile.cards.length - 1] ?? null;
-  const preview = evaluateNumberPlayWithPrevious(state, card, pile.lastDigit, pile.comboStep, previousCard, pile);
-  preview.pileIndex = index;
-  preview.pileId = pile.id;
-  preview.pileLabel = pile.label;
-  preview.pileComboStep = pile.comboStep ?? 0;
-  preview.pileCardCount = pile.cards?.length ?? 0;
-  if (pile.lastDigit == null) preview.glow = "open";
-  return preview;
-}
-
-function evaluateAllPileTargets(state, handIndex) {
-  const card = state?.hand?.[handIndex - 1];
-  if (!card) return [];
-  ensurePiles(state);
-  return Array.from({ length: PILE_COUNT }, (_, i) => {
-    const preview = evaluatePilePlay(state, i + 1, card);
-    preview.handIndex = handIndex;
-    preview.cardId = card.id;
-    return preview;
-  });
-}
-
-function pilePreviewScore(preview) {
-  if (!preview) return -Infinity;
-  return (preview.breaksCombo ? 0 : 100000)
-    + (preview.glow === "gold" ? 6000 : preview.glow === "yellow" ? 3000 : preview.glow === "open" ? 900 : 0)
-    + (preview.nextComboStep ?? 1) * 1000
-    + (preview.expectedReputation ?? 0) * 10
-    - (preview.pileCardCount ?? 0);
-}
-
-function bestPileTargetForCard(state, handIndex) {
-  const previews = evaluateAllPileTargets(state, handIndex);
-  let bestIndex = null;
-  let bestPreview = null;
-  let bestScore = -Infinity;
-  let bestCount = 0;
-  for (const preview of previews) {
-    const score = pilePreviewScore(preview);
-    if (score > bestScore) {
-      bestScore = score;
-      bestIndex = preview.pileIndex;
-      bestPreview = preview;
-      bestCount = 1;
-    } else if (score === bestScore) {
-      bestCount += 1;
-    }
-  }
-  return { bestIndex, bestPreview, bestScore, bestCount, isUniqueBest: bestCount === 1, previews };
-}
-
-function uniqueBestPileTargetForCard(state, handIndex) {
-  const target = bestPileTargetForCard(state, handIndex);
-  if (!target.isUniqueBest) {
-    return { ...target, bestIndex: null, bestPreview: null };
-  }
-  return target;
-}
-
-function priorityPileTargetForCard(state, handIndex) {
-  const previews = evaluateAllPileTargets(state, handIndex);
-  const connected = previews.find((preview) => preview
-    && preview.connected
-    && preview.previousDigit != null
-    && preview.glow !== "neutral"
-    && preview.glow !== "break");
-  if (connected) return { bestIndex: connected.pileIndex, bestPreview: connected, previews, priority: "connected" };
-  const open = previews.find((preview) => preview?.glow === "open");
-  if (open) return { bestIndex: open.pileIndex, bestPreview: open, previews, priority: "open" };
-  return { bestIndex: null, bestPreview: null, previews, priority: null };
-}
-
-function getNumberHandPreviews(state) {
-  ensurePiles(state);
-  return (state.hand ?? []).map((card, index) => {
-    const { bestPreview } = bestPileTargetForCard(state, index + 1);
-    const preview = bestPreview ?? evaluateNumberPlay(state, card);
-    return { ...preview, handIndex: index + 1, cardId: card.id };
-  });
-}
-
-function handPreviewSummary(state) {
-  const previews = getNumberHandPreviews(state);
-  const summary = {
-    total: previews.length,
-    comboSafe: 0,
-    breakCount: 0,
-    bestIndex: null,
-    bestDigit: null,
-    bestLabel: "-",
-    bestCardName: "-",
-    bestCategoryLabel: "-",
-    bestRole: "",
-    bestReputation: 0,
-    bestMultiplier: 1,
-    bestBreaksCombo: false,
-    bestGlow: "neutral",
-    bestPile: null,
-    bestPileLabel: "-",
-  };
-  let bestScore = -Infinity;
-  for (const preview of previews) {
-    if (preview.breaksCombo) summary.breakCount += 1;
-    else summary.comboSafe += 1;
-    const score = (preview.breaksCombo ? 0 : 100000)
-      + (preview.nextComboStep ?? 1) * 1000
-      + (preview.expectedReputation ?? 0) * 10
-      + (preview.glow === "gold" ? 4 : preview.glow === "yellow" ? 2 : 0);
-    if (score > bestScore) {
-      const card = state.hand?.[preview.handIndex - 1] ?? {};
-      const archetype = digitCard(card.digit) ?? {};
-      bestScore = score;
-      summary.bestIndex = preview.handIndex;
-      summary.bestDigit = preview.digit;
-      summary.bestLabel = preview.breaksCombo ? "새 흐름" : preview.primaryLabel ?? "-";
-      summary.bestCardName = card.cardName ?? archetype.cardName ?? "-";
-      summary.bestCategoryLabel = card.categoryLabel ?? categoryLabel(card.category ?? archetype.category);
-      summary.bestRole = archetype.role ?? "";
-      summary.bestReputation = preview.expectedReputation ?? 0;
-      summary.bestMultiplier = preview.nextMultiplier ?? 1;
-      summary.bestBreaksCombo = preview.breaksCombo === true;
-      summary.bestGlow = preview.glow ?? "neutral";
-      summary.bestPile = preview.pileIndex;
-      summary.bestPileLabel = preview.pileLabel ?? "-";
-    }
-  }
-  return summary;
-}
-
-function syncEndlessDiscardAlias(state) {
-  state.compostPile = state.compostPile ?? state.discardPile ?? [];
-  state.discardPile = state.compostPile;
-  return state;
-}
-
-function freshEndlessDeck(state) {
-  const nextCycle = Math.max(0, Math.floor(Number(state.deckCycle) || 0)) + 1;
-  state.deckCycle = nextCycle;
-  return endlessStarterDeck().map((card, index) => ({
-    ...card,
-    id: `endless_${nextCycle}_${card.id}_${index}`,
-  }));
-}
-
-function cardAddValue(card) {
-  const digit = Math.max(0, Math.min(9, Math.floor(Number(card?.digit) || 0)));
-  const base = Math.floor(Number(card?.addValue ?? card?.add_value ?? digit) || 0);
-  const bonus = card?.bonus === "shiny" ? 2 : 0;
-  return Math.max(0, base + bonus);
-}
-
-function cardMultiplyValue(card) {
-  const digit = Math.max(0, Math.min(9, Math.floor(Number(card?.digit) || 0)));
-  const base = Math.floor(Number(card?.multiplyValue ?? card?.multiply_value ?? (9 - digit)) || 0);
-  return Math.max(0, base);
-}
-
-function isCircularNeighbor(previousDigit, nextDigit) {
-  if (previousDigit == null || nextDigit == null) return false;
-  const prev = Math.max(0, Math.min(9, Math.floor(Number(previousDigit) || 0)));
-  const next = Math.max(0, Math.min(9, Math.floor(Number(nextDigit) || 0)));
-  const diff = Math.abs(prev - next);
-  return diff === 1 || diff === 9;
-}
-
-function endlessNodeKey(pileIndex, position) {
-  return `${pileIndex}:${position}`;
-}
-
-function endlessNodeDistance(a, b) {
-  return Math.abs(a.pileIndex - b.pileIndex) + Math.abs(a.position - b.position);
-}
-
-function cloneEndlessPilesForPreview(state) {
-  return ensureEndlessPiles(state).map((pile) => ({
-    ...pile,
-    cards: [...(pile.cards ?? [])],
-  }));
-}
-
-function addEndlessEdge(edges, a, b) {
-  if (!a || !b || a.key === b.key) return;
-  if (!edges.has(a.key)) edges.set(a.key, new Set());
-  if (!edges.has(b.key)) edges.set(b.key, new Set());
-  edges.get(a.key).add(b.key);
-  edges.get(b.key).add(a.key);
-}
-
-function buildEndlessNodes(piles) {
-  const nodes = new Map();
-  for (let pileIndex = 1; pileIndex <= piles.length; pileIndex += 1) {
-    const cards = piles[pileIndex - 1]?.cards ?? [];
-    for (let position = 0; position < cards.length; position += 1) {
-      const key = endlessNodeKey(pileIndex, position);
-      nodes.set(key, { key, pileIndex, position, card: cards[position] });
-    }
-  }
-  return nodes;
-}
-
-function connectedComponent(nodes, edges, startKey) {
-  if (!nodes.has(startKey)) return [];
-  const seen = new Set([startKey]);
-  const pending = [startKey];
-  while (pending.length) {
-    const key = pending.pop();
-    for (const next of edges.get(key) ?? []) {
-      if (seen.has(next)) continue;
-      seen.add(next);
-      pending.push(next);
-    }
-  }
-  return [...seen].map((key) => nodes.get(key)).filter(Boolean);
-}
-
-function sortedHarvestGroup(component, newNode) {
-  return [...component]
-    .sort((a, b) => {
-      if (a.key === newNode.key) return -1;
-      if (b.key === newNode.key) return 1;
-      const distance = endlessNodeDistance(a, newNode) - endlessNodeDistance(b, newNode);
-      if (distance !== 0) return distance;
-      if (a.position !== b.position) return b.position - a.position;
-      return a.pileIndex - b.pileIndex;
-    })
-    .slice(0, ENDLESS_HARVEST_LENGTH);
-}
-
-function endlessGroupTotals(group) {
-  let addTotal = 0;
-  let multiplyTotal = 0;
-  for (const node of group) {
-    addTotal += cardAddValue(node.card);
-    multiplyTotal += cardMultiplyValue(node.card);
-  }
-  return {
-    addTotal,
-    multiplyTotal,
-    score: Math.floor(addTotal * multiplyTotal),
-    multiplier: 1,
-  };
-}
-
-function analyzeEndlessConnections(piles, targetPileIndex, card, options = {}) {
-  const nodes = buildEndlessNodes(piles);
-  const edges = new Map();
-  const toolId = options.toolId ?? null;
-  for (const node of nodes.values()) edges.set(node.key, new Set());
-  for (const node of nodes.values()) {
-    const vertical = nodes.get(endlessNodeKey(node.pileIndex, node.position + 1));
-    if (vertical && isCircularNeighbor(node.card?.digit, vertical.card?.digit)) addEndlessEdge(edges, node, vertical);
-    const horizontal = nodes.get(endlessNodeKey(node.pileIndex + 1, node.position));
-    if (horizontal && isCircularNeighbor(node.card?.digit, horizontal.card?.digit)) addEndlessEdge(edges, node, horizontal);
-  }
-
-  const newPosition = (piles[targetPileIndex - 1]?.cards?.length ?? 1) - 1;
-  const newKey = endlessNodeKey(targetPileIndex, newPosition);
-  const newNode = nodes.get(newKey);
-  const extraEdges = [];
-  if (!newNode) {
+  const target = piles[targetIndex] ?? [];
+  const countAfter = target.length + 1;
+  if (countAfter < HOURLY_HARVEST_SIZE) {
     return {
-      component: [],
-      componentSize: 0,
-      harvestReady: false,
-      harvestGroup: [],
-      harvestTotals: { addTotal: 0, multiplyTotal: 0, score: 0, multiplier: 1 },
-      verticalConnected: false,
-      layerConnections: 0,
-      extraEdges,
+      ok: true,
+      card: copy(card),
+      pileIndex: targetIndex,
+      countAfter,
+      cardsUntilHarvest: HOURLY_HARVEST_SIZE - countAfter,
+      harvest: false,
+      points: 0,
+      connection: { length: 1, direction: 0, pileIndices: [targetIndex], digits: [card.digit] },
     };
   }
 
-  if (toolId === "graft") {
-    const candidates = [
-      nodes.get(endlessNodeKey(targetPileIndex, newPosition - 1)),
-      nodes.get(endlessNodeKey(targetPileIndex - 1, newPosition)),
-      nodes.get(endlessNodeKey(targetPileIndex + 1, newPosition)),
-    ]
-      .filter((node) => node && !isCircularNeighbor(node.card?.digit, card.digit))
-      .sort((a, b) => a.pileIndex - b.pileIndex || a.position - b.position);
-    let best = null;
-    let bestSize = -1;
-    let bestScore = -1;
-    for (const candidate of candidates) {
-      const trialEdges = new Map([...edges].map(([key, value]) => [key, new Set(value)]));
-      addEndlessEdge(trialEdges, newNode, candidate);
-      const component = connectedComponent(nodes, trialEdges, newKey);
-      const score = endlessGroupTotals(sortedHarvestGroup(component, newNode)).score;
-      if (component.length > bestSize || (component.length === bestSize && score > bestScore)) {
-        best = candidate;
-        bestSize = component.length;
-        bestScore = score;
-      }
-    }
-    if (best) {
-      addEndlessEdge(edges, newNode, best);
-      extraEdges.push({ kind: "graft", from: newNode.key, to: best.key });
-    }
-  }
-
-  const component = connectedComponent(nodes, edges, newKey);
-  const harvestReady = component.length >= ENDLESS_HARVEST_LENGTH;
-  const harvestGroup = harvestReady ? sortedHarvestGroup(component, newNode) : [];
-  const harvestTotals = endlessGroupTotals(harvestGroup);
-  const previous = nodes.get(endlessNodeKey(targetPileIndex, newPosition - 1));
-  const verticalConnected = previous ? (edges.get(newKey)?.has(previous.key) ?? false) : false;
-  const layerConnections = [-1, 1]
-    .map((offset) => nodes.get(endlessNodeKey(targetPileIndex + offset, newPosition)))
-    .filter((node) => node && (edges.get(newKey)?.has(node.key) ?? false)).length;
-
+  const nextPiles = piles.map((pile) => [...pile]);
+  nextPiles[targetIndex].push(card);
+  const chainSum = nextPiles[targetIndex].reduce((sum, item) => sum + Number(item.digit), 0);
+  const connection = gardenConnection(nextPiles, targetIndex, card.digit);
+  const points = chainSum * connection.length;
   return {
-    component,
-    componentSize: component.length,
-    harvestReady,
-    harvestGroup,
-    harvestTotals,
-    verticalConnected,
-    layerConnections,
-    extraEdges,
-    toolId,
+    ok: true,
+    card: copy(card),
+    pileIndex: targetIndex,
+    countAfter,
+    cardsUntilHarvest: 0,
+    harvest: true,
+    chainSum,
+    points,
+    connection,
   };
 }
 
-function recomputeEndlessPileStats(pile) {
-  const cards = pile.cards ?? [];
-  const top = cards[cards.length - 1] ?? null;
-  pile.lastDigit = top?.digit ?? null;
-  if (!cards.length) {
-    pile.addTotal = 0;
-    pile.multiplyTotal = 0;
-    pile.comboStep = 0;
-    return pile;
-  }
-  let start = cards.length - 1;
-  while (start > 0 && isCircularNeighbor(cards[start - 1]?.digit, cards[start]?.digit)) {
-    start -= 1;
-  }
-  const suffix = cards.slice(start);
-  pile.comboStep = suffix.length;
-  pile.addTotal = suffix.reduce((sum, item) => sum + cardAddValue(item), 0);
-  pile.multiplyTotal = suffix.reduce((sum, item) => sum + cardMultiplyValue(item), 0);
-  pile.bestComboStep = Math.max(pile.bestComboStep ?? 0, pile.comboStep ?? 0);
-  return pile;
-}
-
-function recomputeAllEndlessPileStats(state) {
-  const piles = state?.piles?.length === PILE_COUNT ? state.piles : ensureEndlessPiles(state);
-  for (const pile of piles) recomputeEndlessPileStats(pile);
-  return state;
-}
-
-function countAfterHarvest(piles, targetPileIndex, harvestGroup) {
-  let count = piles[targetPileIndex - 1]?.cards?.length ?? 0;
-  for (const node of harvestGroup ?? []) {
-    if (node.pileIndex === targetPileIndex) count -= 1;
-  }
-  return Math.max(0, count);
-}
-
-function normalizePendingToolReward(reward) {
-  if (!reward) return null;
-  const options = [...new Set((reward.options ?? []).map((item) => endlessTool(item)?.id).filter(Boolean))].slice(0, 2);
-  if (options.length === 0) return null;
-  const selectedToolId = endlessTool(reward.selectedToolId ?? reward.selected_tool_id)?.id ?? null;
-  return {
-    id: reward.id ?? `tool_reward_${Math.max(0, Math.floor(Number(reward.harvestCount ?? reward.harvest_count) || 0))}`,
-    harvestCount: Math.max(0, Math.floor(Number(reward.harvestCount ?? reward.harvest_count) || 0)),
-    options,
-    selectedToolId: options.includes(selectedToolId) ? selectedToolId : null,
-  };
-}
-
-function toolRewardOptions(state) {
-  const ids = Object.keys(ENDLESS_TOOLS);
-  shuffle(state, ids, `endless-tool-reward-${state.harvestCount ?? 0}`);
-  return ids.slice(0, 2);
-}
-
-function offerEndlessToolReward(state) {
-  if (state.pendingToolReward) return state.pendingToolReward;
-  const reward = {
-    id: `tool_reward_${state.harvestCount ?? 0}`,
-    harvestCount: state.harvestCount ?? 0,
-    options: toolRewardOptions(state),
-    selectedToolId: null,
-  };
-  state.pendingToolReward = reward;
-  state.toolRewardCount = (state.toolRewardCount ?? 0) + 1;
-  state.phase = "tool_reward";
-  return reward;
-}
-
-function newEndlessRun(profile = {}, opts = {}) {
-  const normalized = normalizeMetaProfile(profile);
-  const compostPile = copy(opts.compostPile ?? opts.compost_pile ?? opts.discardPile ?? opts.discard_pile ?? []);
-  const state = {
-    version: VERSION,
-    endlessRulesVersion: ENDLESS_RULES_VERSION,
-    mode: ENDLESS_MODE,
-    phase: opts.phase ?? "play",
-    seed: opts.seed ?? 8080,
-    rngCursor: opts.rngCursor ?? opts.rng_cursor ?? 0,
-    activeLand: opts.activeLand ?? opts.active_land ?? "meadow",
-    score: Math.max(0, Math.floor(Number(opts.score) || 0)),
-    bestScore: Math.max(normalized.numberEndless.bestScore, Math.floor(Number(opts.bestScore ?? opts.best_score) || 0)),
-    bestHarvestScore: Math.max(0, Math.floor(Number(opts.bestHarvestScore ?? opts.best_harvest_score) || 0)),
-    bestPotentialScore: Math.max(0, Math.floor(Number(opts.bestPotentialScore ?? opts.best_potential_score) || 0)),
-    turnCount: Math.max(0, Math.floor(Number(opts.turnCount ?? opts.turn_count) || 0)),
-    harvestCount: Math.max(0, Math.floor(Number(opts.harvestCount ?? opts.harvest_count) || 0)),
-    deckCycle: Math.max(0, Math.floor(Number(opts.deckCycle ?? opts.deck_cycle) || 0)),
-    discardsRemaining: opts.discards ?? opts.discardsRemaining ?? opts.discards_remaining ?? ENDLESS_STARTER_DISCARDS,
-    maxDiscards: opts.maxDiscards ?? opts.max_discards ?? ENDLESS_MAX_DISCARDS,
-    handSize: opts.handSize ?? opts.hand_size ?? HAND_SIZE,
-    pileCapacity: opts.pileCapacity ?? opts.pile_capacity ?? ENDLESS_PILE_CAPACITY,
-    deck: copy(opts.deck ?? endlessStarterDeck()),
-    hand: copy(opts.hand ?? []),
-    compostPile,
-    discardPile: compostPile,
-    piles: normalizeEndlessPiles(opts.piles),
-    tools: opts.tools == null ? [{ id: "relocate" }] : normalizeEndlessTools(opts.tools),
-    pendingToolReward: normalizePendingToolReward(opts.pendingToolReward ?? opts.pending_tool_reward),
-    toolRewardCount: Math.max(0, Math.floor(Number(opts.toolRewardCount ?? opts.tool_reward_count) || 0)),
-    toolsUsed: Math.max(0, Math.floor(Number(opts.toolsUsed ?? opts.tools_used) || 0)),
-    toolHistory: copy(opts.toolHistory ?? opts.tool_history ?? []),
-    lastPlay: copy(opts.lastPlay ?? opts.last_play ?? null),
-    lastHarvest: copy(opts.lastHarvest ?? opts.last_harvest ?? null),
-    lastDiscard: copy(opts.lastDiscard ?? opts.last_discard ?? null),
-    message: opts.message ?? "수확할 때만 점수가 오릅니다.",
-    failureReason: opts.failureReason ?? opts.failure_reason,
-    resultRecorded: opts.resultRecorded === true || opts.result_recorded === true,
-  };
-  if (state.pendingToolReward) state.phase = "tool_reward";
-  if (opts.shuffle !== false) shuffle(state, state.deck, "endless-opening-deck");
-  if (opts.skipRefill !== true && opts.skip_refill !== true) refillEndlessHand(state);
-  syncEndlessDiscardAlias(state);
-  return state;
-}
-
-function recycleEndlessDeck(state) {
-  syncEndlessDiscardAlias(state);
-  if ((state.deck?.length ?? 0) > 0) return true;
-  if ((state.compostPile?.length ?? 0) > 0) {
-    state.deck = state.compostPile;
-    state.compostPile = [];
-    syncEndlessDiscardAlias(state);
-    shuffle(state, state.deck, "endless-compost-recycle");
-    return true;
-  }
-  state.deck = freshEndlessDeck(state);
-  shuffle(state, state.deck, "endless-fresh-cycle");
-  return true;
-}
-
-function refillEndlessHand(state) {
-  syncEndlessDiscardAlias(state);
-  while ((state.hand?.length ?? 0) < (state.handSize ?? HAND_SIZE)) {
-    if ((state.deck?.length ?? 0) === 0 && !recycleEndlessDeck(state)) break;
-    if ((state.deck?.length ?? 0) === 0) break;
+function refillHourlyHand(state) {
+  while (state.hand.length < HOURLY_HAND_SIZE && state.deck.length) {
     state.hand.push(state.deck.shift());
   }
-  syncEndlessDiscardAlias(state);
-  return state;
 }
 
-function evaluateEndlessPilePlay(state, pileIndex, card) {
-  if (!state || !card) return null;
-  const sourcePiles = ensureEndlessPiles(state);
-  const index = clampInt(pileIndex, 1, PILE_COUNT);
-  return evaluateEndlessPilePlayVariant(state, sourcePiles, index, card);
-}
+function playHourlyCard(state, handIndex, pileIndex) {
+  const preview = previewHourlyPlacement(state, handIndex, pileIndex);
+  if (!preview.ok) return preview;
+  const card = state.hand.splice(safeInt(handIndex), 1)[0];
+  state.piles[preview.pileIndex].push(card);
+  state.cardsPlayed += 1;
+  state.lastHarvest = null;
 
-function evaluateEndlessPilePlayVariant(state, sourcePiles, index, card, options = {}) {
-  const sourcePile = sourcePiles[index - 1];
-  if (!sourcePile) return null;
-  const toolId = endlessTool(options.toolId)?.id ?? null;
-  const piles = cloneEndlessPilesForPreview({ ...state, piles: sourcePiles });
-  const pile = piles[index - 1];
-  const pileCardCount = sourcePile.cards?.length ?? 0;
-  const capacity = sourcePile.capacity ?? state.pileCapacity ?? ENDLESS_PILE_CAPACITY;
-  const minCount = Math.min(...sourcePiles.map((item) => item.cards?.length ?? 0));
-  const previousCard = sourcePile.cards?.[sourcePile.cards.length - 1] ?? null;
-  const previousDigit = sourcePile.lastDigit ?? previousCard?.digit ?? null;
-
-  pile.cards.push(card);
-  const analysis = analyzeEndlessConnections(piles, index, card, { toolId });
-  const connected = previousDigit == null || analysis.verticalConnected || analysis.layerConnections > 0 || analysis.componentSize > 1;
-  const matches = connected && previousDigit != null ? ["neighbor"] : [];
-  const addValue = cardAddValue(card);
-  const multiplyValue = cardMultiplyValue(card);
-  const componentTotals = endlessGroupTotals(analysis.component);
-  const nextComboStep = Math.max(1, analysis.componentSize);
-  const nextAddTotal = analysis.harvestReady ? analysis.harvestTotals.addTotal : componentTotals.addTotal;
-  const nextMultiplyTotal = analysis.harvestReady ? analysis.harvestTotals.multiplyTotal : componentTotals.multiplyTotal;
-  const harvestReady = analysis.harvestReady;
-  const harvestScore = harvestReady ? analysis.harvestTotals.score : 0;
-  const overCapacity = pileCardCount >= capacity;
-  const verticalRunAllowed = previousDigit != null && analysis.verticalConnected;
-  const heightAllowed = toolId === "relocate" || pileCardCount === minCount || harvestReady || verticalRunAllowed;
-  const graftApplied = toolId === "graft" && analysis.extraEdges.some((edge) => edge.kind === "graft");
-  const toolAllowed = toolId !== "graft" || graftApplied;
-  const playable = toolAllowed && heightAllowed && (!overCapacity || harvestReady);
-  const cardCountAfter = countAfterHarvest(piles, index, analysis.harvestGroup);
-  const primaryKey = harvestReady
-    ? "harvest"
-    : toolId === "relocate"
-      ? "relocate"
-      : graftApplied
-        ? "graft"
-        : connected && previousDigit != null
-          ? "neighbor"
-          : "start";
-  const primaryText = {
-    harvest: "수확",
-    relocate: "옮겨심기",
-    graft: "접붙이기",
-    neighbor: analysis.layerConnections > 0 ? "층 이웃수" : "이웃수",
-    start: "새 줄기",
-  }[primaryKey];
-  const reason = playable
-    ? null
-    : !toolAllowed
-      ? "no_graft_target"
-      : !heightAllowed
-        ? "height_locked"
-        : "pile_full";
-  return {
-    playable,
-    reason,
-    connected,
-    breaksCombo: previousDigit != null && !connected,
-    previousDigit,
-    digit: card.digit,
-    matches,
-    primaryLabel: primaryText,
-    primaryKey,
-    addValue,
-    multiplyValue,
-    addTotalBefore: Math.max(0, Math.floor(Number(sourcePile.addTotal) || 0)),
-    multiplyTotalBefore: Math.max(0, Math.floor(Number(sourcePile.multiplyTotal) || 0)),
-    nextAddTotal,
-    nextMultiplyTotal,
-    nextComboStep,
-    harvestReady,
-    harvestScore,
-    potentialScore: Math.max(harvestScore, componentTotals.score),
-    harvestLength: ENDLESS_HARVEST_LENGTH,
-    cardsToHarvest: Math.max(0, ENDLESS_HARVEST_LENGTH - nextComboStep),
-    harvestGroup: analysis.harvestGroup.map((node) => ({
-      pileIndex: node.pileIndex,
-      position: node.position,
-      cardId: node.card?.id,
-      digit: node.card?.digit,
-    })),
-    harvestCards: analysis.harvestGroup.map((node) => copy(node.card)),
-    componentSize: analysis.componentSize,
-    layerConnections: analysis.layerConnections,
-    verticalConnected: analysis.verticalConnected,
-    verticalRunAllowed,
-    extraEdges: copy(analysis.extraEdges),
-    toolId,
-    toolApplied: toolId != null,
-    heightAllowed,
-    minPileCardCount: minCount,
-    pileIndex: index,
-    pileId: sourcePile.id,
-    pileLabel: sourcePile.label,
-    pileComboStep: sourcePile.comboStep ?? 0,
-    pileCardCount,
-    cardCountAfter,
-    capacity,
-    slotsRemaining: Math.max(0, capacity - pileCardCount),
-    scoreFormula: `${nextAddTotal} x ${nextMultiplyTotal}`,
-    expectedReputation: harvestScore,
-    nextMultiplier: nextMultiplyTotal,
-    pileBaseAfter: nextAddTotal,
-    glow: !playable
-      ? "break"
-      : previousDigit == null
-        ? "open"
-        : harvestReady
-          ? "gold"
-          : connected || analysis.componentSize >= 3
-            ? "yellow"
-            : "open",
-  };
-}
-
-function evaluateAllEndlessPileTargets(state, handIndex) {
-  const card = state?.hand?.[handIndex - 1];
-  if (!card) return [];
-  ensureEndlessPiles(state);
-  return Array.from({ length: PILE_COUNT }, (_, i) => {
-    const preview = evaluateEndlessPilePlay(state, i + 1, card) ?? {
-      playable: false,
-      reason: "blocked_pile",
-      pileIndex: i + 1,
-      pileId: state.piles?.[i]?.id,
-      pileLabel: state.piles?.[i]?.label ?? `정원 ${i + 1}`,
+  if (preview.harvest) {
+    const cards = state.piles[preview.pileIndex].splice(0);
+    state.score += preview.points;
+    state.harvests += 1;
+    state.lastHarvest = {
+      pileIndex: preview.pileIndex,
+      cards: copy(cards),
+      chainSum: preview.chainSum,
+      connection: copy(preview.connection),
+      points: preview.points,
     };
-    preview.handIndex = handIndex;
-    preview.cardId = card.id;
-    return preview;
-  });
-}
-
-function evaluateEndlessToolTargets(state, toolOrId, handIndex = null) {
-  const tool = endlessTool(toolOrId);
-  if (!state || !tool) return [];
-  const sourcePiles = ensureEndlessPiles(state);
-  if (tool.id === "prune") {
-    return sourcePiles.map((pile, index) => {
-      const removedCard = pile.cards?.[pile.cards.length - 1] ?? null;
-      return {
-        playable: removedCard != null,
-        reason: removedCard ? null : "empty_pile",
-        primaryKey: "prune",
-        primaryLabel: "가지치기",
-        toolId: "prune",
-        toolApplied: true,
-        pileIndex: index + 1,
-        pileId: pile.id,
-        pileLabel: pile.label,
-        pileCardCount: pile.cards?.length ?? 0,
-        cardCountAfter: Math.max(0, (pile.cards?.length ?? 0) - 1),
-        slotsRemaining: Math.max(0, (pile.capacity ?? ENDLESS_PILE_CAPACITY) - (pile.cards?.length ?? 0) + 1),
-        removedCard: copy(removedCard),
-        removedCardId: removedCard?.id ?? null,
-        scoreFormula: removedCard ? "1칸 확보" : "빈 정원",
-        glow: removedCard ? "yellow" : "break",
-      };
-    });
   }
-  const card = state.hand?.[handIndex - 1];
-  if (!card) return [];
-  return sourcePiles.map((pile, index) => {
-    const preview = evaluateEndlessPilePlayVariant(state, sourcePiles, index + 1, card, { toolId: tool.id }) ?? {
-      playable: false,
-      reason: "blocked_pile",
-      pileIndex: index + 1,
-      pileId: pile.id,
-      pileLabel: pile.label,
-    };
-    preview.handIndex = handIndex;
-    preview.cardId = card.id;
-    return preview;
-  });
-}
 
-function endlessPilePreviewScore(preview) {
-  if (!preview?.playable) return -Infinity;
-  return (preview.harvestReady ? 500000 : 0)
-    + (preview.verticalConnected ? 32000 : preview.layerConnections > 0 ? 12000 : 0)
-    + (preview.breaksCombo ? -80000 : 100000)
-    + (preview.glow === "gold" ? 20000 : preview.glow === "yellow" ? 8000 : preview.glow === "open" ? 2000 : 0)
-    + (preview.potentialScore ?? 0) * 10
-    + (preview.nextComboStep ?? 1) * 1000
-    + ((preview.minPileCardCount ?? 0) === (preview.pileCardCount ?? 0) ? 500 : 0)
-    - (preview.pileCardCount ?? 0) * 100;
-}
-
-function bestEndlessPileTargetForCard(state, handIndex) {
-  const previews = evaluateAllEndlessPileTargets(state, handIndex);
-  let bestIndex = null;
-  let bestPreview = null;
-  let bestScore = -Infinity;
-  let bestCount = 0;
-  for (const preview of previews) {
-    const score = endlessPilePreviewScore(preview);
-    if (score > bestScore) {
-      bestScore = score;
-      bestIndex = preview.pileIndex;
-      bestPreview = preview;
-      bestCount = 1;
-    } else if (score === bestScore) {
-      bestCount += 1;
-    }
+  refillHourlyHand(state);
+  state.stars = starsForScore(state.score, state.thresholds);
+  state.perfect = state.score >= state.maximumScore;
+  state.updatedAt = Date.now();
+  if (!state.deck.length && !state.hand.length) {
+    state.phase = "result";
+    state.completedAt = Date.now();
   }
-  if (bestScore === -Infinity) return { bestIndex: null, bestPreview: null, bestScore, bestCount: 0, isUniqueBest: false, previews };
-  return { bestIndex, bestPreview, bestScore, bestCount, isUniqueBest: bestCount === 1, previews };
+  return { ok: true, card: copy(card), preview: copy(preview), harvest: copy(state.lastHarvest), state };
 }
 
-function priorityEndlessPileTargetForCard(state, handIndex) {
-  const target = bestEndlessPileTargetForCard(state, handIndex);
+function compactPile(cards) {
+  return cards.reduce((pile, digit) => ({
+    count: pile.count + 1,
+    sum: pile.sum + Number(digit),
+    top: Number(digit),
+  }), { count: 0, sum: 0, top: -1 });
+}
+
+function compactConnection(piles, triggerIndex, digit) {
+  const order = clockwisePileIndices(triggerIndex);
+  let length = 1;
+  let direction = 0;
+  let previous = digit;
+  for (const pileIndex of order.slice(1)) {
+    const next = piles[pileIndex]?.top ?? -1;
+    if (next < 0) break;
+    if (!direction) direction = circularDirection(previous, next);
+    if (!direction || next !== (previous + direction + 10) % 10) break;
+    length += 1;
+    previous = next;
+  }
+  return length;
+}
+
+function compactKey(cursor, hand, piles) {
+  return `${cursor}|${[...hand].sort((a, b) => a - b).join("")}|${piles.map((pile) => `${pile.count},${pile.sum},${pile.top}`).join("/")}`;
+}
+
+function solverHeuristic(state) {
+  let ready = 0;
+  let occupancy = 0;
+  for (const pile of state.piles) {
+    occupancy += pile.count;
+    if (pile.count === 3) ready += pile.sum * 2 + Math.max(0, pile.top);
+  }
+  return state.score * 1000 + ready * 10 - occupancy;
+}
+
+function solverTransition(state, digit, handIndex, pileIndex, deckDigits) {
+  const piles = state.piles.map((pile) => ({ ...pile }));
+  const pile = piles[pileIndex];
+  let gain = 0;
+  if (pile.count === 3) {
+    gain = (pile.sum + digit) * compactConnection(piles, pileIndex, digit);
+    piles[pileIndex] = { count: 0, sum: 0, top: -1 };
+  } else {
+    piles[pileIndex] = { count: pile.count + 1, sum: pile.sum + digit, top: digit };
+  }
+
+  const hand = state.hand.filter((_, index) => index !== handIndex);
+  let cursor = state.cursor;
+  if (cursor < deckDigits.length) hand.push(deckDigits[cursor++]);
   return {
-    ...target,
-    priority: target.bestPreview?.harvestReady
-      ? "harvest"
-      : target.bestPreview?.primaryKey ?? null,
+    cursor,
+    hand,
+    piles,
+    score: state.score + gain,
+    path: [...state.path, { digit, pileIndex }],
   };
 }
 
-function getEndlessHandPreviews(state) {
-  ensureEndlessPiles(state);
-  return (state.hand ?? []).map((card, index) => {
-    const { bestPreview } = bestEndlessPileTargetForCard(state, index + 1);
-    const preview = bestPreview ?? evaluateEndlessPilePlay(state, 1, card);
-    return { ...preview, handIndex: index + 1, cardId: card.id };
-  });
-}
+function solveHourlyHarvestMaximum(seed, options = {}) {
+  const beamWidth = Math.max(250, safeInt(options.beamWidth, 6000));
+  const deckDigits = createHourlyDeck(seed).map((card) => card.digit);
+  const emptyPile = () => ({ count: 0, sum: 0, top: -1 });
+  let beam = [{
+    cursor: HOURLY_HAND_SIZE,
+    hand: deckDigits.slice(0, HOURLY_HAND_SIZE),
+    piles: [emptyPile(), emptyPile(), emptyPile(), emptyPile()],
+    score: 0,
+    path: [],
+  }];
+  let exploredStates = 0;
 
-function endlessHandPreviewSummary(state) {
-  const previews = getEndlessHandPreviews(state);
-  const summary = {
-    total: previews.length,
-    comboSafe: 0,
-    breakCount: 0,
-    bestIndex: null,
-    bestDigit: null,
-    bestLabel: "-",
-    bestCardName: "-",
-    bestCategoryLabel: "-",
-    bestRole: "",
-    bestReputation: 0,
-    bestMultiplier: 1,
-    bestBreaksCombo: false,
-    bestGlow: "neutral",
-    bestPile: null,
-    bestPileLabel: "-",
-    bestHarvestScore: 0,
-    bestPotentialScore: 0,
-    cardsToHarvest: ENDLESS_HARVEST_LENGTH,
-  };
-  let bestScore = -Infinity;
-  for (const preview of previews) {
-    if (!preview.playable) continue;
-    if (preview.breaksCombo) summary.breakCount += 1;
-    else summary.comboSafe += 1;
-    const score = endlessPilePreviewScore(preview);
-    if (score > bestScore) {
-      const card = state.hand?.[preview.handIndex - 1] ?? {};
-      const archetype = digitCard(card.digit) ?? {};
-      bestScore = score;
-      summary.bestIndex = preview.handIndex;
-      summary.bestDigit = preview.digit;
-      summary.bestLabel = preview.harvestReady ? "수확" : preview.breaksCombo ? "새 흐름" : preview.primaryLabel ?? "-";
-      summary.bestCardName = card.cardName ?? archetype.cardName ?? "-";
-      summary.bestCategoryLabel = card.categoryLabel ?? categoryLabel(card.category ?? archetype.category);
-      summary.bestRole = archetype.role ?? "";
-      summary.bestReputation = preview.harvestScore ?? 0;
-      summary.bestMultiplier = preview.nextMultiplyTotal ?? 1;
-      summary.bestBreaksCombo = preview.breaksCombo === true;
-      summary.bestGlow = preview.glow ?? "neutral";
-      summary.bestPile = preview.pileIndex;
-      summary.bestPileLabel = preview.pileLabel ?? "-";
-      summary.bestHarvestScore = preview.harvestScore ?? 0;
-      summary.bestPotentialScore = preview.potentialScore ?? 0;
-      summary.cardsToHarvest = preview.cardsToHarvest ?? ENDLESS_HARVEST_LENGTH;
-    }
-  }
-  return summary;
-}
-
-function applyEndlessHarvest(state, pileIndex, preview) {
-  const piles = ensureEndlessPiles(state);
-  const harvestGroup = preview.harvestGroup?.length
-    ? preview.harvestGroup
-    : Array.from({ length: ENDLESS_HARVEST_LENGTH }, (_, offset) => {
-      const pile = piles[pileIndex - 1];
-      return {
-        pileIndex,
-        position: Math.max(0, (pile.cards?.length ?? 0) - ENDLESS_HARVEST_LENGTH + offset),
-      };
-    });
-  const harvested = [];
-  const byPile = new Map();
-  for (const node of harvestGroup) {
-    if (!byPile.has(node.pileIndex)) byPile.set(node.pileIndex, []);
-    byPile.get(node.pileIndex).push(node.position);
-  }
-  for (const [groupPileIndex, positions] of byPile.entries()) {
-    const pile = piles[groupPileIndex - 1];
-    for (const position of [...positions].sort((a, b) => b - a)) {
-      const removed = pile?.cards?.splice(position, 1)?.[0];
-      if (removed) harvested.push(removed);
-    }
-  }
-  state.compostPile.push(...harvested);
-  syncEndlessDiscardAlias(state);
-  const score = preview.harvestScore ?? 0;
-  state.score = Math.max(0, Math.floor(Number(state.score) || 0)) + score;
-  state.harvestCount = (state.harvestCount ?? 0) + 1;
-  state.bestScore = Math.max(state.bestScore ?? 0, state.score ?? 0);
-  state.bestHarvestScore = Math.max(state.bestHarvestScore ?? 0, score);
-  state.bestPotentialScore = Math.max(state.bestPotentialScore ?? 0, preview.potentialScore ?? 0);
-  recomputeAllEndlessPileStats(state);
-  const pile = piles[pileIndex - 1];
-  pile.bestComboStep = Math.max(pile.bestComboStep ?? 0, preview.nextComboStep ?? 0);
-  const harvest = {
-    pileIndex,
-    pileLabel: pile.label,
-    score,
-    addTotal: preview.nextAddTotal,
-    multiplyTotal: preview.nextMultiplyTotal,
-    comboStep: preview.nextComboStep,
-    cards: copy(harvested),
-  };
-  pile.harvestHistory.push(copy(harvest));
-  state.lastHarvest = copy(harvest);
-  state.message = `${pile.label} 수확 +${score}점`;
-  if (state.harvestCount % ENDLESS_TOOL_REWARD_INTERVAL === 0) {
-    offerEndlessToolReward(state);
-  }
-  return harvest;
-}
-
-function hasAnyEndlessMove(state) {
-  if (!state?.hand?.length) return false;
-  return state.hand.some((_, index) => evaluateAllEndlessPileTargets(state, index + 1).some((preview) => preview.playable));
-}
-
-function hasAnyEndlessToolMove(state) {
-  if (!state || state.phase !== "play") return false;
-  for (const tool of state.tools ?? []) {
-    if (tool.id === "prune" && evaluateEndlessToolTargets(state, tool.id).some((preview) => preview.playable)) return true;
-    if (tool.id === "relocate" || tool.id === "graft") {
-      for (let handIndex = 1; handIndex <= (state.hand?.length ?? 0); handIndex += 1) {
-        if (evaluateEndlessToolTargets(state, tool.id, handIndex).some((preview) => preview.playable)) return true;
+  for (let turn = 0; turn < HOURLY_DECK_SIZE; turn += 1) {
+    const unique = new Map();
+    for (const state of beam) {
+      const seenDigits = new Set();
+      for (let handIndex = 0; handIndex < state.hand.length; handIndex += 1) {
+        const digit = state.hand[handIndex];
+        if (seenDigits.has(digit)) continue;
+        seenDigits.add(digit);
+        for (let pileIndex = 0; pileIndex < HOURLY_PILE_COUNT; pileIndex += 1) {
+          const next = solverTransition(state, digit, handIndex, pileIndex, deckDigits);
+          const key = compactKey(next.cursor, next.hand, next.piles);
+          const previous = unique.get(key);
+          if (!previous || next.score > previous.score) unique.set(key, next);
+          exploredStates += 1;
+        }
       }
     }
+    beam = [...unique.values()]
+      .sort((a, b) => solverHeuristic(b) - solverHeuristic(a) || b.score - a.score)
+      .slice(0, beamWidth);
   }
-  return false;
-}
 
-function checkEndlessEnd(state) {
-  if (!state || state.phase !== "play") return state?.phase ?? "missing";
-  refillEndlessHand(state);
-  if (hasAnyEndlessMove(state) || hasAnyEndlessToolMove(state)) {
-    state.phase = "play";
-    return "play";
-  }
-  if ((state.discardsRemaining ?? 0) > 0) {
-    state.phase = "play";
-    state.message = "놓을 수 있는 더미가 없습니다. 손패를 교체하세요.";
-    return "blocked";
-  }
-  state.phase = "game_over";
-  state.failureReason = "놓을 수 있는 정원 더미가 없습니다.";
-  state.message = state.failureReason;
-  return "lost";
-}
-
-function consumeEndlessTool(state, toolIndex, detail = {}) {
-  const index = clampInt(toolIndex, 1, ENDLESS_TOOL_CAPACITY);
-  const tool = state.tools?.[index - 1];
-  if (!tool) return null;
-  state.tools.splice(index - 1, 1);
-  state.toolsUsed = (state.toolsUsed ?? 0) + 1;
-  const record = {
-    toolId: tool.id,
-    turnCount: state.turnCount ?? 0,
-    scoreBefore: detail.scoreBefore ?? state.score ?? 0,
-    scoreAfter: state.score ?? 0,
-    ...copy(detail),
+  const best = beam.sort((a, b) => b.score - a.score)[0];
+  return {
+    seed,
+    maximumScore: best?.score ?? 1,
+    thresholds: thresholdsForMaximum(best?.score ?? 1),
+    path: best?.path ?? [],
+    exploredStates,
+    verified: true,
+    solverVersion: `${HOURLY_RULES_VERSION}:beam-${beamWidth}`,
   };
-  state.toolHistory.push(record);
-  return tool;
 }
 
-function resolveEndlessCardPlacement(state, handIndex, targetIndex, preview, toolUse = null) {
-  const card = state.hand?.[handIndex - 1];
-  if (!card) return { ok: false, reason: "missing_card", preview };
-  const pile = ensureEndlessPiles(state)[targetIndex - 1];
-  state.hand.splice(handIndex - 1, 1);
-  pile.cards.push(card);
-  state.turnCount = (state.turnCount ?? 0) + 1;
-  recomputeAllEndlessPileStats(state);
-  pile.bestComboStep = Math.max(pile.bestComboStep ?? 0, preview.nextComboStep ?? 0);
-  state.bestPotentialScore = Math.max(state.bestPotentialScore ?? 0, preview.potentialScore ?? 0);
-  state.lastPlay = {
-    card: copy(card),
-    preview: copy(preview),
-    scoreGained: 0,
-    harvested: false,
-    brokeCombo: preview.breaksCombo,
-    pileIndex: targetIndex,
-    requestedPileIndex: targetIndex,
-    pileLabel: pile.label,
-    toolId: toolUse?.toolId ?? null,
-  };
-  pile.history.push(copy(state.lastPlay));
-  let harvest = null;
-  if (preview.harvestReady) {
-    harvest = applyEndlessHarvest(state, targetIndex, preview);
-    state.lastPlay.scoreGained = harvest.score;
-    state.lastPlay.harvested = true;
-  } else {
-    state.message = `${pile.label} ${preview.primaryLabel} · ${preview.scoreFormula}`;
-  }
-  let usedTool = null;
-  if (toolUse) {
-    usedTool = consumeEndlessTool(state, toolUse.toolIndex, {
-      pileIndex: targetIndex,
-      cardId: card.id,
-      harvested: harvest != null,
-      scoreBefore: toolUse.scoreBefore,
-      scoreAfter: state.score ?? 0,
-    });
-  }
-  refillEndlessHand(state);
-  const result = state.phase === "tool_reward" ? "tool_reward" : checkEndlessEnd(state);
-  return { ok: true, preview, result, harvest, tool: copy(usedTool) };
-}
-
-function playEndlessCardToPile(state, handIndex, pileIndex) {
-  if (!state || state.phase !== "play") return { ok: false, reason: "not_playing" };
-  const card = state.hand?.[handIndex - 1];
-  if (!card) return { ok: false, reason: "missing_card" };
-  const target = bestEndlessPileTargetForCard(state, handIndex);
-  const preview = target.bestPreview;
-  if (!preview?.playable || !target.bestIndex) return { ok: false, reason: preview?.reason ?? "blocked_pile", preview };
-  return resolveEndlessCardPlacement(state, handIndex, target.bestIndex, preview);
-}
-
-function playEndlessCardWithTool(state, toolIndex, handIndex, pileIndex) {
-  if (!state || state.phase !== "play") return { ok: false, reason: "not_playing" };
-  const tool = state.tools?.[toolIndex - 1];
-  if (!tool) return { ok: false, reason: "missing_tool" };
-  if (!["relocate", "graft"].includes(tool.id)) return { ok: false, reason: "tool_requires_pile_only" };
-  const card = state.hand?.[handIndex - 1];
-  if (!card) return { ok: false, reason: "missing_card" };
-  const targetIndex = clampInt(pileIndex, 1, PILE_COUNT);
-  const preview = evaluateEndlessToolTargets(state, tool.id, handIndex).find((item) => item.pileIndex === targetIndex);
-  if (!preview?.playable) return { ok: false, reason: preview?.reason ?? "blocked_pile", preview };
-  return resolveEndlessCardPlacement(state, handIndex, targetIndex, preview, {
-    toolIndex,
-    toolId: tool.id,
-    scoreBefore: state.score ?? 0,
-  });
-}
-
-function useEndlessPruneTool(state, toolIndex, pileIndex) {
-  if (!state || state.phase !== "play") return { ok: false, reason: "not_playing" };
-  const tool = state.tools?.[toolIndex - 1];
-  if (tool?.id !== "prune") return { ok: false, reason: tool ? "wrong_tool" : "missing_tool" };
-  const targetIndex = clampInt(pileIndex, 1, PILE_COUNT);
-  const preview = evaluateEndlessToolTargets(state, "prune").find((item) => item.pileIndex === targetIndex);
-  if (!preview?.playable) return { ok: false, reason: preview?.reason ?? "empty_pile", preview };
-  const pile = ensureEndlessPiles(state)[targetIndex - 1];
-  const removedCard = pile.cards.pop() ?? null;
-  if (!removedCard) return { ok: false, reason: "empty_pile", preview };
-  syncEndlessDiscardAlias(state);
-  state.compostPile.push(removedCard);
-  state.turnCount = (state.turnCount ?? 0) + 1;
-  recomputeAllEndlessPileStats(state);
-  state.lastPlay = {
-    card: null,
-    preview: copy(preview),
-    scoreGained: 0,
-    harvested: false,
-    brokeCombo: false,
-    pileIndex: targetIndex,
-    requestedPileIndex: targetIndex,
-    pileLabel: pile.label,
-    toolId: "prune",
-    prunedCard: copy(removedCard),
-    cleanupOnly: true,
-  };
-  pile.history.push(copy(state.lastPlay));
-  consumeEndlessTool(state, toolIndex, {
-    pileIndex: targetIndex,
-    cardId: null,
-    removedCardId: removedCard.id,
-    harvested: false,
-    scoreBefore: state.score ?? 0,
-    scoreAfter: state.score ?? 0,
-  });
-  state.message = `${pile.label} 가지치기 · 1칸 확보`;
-  const result = checkEndlessEnd(state);
-  return { ok: true, preview, result, harvest: null, tool: { id: "prune" }, removedCard: copy(removedCard) };
-}
-
-function finishEndlessToolReward(state, message) {
-  state.pendingToolReward = null;
-  state.phase = "play";
-  state.message = message;
-  const result = checkEndlessEnd(state);
-  return result;
-}
-
-function chooseEndlessToolReward(state, toolOrId, replaceIndex = null) {
-  if (!state?.pendingToolReward || state.phase !== "tool_reward") return { ok: false, reason: "no_tool_reward" };
-  const tool = endlessTool(toolOrId);
-  if (!tool || !state.pendingToolReward.options.includes(tool.id)) return { ok: false, reason: "invalid_tool_reward" };
-  state.tools = normalizeEndlessTools(state.tools);
-  if (state.tools.length < ENDLESS_TOOL_CAPACITY) {
-    state.tools.push({ id: tool.id });
-    const result = finishEndlessToolReward(state, `${tool.label} 도구를 보관했습니다.`);
-    return { ok: true, tool: { id: tool.id }, result };
-  }
-  if (replaceIndex == null) {
-    state.pendingToolReward.selectedToolId = tool.id;
-    return { ok: true, pendingReplacement: true, tool: { id: tool.id }, result: "tool_reward" };
-  }
-  const index = clampInt(replaceIndex, 1, ENDLESS_TOOL_CAPACITY);
-  const replaced = state.tools[index - 1];
-  if (!replaced) return { ok: false, reason: "missing_replacement_tool" };
-  state.tools[index - 1] = { id: tool.id };
-  const result = finishEndlessToolReward(state, `${endlessTool(replaced)?.label ?? "기존 도구"} 대신 ${tool.label}를 보관했습니다.`);
-  return { ok: true, tool: { id: tool.id }, replaced: copy(replaced), result };
-}
-
-function skipEndlessToolReward(state) {
-  if (!state?.pendingToolReward || state.phase !== "tool_reward") return { ok: false, reason: "no_tool_reward" };
-  const result = finishEndlessToolReward(state, "도구 보상을 건너뛰었습니다.");
-  return { ok: true, result };
-}
-
-function playEndlessCard(state, handIndex) {
-  return playEndlessCardToPile(state, handIndex, null);
-}
-
-function discardEndlessCards(state, indices) {
-  if (!state || state.phase !== "play") return { ok: false, reason: "not_playing" };
-  if ((state.discardsRemaining ?? 0) <= 0) return { ok: false, reason: "no_discards" };
-  const unique = [...new Set(indices ?? [])]
-    .map((index) => Math.floor(Number(index) || 0))
-    .filter((index) => state.hand?.[index - 1])
-    .sort((a, b) => b - a);
-  if (unique.length === 0) return { ok: false, reason: "empty_selection" };
-  syncEndlessDiscardAlias(state);
-  const pending = [];
-  for (const index of unique) {
-    pending.push(state.hand.splice(index - 1, 1)[0]);
-  }
-  state.discardsRemaining -= 1;
-  for (let i = pending.length - 1; i >= 0; i -= 1) {
-    state.compostPile.push(pending[i]);
-  }
-  refillEndlessHand(state);
-  state.lastDiscard = { count: pending.length, compostSize: state.compostPile.length };
-  state.message = `${pending.length}장을 퇴비로 보내고 새 손패를 뽑았습니다.`;
-  const result = checkEndlessEnd(state);
-  return { ok: true, result };
-}
-
-function newGame(opts = {}) {
+function newHourlyRun(seed, options = {}) {
+  const solution = options.solution ?? solveHourlyHarvestMaximum(seed, options);
+  const deck = createHourlyDeck(seed);
   const state = {
-    version: VERSION,
-    mode: "number",
+    version: HOURLY_RULES_VERSION,
+    mode: HOURLY_MODE,
+    seed,
     phase: "play",
-    seed: opts.seed ?? 4040,
-    rngCursor: opts.rngCursor ?? 0,
-    activeLand: opts.activeLand ?? opts.active_land ?? "meadow",
-    campaignEnabled: opts.campaignEnabled === true || opts.campaign_enabled === true,
-    stageIndex: opts.stageIndex ?? opts.stage_index,
-    stageId: opts.stageId ?? opts.stage_id,
-    stageLabel: opts.stageLabel ?? opts.stage_label,
-    stageRouteKind: opts.stageRouteKind ?? opts.stage_route_kind,
-    targetReputation: opts.targetReputation ?? opts.target_reputation ?? STARTER_TARGET_REPUTATION,
-    reputation: opts.reputation ?? 0,
-    playsRemaining: opts.plays ?? opts.playsRemaining ?? opts.plays_remaining ?? STARTER_PLAYS,
-    discardsRemaining: opts.discards ?? opts.discardsRemaining ?? opts.discards_remaining ?? STARTER_DISCARDS,
-    handSize: opts.handSize ?? opts.hand_size ?? HAND_SIZE,
-    deck: copy(opts.deck ?? starterDeck()),
-    hand: copy(opts.hand ?? []),
-    discardPile: copy(opts.discardPile ?? opts.discard_pile ?? []),
-    piles: normalizePiles(opts.piles),
-    lastDigit: opts.lastDigit ?? opts.last_digit ?? null,
-    comboStep: opts.comboStep ?? opts.combo_step ?? 0,
-    comboMultiplier: opts.comboMultiplier ?? opts.combo_multiplier ?? 1,
-    bestComboStep: opts.bestComboStep ?? opts.best_combo_step ?? 0,
-    comboHistory: copy(opts.comboHistory ?? opts.combo_history ?? []),
-    comboBonuses: copy(opts.comboBonuses ?? opts.combo_bonuses ?? {}),
-    discoveryRoute: copy(opts.discoveryRoute ?? opts.discovery_route ?? {}),
-    shopCoins: opts.shopCoins ?? opts.shop_coins ?? STARTER_SHOP_COINS,
-    shopPurchases: opts.shopPurchases ?? opts.shop_purchases ?? 0,
-    shopHistory: copy(opts.shopHistory ?? opts.shop_history ?? []),
-    numberCodex: ensureCodex(opts.numberCodex ?? opts.number_codex ?? {}),
-    rewardsSeen: copy(opts.rewardsSeen ?? opts.rewards_seen ?? {}),
-    rewardOptions: copy(opts.rewardOptions ?? opts.reward_options ?? []),
-    rewardReason: opts.rewardReason ?? opts.reward_reason,
-    pendingDiscoveryReward: opts.pendingDiscoveryReward ?? opts.pending_discovery_reward ?? false,
-    message: opts.message ?? "숫자를 이어 현재 더미 배율을 지키세요.",
-    lastPlay: copy(opts.lastPlay ?? opts.last_play ?? null),
-    lastReward: copy(opts.lastReward ?? opts.last_reward ?? null),
-    lastDiscard: copy(opts.lastDiscard ?? opts.last_discard ?? null),
-    lastShop: copy(opts.lastShop ?? opts.last_shop ?? null),
-    failureReason: opts.failureReason ?? opts.failure_reason,
-    resultRecorded: opts.resultRecorded === true || opts.result_recorded === true,
+    deck,
+    hand: [],
+    piles: Array.from({ length: HOURLY_PILE_COUNT }, () => []),
+    score: 0,
+    maximumScore: solution.maximumScore,
+    thresholds: copy(solution.thresholds),
+    solverVersion: solution.solverVersion,
+    solverVerified: solution.verified === true,
+    cardsPlayed: 0,
+    harvests: 0,
+    stars: 0,
+    perfect: false,
+    lastHarvest: null,
+    startedAt: Date.now(),
+    updatedAt: Date.now(),
+    completedAt: null,
   };
-  if (opts.shuffle !== false) shuffle(state, state.deck, "opening-deck");
-  if (opts.skipRefill !== true && opts.skip_refill !== true) refillHand(state);
+  refillHourlyHand(state);
   return state;
 }
 
-function refillHand(state) {
-  while ((state.hand?.length ?? 0) < (state.handSize ?? HAND_SIZE)) {
-    if ((state.deck?.length ?? 0) === 0 && (state.discardPile?.length ?? 0) > 0) {
-      state.deck = state.discardPile;
-      state.discardPile = [];
-      shuffle(state, state.deck, "discard-recycle");
-    }
-    if ((state.deck?.length ?? 0) === 0) break;
-    state.hand.push(state.deck.shift());
-  }
+function snapshotHourlyRun(state) {
+  if (state?.mode !== HOURLY_MODE) return null;
+  return copy(state);
+}
+
+function restoreHourlyRun(snapshot) {
+  if (!snapshot || snapshot.mode !== HOURLY_MODE || snapshot.version !== HOURLY_RULES_VERSION) return null;
+  const state = copy(snapshot);
+  if (!Array.isArray(state.hand) || !Array.isArray(state.deck) || !Array.isArray(state.piles) || state.piles.length !== 4) return null;
+  state.score = Math.max(0, safeInt(state.score));
+  state.cardsPlayed = Math.max(0, safeInt(state.cardsPlayed));
+  state.harvests = Math.max(0, safeInt(state.harvests));
+  state.maximumScore = Math.max(1, safeInt(state.maximumScore, 1));
+  state.thresholds = thresholdsForMaximum(state.maximumScore);
+  state.stars = starsForScore(state.score, state.thresholds);
+  state.perfect = state.score >= state.maximumScore;
+  state.phase = state.phase === "result" ? "result" : "play";
   return state;
 }
 
-function checkNumberStageEnd(state) {
-  if (state.reputation >= state.targetReputation) {
-    state.pendingDiscoveryReward = false;
-    state.phase = "reward";
-    if (!state.rewardOptions?.length) offerRewards(state, "stageClear");
-    return "won";
-  }
-  if (state.pendingDiscoveryReward) {
-    state.pendingDiscoveryReward = false;
-    state.phase = "reward";
-    if (!state.rewardOptions?.length) offerRewards(state, "firstFiveCombo");
-    return "reward";
-  }
-  if ((state.playsRemaining ?? 0) <= 0) {
-    state.phase = "game_over";
-    state.failureReason = "목표 평판 미달";
-    return "lost";
-  }
-  if ((state.hand?.length ?? 0) === 0 && (state.deck?.length ?? 0) === 0 && (state.discardPile?.length ?? 0) === 0) {
-    state.phase = "game_over";
-    state.failureReason = "낼 카드 없음";
-    return "lost";
-  }
-  state.phase = "play";
-  return "play";
-}
-
-function playCardToPile(state, handIndex, pileIndex) {
-  if (!state || state.phase !== "play") return { ok: false, reason: "not_playing" };
-  const card = state.hand?.[handIndex - 1];
-  if (!card) return { ok: false, reason: "missing_card" };
-  const targetIndex = clampInt(pileIndex, 1, PILE_COUNT);
-  const preview = evaluatePilePlay(state, targetIndex, card);
-  const pile = ensurePiles(state)[targetIndex - 1];
-  state.hand.splice(handIndex - 1, 1);
-  pile.cards.push(card);
-  state.playsRemaining = Math.max(0, (state.playsRemaining ?? 0) - 1);
-  state.reputation = (state.reputation ?? 0) + preview.expectedReputation;
-  pile.lastDigit = card.digit;
-  pile.baseTotal = preview.pileBaseAfter;
-  pile.comboStep = preview.nextComboStep;
-  pile.comboMultiplier = preview.nextMultiplier;
-  pile.bestComboStep = Math.max(pile.bestComboStep ?? 0, pile.comboStep ?? 0);
-  pile.nextScoreBonus = 0;
-  state.lastDigit = card.digit;
-  state.comboStep = pile.comboStep;
-  state.comboMultiplier = pile.comboMultiplier;
-  state.bestComboStep = Math.max(state.bestComboStep ?? 0, pile.comboStep ?? 0);
-  state.lastPlay = {
-    card: copy(card),
-    preview: copy(preview),
-    reputationGained: preview.expectedReputation,
-    brokeCombo: preview.breaksCombo,
-    pileIndex: targetIndex,
-    pileLabel: pile.label,
-  };
-  pile.history.push(copy(state.lastPlay));
-  state.comboHistory.push(copy(state.lastPlay));
-  state.message = `${pile.label}에 ${preview.primaryLabel} ${card.digit}: +${preview.expectedReputation} 평판`;
-  if (pile.comboStep >= 5 && !state.rewardsSeen.firstFiveCombo) {
-    state.rewardsSeen.firstFiveCombo = true;
-    state.discoveryRoute = {
-      kind: "four_pile_ecology_route",
-      reason: "firstFiveCombo",
-      pileIndex: targetIndex,
-      pileLabel: pile.label,
-      comboStep: pile.comboStep,
-      cards: pile.history.slice(-5),
-      land: state.activeLand,
-    };
-    state.pendingDiscoveryReward = true;
-  }
-  const result = checkNumberStageEnd(state);
-  if (result === "play") refillHand(state);
-  return { ok: true, preview, result };
-}
-
-function playNumberCard(state, handIndex) {
-  const target = bestPileTargetForCard(state, handIndex);
-  return playCardToPile(state, handIndex, target.bestIndex ?? 1);
-}
-
-function discardNumberCards(state, indices) {
-  if (!state || state.phase !== "play") return { ok: false, reason: "not_playing" };
-  if ((state.discardsRemaining ?? 0) <= 0) return { ok: false, reason: "no_discards" };
-  const unique = [...new Set(indices ?? [])]
-    .map((index) => Math.floor(Number(index) || 0))
-    .filter((index) => state.hand?.[index - 1])
-    .sort((a, b) => b - a);
-  if (unique.length === 0) return { ok: false, reason: "empty_selection" };
-  const pending = [];
-  for (const index of unique) {
-    pending.push(state.hand.splice(index - 1, 1)[0]);
-  }
-  state.discardsRemaining -= 1;
-  refillHand(state);
-  for (let i = pending.length - 1; i >= 0; i -= 1) {
-    state.discardPile.push(pending[i]);
-  }
-  state.lastDiscard = { count: pending.length };
-  state.message = `${pending.length}장을 갈아엎었습니다.`;
-  const result = checkNumberStageEnd(state);
-  return { ok: true, result };
-}
-
-function digitCardLabel(digit) {
-  const card = digitCard(digit);
-  return card ? `${digit} ${card.cardName}/${categoryShort(card.category)}` : String(digit);
-}
-
-function currentReward(reward) {
-  return reward?.id ? (rewardById(reward.id) ?? reward) : reward;
-}
-
-function digitTotalCount(state, digit) {
-  let count = 0;
-  for (const zone of [state?.deck, state?.hand, state?.discardPile]) {
-    for (const card of zone ?? []) {
-      if (card.digit === digit) count += 1;
-    }
-  }
-  return count;
-}
-
-function chooseAdaptiveDigit(state, reward) {
-  const digits = reward?.digits ?? [];
-  if (digits.length === 0) return reward?.digit ?? 0;
-  for (const digit of digits) {
-    if (state?.lastDigit != null && state.lastDigit + digit === 9) return digit;
-  }
-  let best = digits[0];
-  let bestCount = digitTotalCount(state, best);
-  for (const digit of digits.slice(1)) {
-    const count = digitTotalCount(state, digit);
-    if (count < bestCount || (count === bestCount && digit > best)) {
-      best = digit;
-      bestCount = count;
-    }
-  }
-  return best;
-}
-
-function mostCommonDeckDigit(state) {
-  const counts = new Map();
-  for (const card of state?.deck ?? []) {
-    counts.set(card.digit, (counts.get(card.digit) ?? 0) + 1);
-  }
-  let bestDigit = null;
-  let bestCount = 0;
-  for (const [digit, count] of counts) {
-    if (count > bestCount || (count === bestCount && bestDigit != null && digit < bestDigit)) {
-      bestDigit = digit;
-      bestCount = count;
-    }
-  }
-  return { digit: bestDigit, count: bestCount };
-}
-
-function removeFirstDeckDigit(state, digit) {
-  const index = state?.deck?.findIndex((card) => card.digit === digit) ?? -1;
-  if (index < 0) return null;
-  return state.deck.splice(index, 1)[0];
-}
-
-function leastCommonColor(state) {
-  const counts = Object.fromEntries(COLOR_ORDER.map((id) => [id, 0]));
-  for (const zone of [state?.deck, state?.hand, state?.discardPile]) {
-    for (const card of zone ?? []) {
-      const id = cardColor(card);
-      if (id) counts[id] = (counts[id] ?? 0) + 1;
-    }
-  }
-  return COLOR_ORDER.reduce((best, id) => (counts[id] < counts[best] ? id : best), COLOR_ORDER[0]);
-}
-
-function targetCategoryForGraft(state) {
-  const last = state?.lastPlay?.card ? cardCategory(state.lastPlay.card) : null;
-  return TYPE_ORDER_NEXT[last] ?? "flora";
-}
-
-function findTransformTarget(state, predicate) {
-  for (const zoneName of ["hand", "deck", "discardPile"]) {
-    const zone = state?.[zoneName] ?? [];
-    const index = zone.findIndex(predicate);
-    if (index >= 0) return { zoneName, zone, index, card: zone[index] };
-  }
-  return null;
-}
-
-function rewardEffectSummary(state, reward) {
-  reward = currentReward(reward);
-  if (!reward) return { line: "", detail: "" };
-  if (reward.kind === "addDigit") {
-    return { line: `카드 추가: ${digitCardLabel(reward.digit)}`, detail: reward.description, targetDigit: reward.digit };
-  }
-  if (reward.kind === "chooseDigit") {
-    const digit = chooseAdaptiveDigit(state, reward);
-    return { line: `카드 추가: ${digitCardLabel(digit)}`, detail: `상황에 맞게 ${digit} 카드를 골랐습니다.`, targetDigit: digit };
-  }
-  if (reward.kind === "comboBonus") {
-    return {
-      line: `${COMBO_LABELS[reward.combo] ?? reward.combo} 콤보 +${rounded((reward.amount ?? 0) * 100)}%`,
-      detail: reward.description,
-      targetCombo: reward.combo,
-    };
-  }
-  if (reward.kind === "removeDigit") {
-    const target = mostCommonDeckDigit(state);
-    return {
-      line: target.digit == null ? "제거할 덱 카드 없음" : `덱 정리: ${digitCardLabel(target.digit)}`,
-      detail: target.digit == null ? "덱이 비어 있어 제거하지 않습니다." : `덱에서 가장 많은 숫자 1장을 제거합니다. 현재 ${target.count}장`,
-      targetDigit: target.digit,
-    };
-  }
-  if (reward.kind === "colorGraft") {
-    const color = leastCommonColor(state);
-    return { line: `색상 접목: ${colorLabel(color)}`, detail: reward.description, targetColor: color };
-  }
-  if (reward.kind === "typeGraft") {
-    const category = targetCategoryForGraft(state);
-    return { line: `유형 접붙임: ${categoryLabel(category)}`, detail: reward.description, targetCategory: category };
-  }
-  return { line: reward.short ?? reward.name, detail: reward.description ?? "" };
-}
-
-function offerRewards(state, reason = "stageClear") {
-  state.rewardReason = reason;
-  const pool = copy(REWARDS);
-  shuffle(state, pool, `reward-${reason}`);
-  state.rewardOptions = pool.slice(0, 3);
-  state.numberCodex = ensureCodex(state.numberCodex);
-  for (const reward of state.rewardOptions) {
-    state.numberCodex.seenRewards[reward.id] = true;
-  }
-  return state.rewardOptions;
-}
-
-function applyReward(state, index) {
-  const reward = currentReward(state.rewardOptions?.[index - 1]);
-  if (!reward) return { ok: false, reason: "missing_reward" };
-  state.numberCodex = ensureCodex(state.numberCodex);
-  const effect = rewardEffectSummary(state, reward);
-  state.numberCodex.seenRewards[reward.id] = true;
-  state.numberCodex.discoveredRewards[reward.id] = true;
-  if (reward.kind === "addDigit") {
-    state.deck.unshift(makeCard(reward.digit, 90 + state.deck.length, { id: `${reward.id}_card` }));
-  } else if (reward.kind === "chooseDigit") {
-    state.deck.unshift(makeCard(effect.targetDigit, 90 + state.deck.length, { id: `${reward.id}_card` }));
-  } else if (reward.kind === "comboBonus") {
-    state.comboBonuses[reward.combo] = (state.comboBonuses[reward.combo] ?? 0) + (reward.amount ?? 0);
-  } else if (reward.kind === "removeDigit" && effect.targetDigit != null) {
-    removeFirstDeckDigit(state, effect.targetDigit);
-  } else if (reward.kind === "colorGraft") {
-    const target = findTransformTarget(state, (card) => cardColor(card) !== effect.targetColor);
-    if (target) {
-      target.card.color = effect.targetColor;
-      target.card.colorLabel = colorLabel(effect.targetColor);
-    }
-  } else if (reward.kind === "typeGraft") {
-    const target = findTransformTarget(state, (card) => cardCategory(card) !== effect.targetCategory);
-    if (target) {
-      target.card.category = effect.targetCategory;
-      target.card.categoryLabel = categoryLabel(effect.targetCategory);
-    }
-  }
-  state.lastReward = { ...copy(reward), effect };
-  state.rewardOptions = [];
-  const wasStageClear = state.rewardReason === "stageClear";
-  state.rewardReason = null;
-  if (wasStageClear && state.reputation >= state.targetReputation) {
-    state.phase = "won";
-  } else if ((state.playsRemaining ?? 0) <= 0 && state.reputation < state.targetReputation) {
-    state.phase = "game_over";
-  } else if ((state.hand?.length ?? 0) === 0 && (state.deck?.length ?? 0) === 0 && (state.discardPile?.length ?? 0) === 0) {
-    state.phase = "game_over";
-  } else {
-    state.phase = "play";
-    refillHand(state);
-  }
-  state.message = effect.line;
-  return { ok: true, reward, effect };
-}
-
-function shopDigitForLand(state) {
-  if (state?.activeLand === "forest") return 5;
-  if (state?.activeLand === "wetland") {
-    if (state.lastDigit === 0) return 9;
-    if (state.lastDigit === 9) return 0;
-    return 9;
-  }
-  if (state?.lastDigit === 1) return 2;
-  if (state?.lastDigit === 2) return 3;
-  return 1;
-}
-
-function bestUpgradeHandIndex(state) {
-  let bestIndex = null;
-  let bestScore = -Infinity;
-  for (let i = 0; i < (state?.hand?.length ?? 0); i += 1) {
-    const card = state.hand[i];
-    if (card.bonus === "shiny") continue;
-    const { bestPreview } = bestPileTargetForCard(state, i + 1);
-    const preview = bestPreview ?? evaluateNumberPlay(state, card);
-    const score = (preview.breaksCombo ? 0 : 1000) + (preview.expectedReputation ?? 0);
-    if (score > bestScore) {
-      bestScore = score;
-      bestIndex = i + 1;
-    }
-  }
-  return bestIndex;
-}
-
-function bestFertilizerPileIndex(state) {
-  ensurePiles(state);
-  let bestIndex = 1;
-  let bestScore = -Infinity;
-  for (let i = 0; i < state.piles.length; i += 1) {
-    const pile = state.piles[i];
-    const score = (pile.comboStep ?? 0) * 100 + (pile.cards?.length ?? 0) - ((pile.nextScoreBonus ?? 0) > 0 ? 10000 : 0);
-    if (score > bestScore) {
-      bestScore = score;
-      bestIndex = i + 1;
-    }
-  }
-  return bestIndex;
-}
-
-function bestClearPileIndex(state) {
-  ensurePiles(state);
-  let bestIndex = null;
-  let bestScore = Infinity;
-  let bestCount = 0;
-  for (let i = 0; i < state.piles.length; i += 1) {
-    const pile = state.piles[i];
-    const count = pile.cards?.length ?? 0;
-    if (count <= 0) continue;
-    const reputationTotal = (pile.history ?? []).reduce((sum, item) => sum + (item.reputationGained ?? item.expectedReputation ?? 0), 0);
-    const score = (pile.comboStep ?? 0) * 100 + reputationTotal + count;
-    if (score < bestScore) {
-      bestIndex = i + 1;
-      bestScore = score;
-      bestCount = count;
-    }
-  }
-  return { index: bestIndex, count: bestCount };
-}
-
-function cloneStateForPreview(state) {
-  return restoreState(snapshotState(state));
-}
-
-function applyShopPreviewEffect(state, option) {
-  ensurePiles(state);
-  if (option.kind === "buyDigit" && option.digit != null) {
-    state.deck.unshift(makeCard(option.digit, 9900, { id: `shop_preview_${option.digit}` }));
-  } else if (option.kind === "upgradeHand" && option.targetIndex && state.hand?.[option.targetIndex - 1]) {
-    state.hand[option.targetIndex - 1].bonus = "shiny";
-  } else if (option.kind === "pileFertilizer" && option.pileIndex && state.piles?.[option.pileIndex - 1]) {
-    const pile = state.piles[option.pileIndex - 1];
-    pile.nextScoreBonus = Math.max(pile.nextScoreBonus ?? 0, 0.2);
-  } else if (option.kind === "trimDeck" && option.digit != null) {
-    removeFirstDeckDigit(state, option.digit);
-  } else if (option.kind === "clearPile" && option.pileIndex && state.piles?.[option.pileIndex - 1]) {
-    const pile = state.piles[option.pileIndex - 1];
-    pile.cards = [];
-    pile.history = [];
-    pile.lastDigit = null;
-    pile.baseTotal = 0;
-    pile.comboStep = 0;
-    pile.comboMultiplier = 1;
-    pile.bestComboStep = 0;
-    pile.nextScoreBonus = 0;
-  }
-}
-
-function bestPreviewScore(state) {
-  return handPreviewSummary(state).bestReputation ?? 0;
-}
-
-function attachShopPreview(state, option) {
-  const before = bestPreviewScore(state);
-  const previewState = cloneStateForPreview(state);
-  applyShopPreviewEffect(previewState, option);
-  const after = bestPreviewScore(previewState);
-  option.previewScoreBefore = before;
-  option.previewScoreAfter = after;
-  option.previewDelta = after - before;
-  option.previewLine = option.previewDelta === 0
-    ? `다음 최고수 ${before} 유지`
-    : `다음 최고수 ${before} -> ${after} (${option.previewDelta > 0 ? "+" : ""}${option.previewDelta})`;
-  return option;
-}
-
-function runShopOptions(state) {
-  const digit = shopDigitForLand(state);
-  const digitInfo = digitCard(digit) ?? {};
-  const upgradeIndex = bestUpgradeHandIndex(state);
-  const upgradeCard = upgradeIndex ? state.hand?.[upgradeIndex - 1] : null;
-  const remove = mostCommonDeckDigit(state);
-  const fertilizerPile = bestFertilizerPileIndex(state);
-  const clear = bestClearPileIndex(state);
-  const options = [
-    {
-      id: "buyDigit",
-      kind: "buyDigit",
-      name: "원형 카드 구매",
-      cost: 2,
-      digit,
-      imageId: digitInfo.imageId,
-      line: digitCardLabel(digit),
-      detail: "덱 위에 다음 루트용 카드 1장을 심습니다.",
-    },
-    {
-      id: "upgradeHand",
-      kind: "upgradeHand",
-      name: "손패 반짝 강화",
-      cost: 2,
-      targetIndex: upgradeIndex,
-      digit: upgradeCard?.digit,
-      imageId: upgradeCard?.imageId,
-      line: upgradeCard ? digitCardLabel(upgradeCard.digit) : "강화할 손패 없음",
-      detail: "이번 런의 해당 카드 기본 평판을 +2 올립니다.",
-    },
-    {
-      id: "pileFertilizer",
-      kind: "pileFertilizer",
-      name: "정원 비료",
-      cost: 1,
-      pileIndex: fertilizerPile,
-      imageId: "floor_forest_shade_walk",
-      line: `정원 ${fertilizerPile} 다음 내기 +2`,
-      detail: "가장 좋은 흐름 더미에 다음 1회 기본점 비료를 뿌립니다.",
-    },
-    {
-      id: "trimDeck",
-      kind: "trimDeck",
-      name: "덱 가지치기",
-      cost: 1,
-      digit: remove.digit,
-      imageId: remove.digit != null ? digitCard(remove.digit)?.imageId : "reward_seed_bank",
-      line: remove.digit != null ? digitCardLabel(remove.digit) : "정리할 덱 카드 없음",
-      detail: remove.digit != null ? `덱에 많은 원형 1장을 정리합니다. 현재 ${remove.count}장` : "덱이 비어 있으면 살 수 없습니다.",
-    },
-    {
-      id: "clearPile",
-      kind: "clearPile",
-      name: "빈터 정리",
-      cost: 1,
-      pileIndex: clear.index,
-      imageId: "floor_meadow",
-      line: clear.index != null ? `정원 ${clear.index} 비우기 · ${clear.count}장` : "정리할 정원 없음",
-      detail: clear.index != null ? "막힌 더미를 버림더미로 옮기고 새 흐름 칸을 만듭니다." : "카드가 놓인 정원이 있어야 살 수 있습니다.",
-    },
-  ];
-  return options.map((option) => attachShopPreview(state, option));
-}
-
-function purchaseRunShop(state, optionIndex) {
-  if (!state || state.phase !== "play") return { ok: false, reason: "not_playing" };
-  const option = runShopOptions(state)[optionIndex - 1];
-  if (!option) return { ok: false, reason: "missing_offer" };
-  if ((state.shopCoins ?? 0) < option.cost) return { ok: false, reason: "not_enough_shop_coins" };
-  if (option.kind === "buyDigit" && option.digit != null) {
-    state.shopCoins -= option.cost;
-    const card = makeCard(option.digit, 120 + (state.shopPurchases ?? 0), { id: `shop_buy_${option.digit}_${(state.shopPurchases ?? 0) + 1}` });
-    state.deck.unshift(card);
-    state.lastShop = { kind: option.kind, card: copy(card), cost: option.cost, line: `카드 추가: ${digitCardLabel(option.digit)}`, imageId: card.imageId };
-  } else if (option.kind === "upgradeHand" && option.targetIndex && state.hand?.[option.targetIndex - 1]) {
-    state.shopCoins -= option.cost;
-    const card = state.hand[option.targetIndex - 1];
-    card.bonus = "shiny";
-    state.lastShop = { kind: option.kind, card: copy(card), cost: option.cost, line: `손패 강화: ${digitCardLabel(card.digit)}`, imageId: card.imageId };
-  } else if (option.kind === "pileFertilizer" && option.pileIndex) {
-    ensurePiles(state);
-    const pile = state.piles[option.pileIndex - 1];
-    if (!pile) return { ok: false, reason: "missing_pile" };
-    state.shopCoins -= option.cost;
-    pile.nextScoreBonus = Math.max(pile.nextScoreBonus ?? 0, 0.2);
-    state.lastShop = { kind: option.kind, pileIndex: option.pileIndex, cost: option.cost, line: `더미 효과: 정원 ${option.pileIndex} 다음 내기 +2`, imageId: option.imageId };
-  } else if (option.kind === "trimDeck" && option.digit != null) {
-    const removed = removeFirstDeckDigit(state, option.digit);
-    if (!removed) return { ok: false, reason: "missing_deck_card" };
-    state.shopCoins -= option.cost;
-    state.lastShop = { kind: option.kind, card: copy(removed), cost: option.cost, line: `덱 압축: ${digitCardLabel(removed.digit)}`, imageId: removed.imageId };
-  } else if (option.kind === "clearPile" && option.pileIndex) {
-    ensurePiles(state);
-    const pile = state.piles[option.pileIndex - 1];
-    if (!pile) return { ok: false, reason: "missing_pile" };
-    const moved = pile.cards?.length ?? 0;
-    if (moved <= 0) return { ok: false, reason: "missing_pile_cards" };
-    state.shopCoins -= option.cost;
-    state.discardPile.push(...pile.cards);
-    pile.cards = [];
-    pile.history = [];
-    pile.lastDigit = null;
-    pile.baseTotal = 0;
-    pile.comboStep = 0;
-    pile.comboMultiplier = 1;
-    pile.bestComboStep = 0;
-    pile.nextScoreBonus = 0;
-    state.lastShop = { kind: option.kind, pileIndex: option.pileIndex, cardsMoved: moved, cost: option.cost, line: `더미 정리: 정원 ${option.pileIndex} ${moved}장`, imageId: option.imageId };
-  } else {
-    return { ok: false, reason: "unavailable_offer" };
-  }
-  state.shopPurchases = (state.shopPurchases ?? 0) + 1;
-  state.shopHistory.push(copy(state.lastShop));
-  state.message = `${state.lastShop.line} · 코인 ${state.shopCoins}`;
-  return { ok: true, option };
-}
-
-function catalogSummary(state) {
-  const codex = ensureCodex(state?.numberCodex);
-  const count = (map) => Object.values(map ?? {}).filter(Boolean).length;
-  const digitCounts = Object.fromEntries(DIGITS.map((item) => [item.digit, 0]));
-  const categoryCounts = Object.fromEntries(CATEGORY_ORDER.map((id) => [id, 0]));
-  const colorCounts = Object.fromEntries(COLOR_ORDER.map((id) => [id, 0]));
-  for (const zone of [state?.deck, state?.hand, state?.discardPile]) {
-    for (const card of zone ?? []) {
-      if (card.digit != null) digitCounts[card.digit] = (digitCounts[card.digit] ?? 0) + 1;
-      const category = cardCategory(card);
-      const color = cardColor(card);
-      if (category) categoryCounts[category] = (categoryCounts[category] ?? 0) + 1;
-      if (color) colorCounts[color] = (colorCounts[color] ?? 0) + 1;
-    }
+function replayHourlySolution(seed, solution) {
+  const run = newHourlyRun(seed, { solution });
+  for (const action of solution.path ?? []) {
+    const handIndex = run.hand.findIndex((card) => card.digit === action.digit);
+    if (handIndex < 0) return { ok: false, reason: "missing_solution_card", state: run };
+    const result = playHourlyCard(run, handIndex, action.pileIndex);
+    if (!result.ok) return { ok: false, reason: result.reason, state: run };
   }
   return {
-    digits: { known: count(codex.knownDigits), total: DIGITS.length },
-    combos: { known: count(codex.knownCombos), total: 5 },
-    lands: { known: count(codex.knownLands), total: Object.keys(LANDS).length },
-    discoveries: { seen: count(codex.seenRewards), discovered: count(codex.discoveredRewards), total: REWARDS.length },
-    digitCounts,
-    categoryCounts,
-    colorCounts,
+    ok: run.phase === "result" && run.score === solution.maximumScore,
+    score: run.score,
+    state: run,
   };
 }
 
-function codexEntries(state) {
-  const codex = ensureCodex(state?.numberCodex);
-  return {
-    digits: DIGITS.map((item) => ({
-      ...item,
-      status: codex.knownDigits[item.digit] ? "known" : "unknown",
-      categoryLabel: categoryLabel(item.category),
-      colorLabel: colorLabel(item.color),
-      count: digitTotalCount(state, item.digit),
-    })),
-    combos: ["same", "neighbor", "sum9", "parity", "double"].map((id) => ({
-      id,
-      label: COMBO_LABELS[id],
-      status: codex.knownCombos[id] ? "known" : "unknown",
-    })),
-    lands: Object.values(LANDS).map((land) => ({ ...land, status: codex.knownLands[land.id] ? "known" : "unknown" })),
-    discoveries: REWARDS.map((reward) => ({
-      ...reward,
-      status: codex.discoveredRewards[reward.id] ? "discovered" : codex.seenRewards[reward.id] ? "seen" : "hidden",
-    })),
-  };
+function hourlyResultShareText(state, url = HOURLY_SHARE_URL) {
+  const result = state.perfect ? "PERFECT" : "★".repeat(state.stars) || "도전중";
+  return `스택스 #${state.seed} ${result} ${state.score}점 / 최대 ${state.maximumScore}점 ${url}`;
 }
 
-function resultPayout(state, cleared, stageIndex = state?.stageIndex ?? 1) {
-  const index = stageByIndex(stageIndex).index;
-  if (cleared) return STAGE_CLEAR_BASE_PAYOUT + index + Math.floor(((state?.bestComboStep ?? 0) / 4));
-  return STAGE_FAILURE_PAYOUT;
+function hourlyRunStorageKey(seed) {
+  return `garden-stacks:hourly-v1:${seed}:run`;
 }
 
-function recordCampaignResult(profile, state) {
-  const out = normalizeMetaProfile(profile);
-  const stage = stageByIndex(state?.stageIndex ?? out.numberCampaign.lastSelectedStage);
-  const cleared = state?.phase === "won" || (state?.reputation ?? 0) >= (state?.targetReputation ?? Infinity);
-  const payout = resultPayout(state, cleared, stage.index);
-  out.numberMoney += payout;
-  out.numberCodex = ensureCodex(state?.numberCodex ?? out.numberCodex);
-  out.numberCampaign.lastSelectedStage = stage.index;
-  out.numberCampaign.attempts[stage.index] = (out.numberCampaign.attempts[stage.index] ?? 0) + 1;
-  out.numberCampaign.bestReputation[stage.index] = Math.max(out.numberCampaign.bestReputation[stage.index] ?? 0, state?.reputation ?? 0);
-  out.numberCampaign.bestCombo[stage.index] = Math.max(out.numberCampaign.bestCombo[stage.index] ?? 0, state?.bestComboStep ?? 0);
-  if (cleared) {
-    out.numberCampaign.cleared[stage.index] = true;
-    out.numberCampaign.highestUnlockedStage = Math.max(out.numberCampaign.highestUnlockedStage, Math.min(CAMPAIGN_STAGES.length, stage.index + 1));
-  }
-  return { profile: out, payout, cleared, stage };
+function hourlyBestStorageKey(seed) {
+  return `garden-stacks:hourly-v1:${seed}:best`;
 }
 
-function recordEndlessResult(profile, state) {
-  const out = normalizeMetaProfile(profile);
-  const score = Math.max(0, Math.floor(Number(state?.score) || 0));
-  const harvestScore = Math.max(0, Math.floor(Number(state?.bestHarvestScore) || 0));
-  const turns = Math.max(0, Math.floor(Number(state?.turnCount) || 0));
-  const potential = Math.max(0, Math.floor(Number(state?.bestPotentialScore) || 0));
-  const before = copy(out.numberEndless);
-  out.numberEndless.bestScore = Math.max(out.numberEndless.bestScore ?? 0, score);
-  out.numberEndless.bestHarvestScore = Math.max(out.numberEndless.bestHarvestScore ?? 0, harvestScore);
-  out.numberEndless.bestSurvivalTurns = Math.max(out.numberEndless.bestSurvivalTurns ?? 0, turns);
-  out.numberEndless.bestPotentialScore = Math.max(out.numberEndless.bestPotentialScore ?? 0, potential);
-  out.numberEndless.runs = (out.numberEndless.runs ?? 0) + 1;
-  const toolsUsed = Math.max(0, Math.floor(Number(state?.toolsUsed) || 0));
-  out.numberEndless.toolsUsed = (out.numberEndless.toolsUsed ?? 0) + toolsUsed;
-  for (const item of state?.toolHistory ?? []) {
-    const id = endlessTool(item?.toolId)?.id;
-    if (!id) continue;
-    out.numberEndless.toolUses[id] = (out.numberEndless.toolUses[id] ?? 0) + 1;
-  }
-  return {
-    profile: out,
-    score,
-    improved: out.numberEndless.bestScore > (before.bestScore ?? 0),
-    bestScore: out.numberEndless.bestScore,
-  };
+function hourlySolutionStorageKey(seed) {
+  return `garden-stacks:hourly-v1:${seed}:solution`;
 }
 
-function snapshotState(state) {
-  if (state?.mode === ENDLESS_MODE) {
-    syncEndlessDiscardAlias(state);
-    return copy({
-      ...state,
-      version: VERSION,
-      mode: ENDLESS_MODE,
-      piles: normalizeEndlessPiles(state?.piles),
-      compostPile: state.compostPile ?? [],
-      discardPile: state.compostPile ?? [],
-    });
-  }
-  return copy({
-    ...state,
-    version: VERSION,
-    piles: normalizePiles(state?.piles),
-  });
-}
-
-function restoreEndlessState(snapshot) {
-  if (snapshot.endlessRulesVersion !== ENDLESS_RULES_VERSION) return null;
-  const state = newEndlessRun(defaultMetaProfile(), {
-    ...snapshot,
-    shuffle: false,
-    skipRefill: true,
-  });
-  state.phase = snapshot.phase ?? state.phase;
-  state.rngCursor = snapshot.rngCursor ?? snapshot.rng_cursor ?? 0;
-  state.failureReason = snapshot.failureReason ?? snapshot.failure_reason;
-  state.resultRecorded = snapshot.resultRecorded === true || snapshot.result_recorded === true;
-  syncEndlessDiscardAlias(state);
-  return state;
-}
-
-function restoreState(snapshot) {
-  if (!snapshot) return null;
-  if (snapshot.mode === ENDLESS_MODE) return restoreEndlessState(snapshot);
-  const state = newGame({
-    ...snapshot,
-    shuffle: false,
-    skipRefill: true,
-  });
-  state.phase = snapshot.phase ?? state.phase;
-  state.rngCursor = snapshot.rngCursor ?? 0;
-  state.rewardReason = snapshot.rewardReason ?? null;
-  state.pendingDiscoveryReward = snapshot.pendingDiscoveryReward === true;
-  state.failureReason = snapshot.failureReason;
-  state.resultRecorded = snapshot.resultRecorded === true;
-  return state;
-}
-
-function newCampaignRun(profile, stageIndex = null) {
-  const normalized = normalizeMetaProfile(profile);
-  const selected = stageIndex ?? normalized.numberCampaign.lastSelectedStage ?? normalized.numberCampaign.highestUnlockedStage ?? 1;
-  const safeStage = isCampaignStageUnlocked(normalized.numberCampaign, selected) ? selected : normalized.numberCampaign.highestUnlockedStage;
-  const opts = campaignStageRunOptions(safeStage, { meta: normalized });
-  return newGame(opts);
-}
-
-
-
-
-// ---- src/game/run-mode.js ----
-
-
-const DEFAULT_PLAY_MODE = "endless";
-
-function requestedPlayMode(search = "") {
-  const params = new URLSearchParams(search);
-  const mode = (params.get("mode") ?? params.get("run") ?? params.get("rules") ?? "").toLowerCase();
-  if (["endless", "infinite", "auto", "latest"].includes(mode)) return "endless";
-  if (["campaign", "stage", "number"].includes(mode)) return "campaign";
-  return null;
-}
-
-function initialRunForRequest(saved, profile, mode, opts = {}) {
-  const resolvedMode = mode ?? DEFAULT_PLAY_MODE;
-  if (resolvedMode === "campaign") {
-    return saved && saved.mode !== "endless"
-      ? saved
-      : newCampaignRun(profile, profile.numberCampaign.lastSelectedStage);
-  }
-  return saved?.mode === "endless"
-    ? saved
-    : newEndlessRun(profile, opts);
-}
-
-
-
-// ---- src/game/storage.js ----
-
-
-const PROFILE_KEY = "garden-stacks:number:v1:profile";
-const RUN_KEY = "garden-stacks:number:v1:run";
-const SETTINGS_KEY = "garden-stacks:number:v1:settings";
-
-function defaultSettings() {
-  return {
-    animations: true,
-    cardGlow: true,
-    sfx: true,
-    autosave: true,
-  };
-}
-
-function readJson(storage, key) {
-  try {
-    const raw = storage.getItem(key);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeJson(storage, key, value) {
-  try {
-    storage.setItem(key, JSON.stringify(value));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function loadProfile(storage = globalThis.localStorage) {
-  if (!storage) return defaultMetaProfile();
-  return normalizeMetaProfile(readJson(storage, PROFILE_KEY) ?? {});
-}
-
-function saveProfile(profile, storage = globalThis.localStorage) {
-  if (!storage) return false;
-  return writeJson(storage, PROFILE_KEY, normalizeMetaProfile(profile));
-}
-
-function loadRun(storage = globalThis.localStorage) {
-  if (!storage) return null;
-  return restoreState(readJson(storage, RUN_KEY));
-}
-
-function saveRun(state, storage = globalThis.localStorage) {
-  if (!storage || !state) return false;
-  return writeJson(storage, RUN_KEY, snapshotState(state));
-}
-
-function clearRun(storage = globalThis.localStorage) {
-  try {
-    storage?.removeItem(RUN_KEY);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function loadSettings(storage = globalThis.localStorage) {
-  if (!storage) return defaultSettings();
-  return { ...defaultSettings(), ...(readJson(storage, SETTINGS_KEY) ?? {}) };
-}
-
-function saveSettings(settings, storage = globalThis.localStorage) {
-  if (!storage) return false;
-  return writeJson(storage, SETTINGS_KEY, { ...defaultSettings(), ...settings });
-}
-
-function resetAllStorage(storage = globalThis.localStorage) {
-  try {
-    storage?.removeItem(PROFILE_KEY);
-    storage?.removeItem(RUN_KEY);
-    storage?.removeItem(SETTINGS_KEY);
-    return true;
-  } catch {
-    return false;
-  }
-}
+const HOURLY_ACTIVE_SEED_KEY = "garden-stacks:hourly-v1:active-seed";
 
 
 
@@ -2937,58 +715,121 @@ function resetAllStorage(storage = globalThis.localStorage) {
 
 
 
-
-
-
 const app = document.querySelector("#app");
-const perfMonitor = createPerformanceMonitor("Stacks (스택스) Simple");
-const CARD_FLIGHT_MS = 420;
-const HAND_SHIFT_DELAY_MS = 80;
-const HAND_SHIFT_STAGGER_MS = 22;
-const HAND_SHIFT_MS = 240;
-const HAND_REFILL_DELAY_MS = 420;
-const HAND_REFILL_MS = 430;
-const LANDING_MOTION_MS = HAND_REFILL_DELAY_MS + HAND_REFILL_MS + 120;
-const HARVEST_MOTION_MS = CARD_FLIGHT_MS + 1120;
-const HARVEST_REWARD_SFX_DELAY_MS = CARD_FLIGHT_MS + 180;
+const perfMonitor = createPerformanceMonitor("Stacks Hourly");
+const SOLVER_BEAM_WIDTH = 2000;
+const SOLVER_VERSION = `${HOURLY_RULES_VERSION}:beam-${SOLVER_BEAM_WIDTH}`;
+const FLIGHT_MS = 340;
+const HARVEST_MS = 620;
+const FALLBACK_CARD_IMAGE = "public/assets/garden-stacks/generated/cards/card_locked_unknown.png";
 
 const ui = {
-  profile: loadProfile(),
   state: null,
-  settings: loadSettings(),
+  solution: null,
   selectedHandIndex: null,
-  hoveredHandIndex: null,
-  armedToolIndex: null,
-  discardMode: false,
-  discardSelection: new Set(),
-  menuOpen: false,
-  menuTab: "stages",
+  pendingSeed: "",
+  helpOpen: false,
+  resultOpen: false,
   toast: null,
   motion: null,
+  harvestPulse: null,
   drag: null,
   suppressNextClick: false,
-  hoverPreviewTimer: null,
-  handHoverLockUntil: 0,
-  handHoverUnlockTimer: null,
+  loading: true,
 };
 
-const audio = {
-  context: null,
-};
+function readJson(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
 
-const requestedMode = requestedPlayMode(window.location.search);
-const savedRun = loadRun();
-ui.state = initialRunForRequest(savedRun, ui.profile, requestedMode, { seed: freshRunSeed() });
-if (!ui.state) ui.state = newEndlessRun(defaultMetaProfile(), { seed: freshRunSeed() });
+function writeJson(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+}
 
-function performanceDetail() {
-  return {
-    phase: ui.state?.phase ?? "unknown",
-    handCount: ui.state?.hand?.length ?? 0,
-    menuOpen: ui.menuOpen,
-    menuTab: ui.menuTab,
-    motion: ui.motion?.type ?? null,
-  };
+function activeSeed() {
+  try {
+    return localStorage.getItem(HOURLY_ACTIVE_SEED_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function setActiveSeed(seed) {
+  try {
+    localStorage.setItem(HOURLY_ACTIVE_SEED_KEY, seed);
+  } catch {
+    // The game still works for the current tab when storage is unavailable.
+  }
+}
+
+function loadSolution(seed) {
+  const cached = readJson(hourlySolutionStorageKey(seed));
+  if (cached?.seed === seed
+    && cached.solverVersion === SOLVER_VERSION
+    && cached.path?.length === 40
+    && cached.maximumScore > 0) {
+    const replay = replayHourlySolution(seed, cached);
+    if (replay.ok) return cached;
+  }
+  const stop = perfMonitor.start("solver.hourly", { seed, beamWidth: SOLVER_BEAM_WIDTH });
+  const solution = solveHourlyHarvestMaximum(seed, { beamWidth: SOLVER_BEAM_WIDTH });
+  const replay = replayHourlySolution(seed, solution);
+  stop({ exploredStates: solution.exploredStates, maximumScore: solution.maximumScore, verified: replay.ok });
+  if (!replay.ok) throw new Error("시간 게임 목표 경로를 검증하지 못했습니다.");
+  writeJson(hourlySolutionStorageKey(seed), solution);
+  return solution;
+}
+
+function saveRun() {
+  if (!ui.state) return;
+  writeJson(hourlyRunStorageKey(ui.state.seed), snapshotHourlyRun(ui.state));
+  setActiveSeed(ui.state.seed);
+}
+
+function loadBest(seed) {
+  const best = readJson(hourlyBestStorageKey(seed));
+  return best && Number.isFinite(best.score) ? best : { score: 0, stars: 0, perfect: false, attempts: 0 };
+}
+
+function recordResult() {
+  if (ui.state?.phase !== "result") return;
+  const previous = loadBest(ui.state.seed);
+  writeJson(hourlyBestStorageKey(ui.state.seed), {
+    score: Math.max(previous.score ?? 0, ui.state.score),
+    stars: Math.max(previous.stars ?? 0, ui.state.stars),
+    perfect: previous.perfect === true || ui.state.perfect === true,
+    attempts: Math.max(1, (previous.attempts ?? 0) + 1),
+    completedAt: Date.now(),
+  });
+}
+
+function createRun(seed) {
+  ui.solution = loadSolution(seed);
+  return newHourlyRun(seed, { solution: ui.solution });
+}
+
+function restoreOrCreateRun() {
+  const currentSeed = kstHourSeed();
+  const savedActiveSeed = activeSeed();
+  const candidateSeed = savedActiveSeed || currentSeed;
+  let state = restoreHourlyRun(readJson(hourlyRunStorageKey(candidateSeed)));
+  if (!state) state = createRun(currentSeed);
+  else ui.solution = loadSolution(state.seed);
+  ui.state = state;
+  ui.resultOpen = state.phase === "result";
+  setActiveSeed(state.seed);
+  ui.pendingSeed = currentSeed !== state.seed ? currentSeed : "";
+  saveRun();
 }
 
 function escapeHtml(value) {
@@ -2999,864 +840,190 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;");
 }
 
-function pct(value, total) {
-  if (!total) return 0;
-  return Math.max(0, Math.min(100, Math.round((value / total) * 100)));
-}
-
 function requestedViewMode() {
-  const params = new URLSearchParams(window.location.search);
-  const view = (params.get("view") ?? params.get("layout") ?? params.get("device") ?? "").toLowerCase();
+  const params = new URLSearchParams(location.search);
+  const view = (params.get("view") ?? "auto").toLowerCase();
   return ["mobile", "desktop"].includes(view) ? view : "auto";
 }
 
-function clampSelectedHand() {
-  if (!ui.state.hand.length) {
-    ui.selectedHandIndex = null;
-    ui.hoveredHandIndex = null;
-    return;
-  }
-  if (ui.selectedHandIndex && !ui.state.hand[ui.selectedHandIndex - 1]) ui.selectedHandIndex = null;
-  if (ui.hoveredHandIndex && !ui.state.hand[ui.hoveredHandIndex - 1]) ui.hoveredHandIndex = null;
+function viewClass() {
+  const requested = requestedViewMode();
+  if (requested !== "auto") return `is-view-${requested}`;
+  return matchMedia("(max-width: 640px)").matches ? "is-view-mobile" : "is-view-desktop";
 }
 
-function rewardPresentationBlocked() {
-  return ui.motion?.type === "landing";
+function starsText(count, empty = "☆") {
+  return `${"★".repeat(Math.max(0, count))}${empty.repeat(Math.max(0, 3 - count))}`;
 }
 
-function handHoverLocked() {
-  return ui.drag != null
-    || ui.motion?.type === "landing"
-    || ui.motion?.type === "deal"
-    || Date.now() < (ui.handHoverLockUntil ?? 0);
+function seedLabel(seed) {
+  const text = String(seed);
+  if (!/^\d{10}$/.test(text)) return `#${text}`;
+  return `${Number(text.slice(4, 6))}월 ${Number(text.slice(6, 8))}일 ${text.slice(8, 10)}시`;
 }
 
-function lockHandHover(duration = 0) {
-  ui.handHoverLockUntil = Math.max(ui.handHoverLockUntil ?? 0, Date.now() + duration);
-  clearHoverPreview();
-  if (ui.handHoverUnlockTimer) window.clearTimeout(ui.handHoverUnlockTimer);
-  const delay = Math.max(0, ui.handHoverLockUntil - Date.now() + 20);
-  ui.handHoverUnlockTimer = window.setTimeout(() => {
-    ui.handHoverUnlockTimer = null;
-    render();
-  }, delay);
+function currentTimerText() {
+  return ui.pendingSeed ? "준비됨" : formatDuration(secondsUntilNextHour());
 }
 
-function motionAllowed() {
-  return ui.settings.animations && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function selectedPreviews() {
+  if (ui.selectedHandIndex == null || ui.state.phase !== "play") return [];
+  return ui.state.piles.map((_, pileIndex) => previewHourlyPlacement(ui.state, ui.selectedHandIndex, pileIndex));
 }
 
-function soundAllowed() {
-  return ui.settings.sfx !== false;
+function previewLabel(preview) {
+  if (!preview?.ok) return "";
+  if (!preview.harvest) return `${preview.countAfter}/4 · ${preview.cardsUntilHarvest}장 남음`;
+  if (preview.connection.length > 1) return `합 ${preview.chainSum} × 연결 ${preview.connection.length} = +${preview.points}`;
+  return `연쇄 합 ${preview.chainSum} · +${preview.points}`;
 }
 
-function dealMotionDuration(count = 1) {
-  return 620 + Math.max(0, count - 1) * 82;
-}
-
-function midiFrequency(note) {
-  return 440 * 2 ** ((note - 69) / 12);
-}
-
-function audioContext() {
-  if (!soundAllowed()) return null;
-  const AudioContextClass = window.AudioContext ?? window.webkitAudioContext;
-  if (!AudioContextClass) return null;
-  try {
-    if (!audio.context) audio.context = new AudioContextClass({ latencyHint: "interactive" });
-    return audio.context;
-  } catch {
-    return null;
-  }
-}
-
-function playMidiTone(ctx, note, opts = {}) {
-  const start = ctx.currentTime + (opts.delay ?? 0);
-  const duration = opts.duration ?? 0.08;
-  const gainValue = opts.gain ?? 0.016;
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = opts.type ?? "triangle";
-  osc.frequency.setValueAtTime(midiFrequency(note), start);
-  gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.01);
-  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-  osc.connect(gain).connect(ctx.destination);
-  osc.start(start);
-  osc.stop(start + duration + 0.03);
-}
-
-function playSfx(name, detail = {}) {
-  const ctx = audioContext();
-  if (!ctx) return;
-  const run = () => {
-    if (name === "select") {
-      playMidiTone(ctx, 76, { duration: 0.045, gain: 0.011 });
-    } else if (name === "hover") {
-      playMidiTone(ctx, 72, { duration: 0.035, gain: 0.0065 });
-      playMidiTone(ctx, 79, { delay: 0.028, duration: 0.045, gain: 0.0055 });
-    } else if (name === "reject") {
-      playMidiTone(ctx, 47, { duration: 0.09, gain: 0.017, type: "sawtooth" });
-      playMidiTone(ctx, 42, { delay: 0.055, duration: 0.11, gain: 0.013, type: "sawtooth" });
-    } else if (name === "deal") {
-      const count = Math.max(1, Math.min(5, Math.floor(Number(detail.count) || 1)));
-      const notes = [57, 60, 64, 67, 72];
-      notes.slice(0, count).forEach((note, i) => {
-        playMidiTone(ctx, note, { delay: i * 0.045, duration: 0.055, gain: 0.009, type: "square" });
-      });
-    } else if (name === "reward") {
-      [72, 76, 79, 84].forEach((note, i) => {
-        playMidiTone(ctx, note, { delay: i * 0.055, duration: 0.12, gain: 0.013 });
-      });
-    } else if (name === "place") {
-      if (detail.preview?.breaksCombo) {
-        playMidiTone(ctx, 55, { duration: 0.065, gain: 0.014 });
-        playMidiTone(ctx, 50, { delay: 0.06, duration: 0.09, gain: 0.012 });
-        return;
-      }
-      const notes = detail.preview?.glow === "gold" ? [72, 79, 84] : detail.preview?.glow === "yellow" ? [67, 72, 76] : [60, 67, 72];
-      notes.forEach((note, i) => {
-        playMidiTone(ctx, note, { delay: i * 0.045, duration: 0.09, gain: 0.012 });
-      });
-    }
-  };
-  if (ctx.state === "suspended") {
-    void ctx.resume().then(run).catch(() => {});
-  } else {
-    run();
-  }
-}
-
-function queueMotion(motion, duration = 520) {
-  if (!motionAllowed()) return;
-  const id = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
-  ui.motion = { ...motion, id };
-  if (motion.type === "landing" || motion.type === "deal") {
-    lockHandHover(duration + 140);
-  }
-  if (motion.type === "landing" && duration > CARD_FLIGHT_MS) {
-    window.setTimeout(() => {
-      if (ui.motion?.id === id && ui.motion.type === "landing") {
-        ui.motion = { ...ui.motion, settled: true };
-        render();
-      }
-    }, CARD_FLIGHT_MS);
-  }
-  window.setTimeout(() => {
-    if (ui.motion?.id === id) {
-      ui.motion = null;
-      render();
-    }
-  }, duration);
-}
-
-function clearMotion() {
-  ui.motion = null;
-}
-
-function clearHoverPreview() {
-  if (ui.hoverPreviewTimer) {
-    window.clearTimeout(ui.hoverPreviewTimer);
-    ui.hoverPreviewTimer = null;
-  }
-  ui.hoveredHandIndex = null;
-}
-
-function showToast(message) {
-  const id = Date.now();
-  ui.toast = { message, id };
-  render();
-  window.setTimeout(() => {
-    if (ui.toast?.id === id) {
-      ui.toast = null;
-      render();
-    }
-  }, 1600);
-}
-
-function persist() {
-  if (!ui.settings.autosave) return;
-  perfMonitor.measure("persist", () => {
-    saveProfile(ui.profile);
-    saveRun(ui.state);
-    saveSettings(ui.settings);
-  }, performanceDetail());
-}
-
-function maybeFinalizeRun() {
-  if (!["won", "game_over"].includes(ui.state.phase) || ui.state.resultRecorded) return;
-  if (isEndlessRun()) {
-    if (ui.state.phase !== "game_over") return;
-    const result = recordEndlessResult(ui.profile, ui.state);
-    ui.profile = result.profile;
-    ui.state.resultRecorded = true;
-    ui.state.resultImproved = result.improved;
-    ui.state.resultBestScore = result.bestScore;
-    ui.state.message = result.improved ? `새 최고 점수 ${result.score}점` : `최종 점수 ${result.score}점`;
-    persist();
-    return;
-  }
-  const result = recordCampaignResult(ui.profile, ui.state);
-  ui.profile = result.profile;
-  ui.state.resultRecorded = true;
-  ui.state.resultPayout = result.payout;
-  ui.state.resultCleared = result.cleared;
-  ui.state.message = result.cleared
-    ? `${result.stage.name} 클리어 · 씨앗 ${result.payout} 획득`
-    : `재도전 씨앗 ${result.payout} 획득`;
-  persist();
-}
-
-function isEndlessRun(state = ui.state) {
-  return state?.mode === "endless";
-}
-
-function armedToolEntry() {
-  if (!isEndlessRun() || !ui.armedToolIndex) return null;
-  const item = ui.state.tools?.[ui.armedToolIndex - 1];
-  const detail = endlessToolSummary(item);
-  return item && detail ? { ...detail, index: ui.armedToolIndex } : null;
-}
-
-function clearToolSelection() {
-  ui.armedToolIndex = null;
-  ui.selectedHandIndex = null;
-  ui.hoveredHandIndex = null;
-}
-
-function gameplayInteractionBlocked() {
-  return ui.motion != null;
-}
-
-function toolTargetPreviews() {
-  const tool = armedToolEntry();
-  if (!tool) return [];
-  if (tool.id === "prune") return evaluateEndlessToolTargets(ui.state, tool.id);
-  const handIndex = ui.hoveredHandIndex ?? ui.selectedHandIndex;
-  return handIndex ? evaluateEndlessToolTargets(ui.state, tool.id, handIndex) : [];
-}
-
-function currentHandSummary() {
-  return isEndlessRun() ? endlessHandPreviewSummary(ui.state) : handPreviewSummary(ui.state);
-}
-
-function currentBestTarget(handIndex) {
-  return isEndlessRun() ? bestEndlessPileTargetForCard(ui.state, handIndex) : bestPileTargetForCard(ui.state, handIndex);
-}
-
-function currentPriorityTarget(handIndex) {
-  return isEndlessRun() ? priorityEndlessPileTargetForCard(ui.state, handIndex) : priorityPileTargetForCard(ui.state, handIndex);
-}
-
-function playCurrentCard(handIndex, pileIndex) {
-  return isEndlessRun() ? playEndlessCardToPile(ui.state, handIndex, pileIndex) : playCardToPile(ui.state, handIndex, pileIndex);
-}
-
-function discardCurrentCards(indices) {
-  return isEndlessRun() ? discardEndlessCards(ui.state, indices) : discardNumberCards(ui.state, indices);
-}
-
-function previewPoints(preview) {
-  return isEndlessRun() ? (preview?.harvestScore ?? 0) : (preview?.expectedReputation ?? 0);
-}
-
-function hasPlayableTarget(handIndex) {
-  const { previews } = currentBestTarget(handIndex);
-  return previews.some((preview) => preview && preview.playable !== false);
-}
-
-function hasPlayableToolTarget(handIndex) {
-  const tool = armedToolEntry();
-  if (!tool || tool.id === "prune") return false;
-  return evaluateEndlessToolTargets(ui.state, tool.id, handIndex).some((preview) => preview.playable);
-}
-
-function rejectUnplayableHand(handIndex) {
-  ui.selectedHandIndex = null;
-  clearHoverPreview();
-  ui.discardSelection.clear();
-  queueMotion({ type: "reject", handIndex }, 360);
-  playSfx("reject");
-  showToast("놓을 수 있는 정원 더미가 없습니다.");
-}
-
-function freshRunSeed() {
-  const randomPart = globalThis.crypto?.getRandomValues
-    ? globalThis.crypto.getRandomValues(new Uint32Array(1))[0]
-    : Math.floor(Math.random() * 0xffffffff);
-  const clockPart = Math.floor((globalThis.performance?.now?.() ?? 0) * 1000);
-  return `${Date.now()}:${clockPart}:${randomPart}`;
-}
-
-function startEndlessMode() {
-  ui.state = newEndlessRun(ui.profile, { seed: freshRunSeed() });
-  ui.selectedHandIndex = null;
-  ui.armedToolIndex = null;
-  clearHoverPreview();
-  ui.discardMode = false;
-  ui.discardSelection.clear();
-  ui.menuOpen = false;
-  const dealtIds = ui.state.hand.map((card) => card.id);
-  queueMotion({ type: "deal", dealtIds }, dealMotionDuration(dealtIds.length));
-  playSfx("deal", { count: dealtIds.length });
-  persist();
-  render();
-}
-
-function startStage(stageIndex) {
-  if (!isCampaignStageUnlocked(ui.profile.numberCampaign, stageIndex)) {
-    showToast("아직 잠긴 스테이지입니다.");
-    return;
-  }
-  ui.profile.numberCampaign.lastSelectedStage = stageIndex;
-  ui.state = newCampaignRun(ui.profile, stageIndex);
-  ui.selectedHandIndex = null;
-  ui.armedToolIndex = null;
-  clearHoverPreview();
-  ui.discardMode = false;
-  ui.discardSelection.clear();
-  ui.menuOpen = false;
-  const dealtIds = ui.state.hand.map((card) => card.id);
-  queueMotion({ type: "deal", dealtIds }, dealMotionDuration(dealtIds.length));
-  playSfx("deal", { count: dealtIds.length });
-  persist();
-  render();
-}
-
-function startNextStage() {
-  const next = Math.min(CAMPAIGN_STAGES.length, (ui.state.stageIndex ?? 1) + 1);
-  startStage(next);
-}
-
-function selectedTarget() {
-  const tool = armedToolEntry();
-  if (tool) {
-    return { bestIndex: null, bestPreview: null, previews: toolTargetPreviews() };
-  }
-  const hovering = ui.state.phase === "play" && !ui.discardMode && ui.hoveredHandIndex;
-  const handIndex = hovering ? ui.hoveredHandIndex : ui.selectedHandIndex;
-  if (!handIndex) return { bestIndex: null, bestPreview: null, previews: [] };
-  const target = hovering ? currentPriorityTarget(handIndex) : currentBestTarget(handIndex);
-  if (hovering || isEndlessRun()) {
-    return {
-      ...target,
-      previews: target.bestPreview ? [target.bestPreview] : [],
-    };
-  }
-  return target;
-}
-
-function visiblePileCardsForRender(pile, pileNumber) {
-  const motion = ui.motion;
-  if (motion?.type !== "landing" || motion.settled || motion.pileIndex !== pileNumber || !motion.card?.id) return pile.cards;
-  return pile.cards.filter((card) => card.id !== motion.card.id);
-}
-
-function pilePreviewGlows(preview) {
-  return ui.state.phase === "play" && ["gold", "yellow", "open"].includes(preview?.glow);
-}
-
-function endlessPreviewLabel(preview) {
-  if (!preview) return "";
-  if (preview.playable) return preview.primaryLabel;
-  if (preview.reason === "height_locked") return "높이 제한";
-  if (preview.reason === "pile_full") return "가득 참";
-  if (preview.reason === "no_graft_target") return "접붙임 없음";
-  if (preview.reason === "empty_pile") return "빈 정원";
-  return "배치 불가";
-}
-
-function pilePreviewContent(preview) {
-  if (!preview) return "";
-  if (isEndlessRun()) {
-    if (preview.toolId === "prune") return `<span>${escapeHtml(endlessPreviewLabel(preview))}</span><span>${preview.playable ? "1칸 확보" : "-"}</span>`;
-    if (!preview.playable) return `<span>${escapeHtml(endlessPreviewLabel(preview))}</span><span>-</span>`;
-    return `<span>${escapeHtml(endlessPreviewLabel(preview))}</span><span>${preview.harvestReady ? "수확" : `${preview.cardsToHarvest}장`}</span>`;
-  }
-  return `<span>${escapeHtml(preview.primaryLabel)}</span><span>x${preview.nextMultiplier}</span>`;
-}
-
-function pilePreviewMarkup(preview) {
-  const content = pilePreviewContent(preview);
-  return `<div class="pile-preview" ${content ? "" : "hidden"}>${content}</div>`;
-}
-
-function cardArt(card, className = "") {
-  const alt = card ? `${card.cardName} ${card.digit}` : "카드";
-  const src = cardImagePath(card?.imageId ?? "card_locked_unknown");
-  return `<img class="${className}" src="${src}" alt="${escapeHtml(alt)}" loading="lazy" decoding="async" />`;
-}
-
-function toolArt(toolOrId, className = "") {
-  const tool = endlessToolSummary(toolOrId);
-  const src = cardImagePath(tool?.imageId ?? "card_locked_unknown");
-  return `<img class="${className}" src="${src}" alt="${escapeHtml(tool?.label ?? "도구")}" loading="lazy" decoding="async" />`;
-}
-
-function rewardArt(item, className = "") {
-  return `<img class="${className}" src="${cardImagePath(item?.imageId ?? "card_locked_unknown")}" alt="${escapeHtml(item?.name ?? "발견")}" loading="lazy" decoding="async" />`;
-}
-
-function cardAddMarkup(card) {
-  const digit = Math.max(0, Math.min(9, Math.floor(Number(card?.digit) || 0)));
-  return digit === 0
-    ? `<span class="card-add-number">0</span>`
-    : `<span class="card-add-prefix">+</span><span class="card-add-number">${digit}</span>`;
-}
-
-function cardMultiplyMarkup(card) {
-  const digit = Math.max(0, Math.min(9, Math.floor(Number(card?.digit) || 0)));
-  const value = 9 - digit;
-  return value === 0
-    ? `<span class="card-multiply-number">0</span>`
-    : `<span class="card-multiply-prefix">x</span><span class="card-multiply-number">${value}</span>`;
-}
-
-function cardAriaLabel(card) {
-  return `${card?.digit ?? ""} ${card?.cardName ?? "카드"}`.trim();
-}
-
-function cardFace(card, artClass) {
+function cardMarkup(card, compact = false) {
   return `
-    <span class="card-add">${cardAddMarkup(card)}</span>
-    <span class="card-identity">
-      ${cardArt(card, artClass)}
-      <span class="card-name">${escapeHtml(card?.cardName ?? "카드")}</span>
-    </span>
-    <span class="card-multiply">${cardMultiplyMarkup(card)}</span>
+    <span class="card-digit">${card.digit}</span>
+    <img src="${escapeHtml(card.imagePath)}" alt="" draggable="false" />
+    <strong>${escapeHtml(card.cardName)}</strong>
+    ${compact ? "" : `<small>${card.digit} 정원 카드</small>`}
   `;
 }
 
-function rewardChoiceText(reward) {
-  const current = rewardById(reward?.id) ?? reward;
-  const effect = rewardEffectSummary(ui.state, current);
-  return {
-    name: current?.name ?? "보상",
-    line: effect.line || current?.short || current?.name || "보상 선택",
-    detail: effect.detail || current?.description || "",
-  };
-}
-
-function renderStatus() {
-  if (isEndlessRun()) {
-    const best = Math.max(ui.profile.numberEndless?.bestScore ?? 0, ui.state.bestScore ?? 0, ui.state.score ?? 0);
-    const progress = Math.min(100, Math.round(((ui.state.score ?? 0) / Math.max(1, best)) * 100));
-    return `
-      <header class="simple-status">
-        <div class="title-lockup">
-          <span>무한 정원</span>
-          <strong>Stacks (스택스)</strong>
-        </div>
-        <div class="status-meter" aria-label="점수 ${ui.state.score}">
-          <div><span>점수</span><b>${ui.state.score}</b></div>
-          <div class="meter-track"><i style="width:${progress}%"></i></div>
-        </div>
-        <div class="status-pills" aria-label="런 상태">
-          <span>최고 ${best}</span>
-          <span>교체 ${ui.state.discardsRemaining}</span>
-          <span>수확 ${ui.state.harvestCount ?? 0}</span>
-          <span>퇴비 ${ui.state.compostPile?.length ?? 0}</span>
-        </div>
-        <button class="menu-trigger" type="button" data-action="open-deck" aria-label="덱 보기">덱</button>
-        <button class="menu-trigger" type="button" data-action="open-menu" aria-label="메뉴 열기">메뉴</button>
-      </header>
-    `;
-  }
-  const stage = stageByIndex(ui.state.stageIndex ?? 1);
-  const land = LANDS[ui.state.activeLand] ?? LANDS.meadow;
-  const progress = pct(ui.state.reputation, ui.state.targetReputation);
+function renderHeader() {
+  const best = loadBest(ui.state.seed);
   return `
-    <header class="simple-status">
-      <div class="title-lockup">
-        <span>${escapeHtml(stage.name)}</span>
-        <strong>Stacks (스택스)</strong>
+    <header class="hourly-header">
+      <div class="brand-lockup">
+        <h1>Stacks</h1>
+        <span>${escapeHtml(seedLabel(ui.state.seed))}</span>
       </div>
-      <div class="status-meter" aria-label="평판 ${ui.state.reputation}/${ui.state.targetReputation}">
-        <div><span>평판</span><b>${ui.state.reputation}/${ui.state.targetReputation}</b></div>
-        <div class="meter-track"><i style="width:${progress}%"></i></div>
+      <div class="header-actions">
+        <button class="icon-button" type="button" data-action="help" aria-label="게임방법">?</button>
+        <button class="text-button" type="button" data-action="share">결과공유</button>
+        <div class="timer-box" aria-label="${ui.pendingSeed ? "새 게임 준비됨" : "다음 게임까지"}">
+          <span>${ui.pendingSeed ? "새 게임" : "다음 게임"}</span>
+          <strong data-timer>${currentTimerText()}</strong>
+        </div>
       </div>
-      <div class="status-pills" aria-label="런 상태">
-        <span>${escapeHtml(land.label)}</span>
-        <span>놓기 ${ui.state.playsRemaining}</span>
-        <span>교체 ${ui.state.discardsRemaining}</span>
-        <span>씨앗 ${ui.profile.numberMoney}</span>
+      <div class="score-line">
+        <div><span>점수</span><strong>${ui.state.score}</strong></div>
+        <div><span>별</span><strong>${starsText(ui.state.stars)}</strong></div>
+        <div><span>수확</span><strong>${ui.state.harvests}</strong></div>
+        <div><span>최고</span><strong>${best.score}</strong></div>
       </div>
-      <button class="menu-trigger" type="button" data-action="open-menu" aria-label="메뉴 열기">메뉴</button>
+      <div class="star-targets" aria-label="별 목표 점수">
+        <span class="${ui.state.score >= ui.state.thresholds.one ? "is-earned" : ""}">★ ${ui.state.thresholds.one}</span>
+        <span class="${ui.state.score >= ui.state.thresholds.two ? "is-earned" : ""}">★★ ${ui.state.thresholds.two}</span>
+        <span class="${ui.state.score >= ui.state.thresholds.three ? "is-earned" : ""}">★★★ ${ui.state.thresholds.three}</span>
+        <span class="perfect-target">MAX ${ui.state.maximumScore}</span>
+      </div>
     </header>
   `;
 }
 
-function renderPiles() {
-  const tool = armedToolEntry();
-  const { previews } = selectedTarget();
-  const previewByPile = new Map(previews.map((preview) => [preview.pileIndex, preview]));
+function renderPendingBanner() {
+  if (!ui.pendingSeed) return "";
   return `
-    <section class="pile-grid" aria-label="4정원 더미">
-      ${ui.state.piles.map((pile, index) => {
-        const pileNumber = index + 1;
-        const preview = previewByPile.get(pileNumber);
-        const landing = ui.motion?.type === "landing" && ui.motion.settled && ui.motion.pileIndex === pileNumber;
-        const toolMotion = ui.motion?.type === "tool" && ui.motion.pileIndex === pileNumber;
-        const harvested = landing && ui.motion?.harvested;
-        const showScore = landing && (!isEndlessRun() || (ui.motion?.points ?? 0) > 0);
-          const stack = visiblePileCardsForRender(pile, pileNumber).slice(-4);
-          const match = pilePreviewGlows(preview);
-          return `
-            <button class="pile-card ${match ? "is-match" : ""} ${preview?.breaksCombo ? "is-break" : ""} ${tool && preview?.playable ? "is-tool-target" : ""} ${tool?.id === "relocate" && preview?.playable ? "is-relocate-target" : ""} ${tool?.id === "graft" && preview?.playable ? "is-graft-target" : ""} ${tool?.id === "prune" && preview?.playable ? "is-prune-target" : ""} ${landing ? "is-landing" : ""} ${harvested ? "is-landing-harvest" : ""} ${toolMotion ? "is-tool-landing" : ""}" type="button" data-action="play-pile" data-pile-index="${pileNumber}" aria-label="정원 ${pileNumber}${preview ? `, ${escapeHtml(endlessPreviewLabel(preview))}` : ""}" ${ui.state.phase !== "play" ? "disabled" : ""}>
-              <div class="mini-stack" aria-hidden="true">
-              ${stack.length
-                ? stack.map((card, cardIndex) => {
-                  const fanX = Math.round((cardIndex - (stack.length - 1) / 2) * 25);
-                  const fanRot = (cardIndex - (stack.length - 1) / 2) * 3.5;
-                  return `
-                  <span class="mini-card" style="--fan-x:${fanX}px; --fan-rot:${fanRot}deg; --color:${colorCss(card.color)}">
-                    <span class="card-add">${cardAddMarkup(card)}</span>
-                    ${cardArt(card, "mini-art")}
-                    <span class="card-multiply">${cardMultiplyMarkup(card)}</span>
-                  </span>
-                `;
-                }).join("")
-                  : `<span class="empty-slot"></span>`}
-              </div>
-              ${pilePreviewMarkup(preview)}
-              ${harvested ? `<span class="harvest-ring" aria-hidden="true"></span>
-                <span class="harvest-sparks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>` : ""}
-              ${showScore ? `<span class="score-pop ${harvested ? "is-harvest" : ""}">
-              ${harvested ? `<span>수확</span><strong>+${ui.motion.points ?? 0}</strong><em>${escapeHtml(ui.motion.formula ?? "")}</em>` : `+${ui.motion.points ?? 0}`}
-            </span>` : ""}
-          </button>
-        `;
-      }).join("")}
+    <section class="new-game-banner" aria-live="polite">
+      <div><strong>새 게임이 준비됐어요.</strong><span>${escapeHtml(seedLabel(ui.pendingSeed))} 정원</span></div>
+      <button type="button" data-action="start-ready">시작</button>
     </section>
   `;
 }
 
-function renderTools() {
-  if (!isEndlessRun()) return "";
-  const armed = armedToolEntry();
+function renderGarden(pile, pileIndex, preview) {
+  const isPulse = ui.harvestPulse?.pileIndex === pileIndex;
+  const isConnected = preview?.harvest && preview.connection.pileIndices.includes(pileIndex);
+  const slots = Array.from({ length: 4 }, (_, index) => {
+    const card = pile[index];
+    return card
+      ? `<span class="garden-card" style="--slot:${index}">${cardMarkup(card, true)}</span>`
+      : `<span class="garden-slot" aria-hidden="true">${index + 1}</span>`;
+  }).join("");
   return `
-    <section class="tool-belt ${armed ? "is-armed" : ""}" aria-label="정원 도구">
-      <div class="tool-belt-head">
-        <span>정원 도구</span>
-        <strong>${escapeHtml(armed ? armed.text : "보관함 2칸")}</strong>
-        ${armed ? `<button class="tool-cancel" type="button" data-action="cancel-tool">취소</button>` : ""}
+    <button class="garden ${preview ? "is-target" : ""} ${preview?.harvest ? "will-harvest" : ""} ${isConnected ? "is-connected" : ""} ${isPulse ? "is-harvesting" : ""}" type="button" data-action="place-card" data-pile-index="${pileIndex}" ${ui.state.phase !== "play" || ui.motion ? "disabled" : ""}>
+      <span class="garden-head"><strong>정원 ${pileIndex + 1}</strong><small>${pile.length}/4</small></span>
+      <span class="garden-slots">${slots}</span>
+      <span class="garden-preview">${escapeHtml(previewLabel(preview)) || "\u00a0"}</span>
+    </button>
+  `;
+}
+
+function renderBoard() {
+  const previews = selectedPreviews();
+  return `
+    <section class="board-section" aria-label="네 정원">
+      <div class="clockwise-label" aria-label="시계방향 정원 순서"><span>1</span><i>→</i><span>2</span><i>→</i><span>4</span><i>→</i><span>3</span></div>
+      <div class="garden-grid">
+        ${ui.state.piles.map((pile, index) => renderGarden(pile, index, previews[index])).join("")}
       </div>
-      <div class="tool-slots">
-        ${Array.from({ length: 2 }, (_, index) => {
-          const toolIndex = index + 1;
-          const item = ui.state.tools?.[index];
-          const tool = endlessToolSummary(item);
-          if (!tool) return `<span class="tool-slot is-empty" aria-label="빈 도구 슬롯"></span>`;
-          const selected = ui.armedToolIndex === toolIndex;
-          return `
-            <button class="tool-slot ${selected ? "is-selected" : ""}" type="button" data-action="select-tool" data-tool-index="${toolIndex}" aria-pressed="${selected}" aria-label="${escapeHtml(`${tool.label}, 1회 남음. ${tool.description}${selected ? " 준비됨" : ""}`)}" ${ui.state.phase !== "play" ? "disabled" : ""}>
-              ${toolArt(tool, "tool-art")}
-              <span>${escapeHtml(tool.label)}</span>
-              <small class="tool-use">1회</small>
-            </button>
-          `;
-        }).join("")}
-      </div>
+      <p class="rule-line">네 장 연쇄는 합 · 시계방향 정원 연결은 곱</p>
     </section>
   `;
 }
 
 function renderHand() {
-  const handMotion = ui.motion?.type === "landing" ? ui.motion : null;
-  const handFlowReady = handMotion?.settled === true;
-  const playedHandIndex = handMotion?.playedHandIndex ?? 0;
+  const remaining = ui.state.deck.length + ui.state.hand.length;
   return `
-    <section class="hand-panel" aria-label="손패">
-      <div class="hand-head">
-        <div>
-          <span>손패</span>
-          <strong>${ui.state.message ? escapeHtml(ui.state.message) : "카드를 놓아 흐름을 만드세요"}</strong>
-        </div>
-      </div>
+    <section class="hand-section" aria-label="손패">
+      <div class="hand-head"><div><strong>손패</strong><span>카드를 정원으로 옮기세요</span></div><div><span>남은 카드</span><strong>${remaining}</strong></div></div>
       <div class="hand-row">
-        ${ui.state.hand.map((card, index) => {
-          const handIndex = index + 1;
-          const selected = ui.selectedHandIndex === handIndex;
-          const hovered = ui.hoveredHandIndex === handIndex;
-          const discardSelected = ui.discardSelection.has(handIndex);
-          const dealtIndex = ui.motion?.type === "deal" ? (ui.motion.dealtIds?.indexOf(card.id) ?? -1) : -1;
-          const beforeIndex = handMotion?.beforeHandIds?.indexOf(card.id) ?? -1;
-          const shifted = beforeIndex >= playedHandIndex && beforeIndex > index;
-          const shiftOrder = shifted ? Math.max(0, beforeIndex - playedHandIndex) : 0;
-          const shiftDelay = HAND_SHIFT_DELAY_MS + shiftOrder * HAND_SHIFT_STAGGER_MS;
-          const refillIndex = handMotion?.dealtIds?.indexOf(card.id) ?? -1;
-          const refilling = refillIndex >= 0;
-          const preShift = shifted && !handFlowReady;
-          const preRefill = refilling && !handFlowReady;
-          const activeShift = shifted && handFlowReady;
-          const activeRefill = refilling && handFlowReady;
-          const dealt = dealtIndex >= 0;
-          const dealCount = ui.motion?.dealtIds?.length ?? 0;
-          const dealX = dealt ? Math.round((dealtIndex - (dealCount - 1) / 2) * -14) : 0;
-          const dealDelay = dealt ? dealtIndex * 82 : 0;
-          const dealRotate = dealt ? Math.round((dealtIndex - (dealCount - 1) / 2) * 2) : 0;
-          const rejected = ui.motion?.type === "reject" && ui.motion.handIndex === handIndex;
-          return `
-            <button class="hand-card ${selected ? "is-selected" : ""} ${hovered ? "is-hovered" : ""} ${discardSelected ? "is-discard-selected" : ""} ${preShift ? "is-hand-pre-shift" : ""} ${preRefill ? "is-hand-pre-refill" : ""} ${activeShift ? "is-hand-shifting" : ""} ${activeRefill ? "is-hand-refill" : ""} ${dealt ? "is-dealt" : ""} ${rejected ? "is-rejected" : ""}" type="button" data-action="select-card" data-hand-index="${handIndex}" aria-label="${escapeHtml(cardAriaLabel(card))}" style="--color:${colorCss(card.color)}; --deal-index:${Math.max(0, dealtIndex)}; --deal-delay:${dealDelay}ms; --deal-x:${dealX}px; --deal-rotate:${dealRotate}deg; --hand-shift-delay:${shiftDelay}ms; --hand-shift-duration:${HAND_SHIFT_MS}ms; --hand-refill-delay:${HAND_REFILL_DELAY_MS}ms; --hand-refill-duration:${HAND_REFILL_MS}ms" ${ui.state.phase !== "play" ? "disabled" : ""}>
-              ${cardFace(card, "card-art")}
-            </button>
-          `;
-        }).join("")}
-      </div>
-    </section>
-  `;
-}
-
-function renderResultPanel() {
-  if (!["won", "game_over"].includes(ui.state.phase)) return "";
-  if (isEndlessRun()) {
-    return `
-      <section class="result-sheet is-loss">
-        <div>
-          <span>${ui.state.resultImproved ? "새 기록" : "기록 종료"}</span>
-          <strong>${escapeHtml(ui.state.failureReason ?? "더 이상 놓을 수 없습니다.")}</strong>
-        </div>
-        <b>${ui.state.score}점</b>
-        <button class="primary-button" type="button" data-action="restart-run">다시</button>
-      </section>
-    `;
-  }
-  const cleared = ui.state.phase === "won";
-  return `
-    <section class="result-sheet ${cleared ? "is-win" : "is-loss"}">
-      <div>
-        <span>${cleared ? "클리어" : "재도전"}</span>
-        <strong>${cleared ? "정원길을 열었습니다." : escapeHtml(ui.state.failureReason ?? "목표 평판 미달")}</strong>
-      </div>
-      <b>+${ui.state.resultPayout ?? 0} 씨앗</b>
-      ${cleared && (ui.state.stageIndex ?? 1) < CAMPAIGN_STAGES.length ? `<button class="primary-button" type="button" data-action="next-stage">다음</button>` : ""}
-      <button class="plain-button" type="button" data-action="restart-run">다시</button>
-    </section>
-  `;
-}
-
-function renderRewardSheet() {
-  if (ui.state.phase !== "reward" || rewardPresentationBlocked()) return "";
-  return `
-    <section class="sheet-backdrop" aria-label="보상">
-      <div class="bottom-sheet">
-        <div class="sheet-title">
-          <span>${ui.state.rewardReason === "firstFiveCombo" ? "새 발견" : "스테이지 보상"}</span>
-          <strong>하나를 고르세요</strong>
-        </div>
-        <div class="reward-row">
-          ${ui.state.rewardOptions.map((reward, index) => {
-            const text = rewardChoiceText(reward);
-            return `
-              <button class="reward-card" type="button" data-action="choose-reward" data-reward-index="${index + 1}">
-                ${rewardArt(reward, "reward-art")}
-                <span>${escapeHtml(text.name)}</span>
-                <b>${escapeHtml(text.line)}</b>
-                <small>${escapeHtml(text.detail)}</small>
-              </button>
-            `;
-          }).join("")}
-        </div>
-      </div>
-    </section>
-  `;
-}
-
-function renderToolRewardSheet() {
-  if (ui.state.phase !== "tool_reward" || rewardPresentationBlocked()) return "";
-  const reward = ui.state.pendingToolReward;
-  if (!reward) return "";
-  const selected = endlessToolSummary(reward.selectedToolId);
-  const full = (ui.state.tools?.length ?? 0) >= 2;
-  return `
-    <section class="sheet-backdrop tool-reward-backdrop" aria-label="도구 보상">
-      <div class="bottom-sheet tool-reward-sheet">
-        <div class="sheet-title">
-          <span>수확 ${reward.harvestCount}</span>
-          <strong>${selected && full ? `${selected.label}와 바꿀 도구를 고르세요` : "정원 도구 하나를 고르세요"}</strong>
-        </div>
-        ${selected && full ? `
-          <div class="tool-replace-row">
-            ${ui.state.tools.map((item, index) => {
-              const tool = endlessToolSummary(item);
-              return `<button class="tool-replace-option" type="button" data-action="replace-tool-reward" data-tool-id="${selected.id}" data-replace-index="${index + 1}">
-                ${toolArt(tool, "tool-reward-art")}
-                <span>${escapeHtml(tool.label)}</span><small>${escapeHtml(`${selected.label}로 교체`)}</small>
-              </button>`;
-            }).join("")}
-          </div>
-          <button class="plain-button" type="button" data-action="skip-tool-reward">건너뛰기</button>
-        ` : `
-          <div class="tool-reward-row">
-            ${reward.options.map((id) => {
-              const tool = endlessToolSummary(id);
-              return `<button class="tool-reward-option" type="button" data-action="choose-tool-reward" data-tool-id="${tool.id}">
-                ${toolArt(tool, "tool-reward-art")}
-                <span>${escapeHtml(tool.label)}</span><strong>${escapeHtml(tool.role)}</strong><small>${escapeHtml(tool.description)}</small>
-              </button>`;
-            }).join("")}
-          </div>
-          ${full ? `<button class="plain-button" type="button" data-action="skip-tool-reward">건너뛰기</button>` : ""}
-        `}
-      </div>
-    </section>
-  `;
-}
-
-function renderMenu() {
-  if (!ui.menuOpen) return "";
-  const summary = currentHandSummary();
-  return `
-    <section class="menu-backdrop">
-      <div class="menu-panel">
-        <div class="menu-head">
-          <strong>메뉴</strong>
-          <button class="icon-button" type="button" data-action="close-menu" aria-label="닫기">X</button>
-        </div>
-        <div class="menu-quick-actions">
-          <button class="primary-button" type="button" data-action="auto-play" ${ui.state.phase !== "play" || !summary.bestIndex ? "disabled" : ""}>추천</button>
-          <button class="plain-button" type="button" data-action="swap-hand" ${ui.state.phase !== "play" || ui.state.discardsRemaining <= 0 ? "disabled" : ""}>교체 5</button>
-          <button class="plain-button" type="button" data-action="new-run">새 런</button>
-          <button class="plain-button" type="button" data-action="new-endless">무한</button>
-        </div>
-        <div class="menu-tabs">
-          ${["stages", "deck", "store", "codex", "settings"].map((tab) => `
-            <button class="${ui.menuTab === tab ? "is-active" : ""}" type="button" data-action="set-menu-tab" data-tab="${tab}">${tabLabel(tab)}</button>
-          `).join("")}
-        </div>
-        ${renderMenuContent()}
-      </div>
-    </section>
-  `;
-}
-
-function tabLabel(tab) {
-  return { stages: "스테이지", deck: "덱", store: "상점", codex: "도감", settings: "설정" }[tab] ?? tab;
-}
-
-function renderMenuContent() {
-  if (ui.menuTab === "deck") return renderDeck();
-  if (ui.menuTab === "store") return renderStore();
-  if (ui.menuTab === "codex") return renderCodex();
-  if (ui.menuTab === "settings") return renderSettings();
-  return renderStages();
-}
-
-function renderDeck() {
-  const deck = ui.state.deck ?? [];
-  const compost = ui.state.compostPile ?? [];
-  return `
-    <div class="deck-stack">
-      <div class="deck-counts">
-        <span>남은 덱 ${deck.length}</span>
-        <span>퇴비 ${compost.length}</span>
-      </div>
-      <div class="deck-list" role="list">
-        ${deck.length ? deck.map((card, index) => `
-            <div class="deck-row" role="listitem">
-              <b>${index + 1}</b>
-              <i>${card.digit}</i>
-              <span><strong>${escapeHtml(card.cardName)}</strong><small>${escapeHtml(card.categoryLabel)} · ${escapeHtml(card.colorLabel)}</small></span>
-            </div>
-          `).join("") : `<p class="empty-note">덱이 비어 있습니다. 다음 뽑기 전에 퇴비가 섞입니다.</p>`}
-      </div>
-    </div>
-  `;
-}
-
-function renderStages() {
-  return `
-    <div class="stage-list">
-      <button class="menu-row stage-row ${isEndlessRun() ? "cleared" : "unlocked"}" type="button" data-action="new-endless">
-        <b>E</b>
-        <span><strong>무한 정원</strong><small>수확 점수 · 최고 ${ui.profile.numberEndless?.bestScore ?? 0}</small></span>
-      </button>
-      ${CAMPAIGN_STAGES.map((stage) => {
-        const status = campaignStageStatus(ui.profile.numberCampaign, stage.index);
-        const locked = status === "locked";
-        return `
-          <button class="menu-row stage-row ${status}" type="button" data-action="select-stage" data-stage-index="${stage.index}" ${locked ? "disabled" : ""}>
-            <b>${stage.index}</b>
-            <span><strong>${escapeHtml(stage.name)}</strong><small>${landLabel(stage.activeLand)} · 목표 ${stage.targetReputation}</small></span>
-          </button>
-        `;
-      }).join("")}
-    </div>
-  `;
-}
-
-function renderStore() {
-  const runOptions = ui.state.phase === "play" && !isEndlessRun() ? runShopOptions(ui.state) : [];
-  const metaOptions = storeOptions(ui.profile);
-  return `
-    <div class="store-stack">
-      <section>
-        <h3>이번 런 · 코인 ${ui.state.shopCoins ?? 0}</h3>
-        ${runOptions.length ? runOptions.map((option, index) => `
-          <button class="menu-row store-row" type="button" data-action="buy-run-shop" data-shop-index="${index + 1}" ${ui.state.shopCoins < option.cost ? "disabled" : ""}>
-            ${cardArt({ imageId: option.imageId, cardName: option.name, digit: option.digit ?? "" }, "row-art")}
-            <span><strong>${escapeHtml(option.name)}</strong><small>${escapeHtml(option.previewLine)}</small></span>
-            <b>${option.cost}</b>
-          </button>
-        `).join("") : `<p class="empty-note">${isEndlessRun() ? "무한 정원은 현재 런 보급 없이 진행됩니다." : "완료된 런에서는 보급을 쓸 수 없습니다."}</p>`}
-      </section>
-      <section>
-        <h3>메타 성장 · 씨앗 ${ui.profile.numberMoney}</h3>
-        ${metaOptions.map((option) => `
-          <button class="menu-row store-row" type="button" data-action="buy-meta" data-upgrade-id="${option.id}" ${option.maxed || !option.affordable ? "disabled" : ""}>
-            <b>${option.level}/${option.max}</b>
-            <span><strong>${escapeHtml(option.name)}</strong><small>${escapeHtml(option.description)}</small></span>
-            <b>${option.maxed ? "MAX" : option.nextCost}</b>
+        ${ui.state.hand.map((card, index) => `
+          <button class="hand-card ${ui.selectedHandIndex === index ? "is-selected" : ""}" type="button" data-action="select-card" data-hand-index="${index}" aria-pressed="${ui.selectedHandIndex === index}" aria-label="${escapeHtml(`${card.cardName} ${card.digit}, 손패 ${index + 1}`)}" ${ui.state.phase !== "play" || ui.motion ? "disabled" : ""}>
+            ${cardMarkup(card)}
           </button>
         `).join("")}
+      </div>
+      <div class="run-actions">
+        <button type="button" data-action="retry">다시하기</button>
+        <span>${ui.state.cardsPlayed}/40 사용</span>
+      </div>
+    </section>
+  `;
+}
+
+function renderMotion() {
+  if (!ui.motion) return "";
+  const { source, target, card } = ui.motion;
+  const x = target.left + target.width / 2 - (source.left + source.width / 2);
+  const y = target.top + target.height / 2 - (source.top + source.height / 2);
+  return `<div class="flight-card" style="--flight-left:${source.left}px;--flight-top:${source.top}px;--flight-width:${source.width}px;--flight-x:${x}px;--flight-y:${y}px">${cardMarkup(card)}</div>`;
+}
+
+function renderHelp() {
+  if (!ui.helpOpen) return "";
+  return `
+    <div class="overlay" data-action="close-help">
+      <section class="dialog help-dialog" role="dialog" aria-modal="true" aria-labelledby="help-title">
+        <header><h2 id="help-title">게임방법</h2><button type="button" data-action="close-help" aria-label="닫기">×</button></header>
+        <ol>
+          <li>손패 카드 한 장을 원하는 정원으로 옮깁니다.</li>
+          <li>정원에 네 장이 쌓이면 네 숫자를 더해 수확합니다.</li>
+          <li>놓은 정원부터 시계방향 숫자가 이어지면 연결 수만큼 곱합니다.</li>
+          <li>40장을 모두 사용한 점수로 별을 받습니다.</li>
+          <li>새 시간 게임은 준비된 뒤 직접 시작합니다.</li>
+        </ol>
+        <p><strong>예:</strong> 네 장 합 19 × 정원 연결 3 = 57점</p>
+        <button class="primary-action" type="button" data-action="close-help">시작하기</button>
       </section>
     </div>
   `;
 }
 
-function renderCodex() {
-  const summary = catalogSummary(ui.state);
-  const entries = codexEntries(ui.state);
-  const nextGoal = entries.discoveries.find((item) => item.status !== "discovered") ?? entries.discoveries[0];
+function renderResult() {
+  if (!ui.resultOpen || ui.state.phase !== "result") return "";
+  const best = loadBest(ui.state.seed);
   return `
-    <div class="codex-stack">
-      <section class="codex-next">
-        ${rewardArt(nextGoal, "codex-next-art")}
-        <span><small>다음 발견</small><strong>${escapeHtml(nextGoal?.name ?? "정원 기록")}</strong></span>
+    <div class="overlay result-overlay">
+      <section class="dialog result-dialog" role="dialog" aria-modal="true" aria-labelledby="result-title">
+        <span class="result-seed">#${ui.state.seed}</span>
+        <h2 id="result-title">${ui.state.perfect ? "PERFECT" : starsText(ui.state.stars)}</h2>
+        <strong class="result-score">${ui.state.score}점</strong>
+        <p>최대 목표 ${ui.state.maximumScore} · 이번 시간 최고 ${best.score}</p>
+        <div class="result-actions">
+          <button type="button" data-action="share">결과공유</button>
+          <button class="primary-action" type="button" data-action="retry">다시하기</button>
+          ${ui.pendingSeed ? '<button type="button" data-action="start-ready">새 게임 시작</button>' : ""}
+        </div>
       </section>
-      <div class="codex-counts">
-        <span>숫자 ${summary.digits.known}/${summary.digits.total}</span>
-        <span>족보 ${summary.combos.known}/${summary.combos.total}</span>
-        <span>땅 ${summary.lands.known}/${summary.lands.total}</span>
-        <span>발견 ${summary.discoveries.discovered}/${summary.discoveries.total}</span>
-      </div>
-      <div class="codex-grid">
-        ${entries.discoveries.map((item) => `
-          <div class="codex-cell ${item.status}">
-            ${rewardArt(item, "codex-art")}
-            <span>${item.status === "hidden" ? "???" : escapeHtml(item.name)}</span>
-          </div>
-        `).join("")}
-      </div>
-      <div class="digit-strip">
-        ${DIGITS.map((item) => `<span style="--color:${colorCss(item.color)}">${item.digit} ${escapeHtml(item.cardName)}</span>`).join("")}
-      </div>
-    </div>
-  `;
-}
-
-function renderSettings() {
-  return `
-    <div class="settings-stack">
-      <label><input type="checkbox" data-action="toggle-setting" data-setting="animations" ${ui.settings.animations ? "checked" : ""} /> 애니메이션</label>
-      <label><input type="checkbox" data-action="toggle-setting" data-setting="cardGlow" ${ui.settings.cardGlow ? "checked" : ""} /> 카드 강조</label>
-      <label><input type="checkbox" data-action="toggle-setting" data-setting="sfx" ${ui.settings.sfx !== false ? "checked" : ""} /> 효과음</label>
-      <label><input type="checkbox" data-action="toggle-setting" data-setting="autosave" ${ui.settings.autosave ? "checked" : ""} /> 자동 저장</label>
-      <div class="danger-row">
-        <button class="plain-button" type="button" data-action="new-run">새 런</button>
-        <button class="plain-button" type="button" data-action="new-endless">새 무한</button>
-        <button class="danger-button" type="button" data-action="reset-storage">저장 초기화</button>
-      </div>
     </div>
   `;
 }
@@ -3865,604 +1032,233 @@ function renderToast() {
   return ui.toast ? `<div class="toast" role="status">${escapeHtml(ui.toast.message)}</div>` : "";
 }
 
-function renderMotionLayer() {
-  const motion = ui.motion;
-  if (motion?.type !== "landing" || motion.settled || !motion.source || !motion.target || !motion.card) return "";
-  const { source, target, card } = motion;
-  const tx = target.left + target.width * 0.5 - (source.left + source.width * 0.5);
-  const ty = target.top + target.height * 0.5 - (source.top + source.height * 0.5);
-  return `
-    <div class="motion-layer" aria-hidden="true">
-      <div class="flight-card" style="--x:${source.left}px; --y:${source.top}px; --w:${source.width}px; --h:${source.height}px; --tx:${tx}px; --ty:${ty}px; --color:${colorCss(card.color)}">
-        ${cardFace(card, "card-art")}
-      </div>
-    </div>
-  `;
-}
-
 function render() {
-  const stopRender = perfMonitor.start("render", performanceDetail());
-  clampSelectedHand();
-  maybeFinalizeRun();
-  const viewMode = requestedViewMode();
-  try {
-    app.innerHTML = `
-      <main class="simple-shell is-view-${viewMode} ${ui.settings.animations ? "" : "no-motion"} ${ui.settings.cardGlow ? "" : "no-glow"}">
-        ${renderStatus()}
-        ${renderResultPanel()}
-        ${renderPiles()}
-        ${renderTools()}
-        ${renderHand()}
-        ${renderRewardSheet()}
-        ${renderToolRewardSheet()}
-        ${renderMenu()}
-        ${renderToast()}
-        ${renderMotionLayer()}
-      </main>
-    `;
-    document.body.dataset.phase = ui.state.phase;
-    document.body.dataset.mode = ui.state.mode ?? "number";
-    document.body.classList.toggle("no-motion-body", !motionAllowed());
-    document.body.classList.toggle("is-hand-hover-locked", handHoverLocked());
-  } finally {
-    stopRender({
-      ...performanceDetail(),
-      viewMode,
-      nodeCount: app.getElementsByTagName("*").length,
-    });
-  }
+  if (ui.loading || !ui.state) return;
+  const stop = perfMonitor.start("render", { seed: ui.state.seed, phase: ui.state.phase });
+  app.innerHTML = `
+    <main class="hourly-shell ${viewClass()}">
+      ${renderHeader()}
+      ${renderPendingBanner()}
+      ${renderBoard()}
+      ${renderHand()}
+      ${renderHelp()}
+      ${renderResult()}
+      ${renderToast()}
+      ${renderMotion()}
+    </main>
+  `;
+  document.body.dataset.mode = "hourly";
+  stop({ nodeCount: app.getElementsByTagName("*").length });
 }
 
-function actionButton(target) {
-  return target.closest("[data-action]");
+function showToast(message) {
+  const id = Date.now();
+  ui.toast = { id, message };
+  render();
+  window.setTimeout(() => {
+    if (ui.toast?.id !== id) return;
+    ui.toast = null;
+    document.querySelector(".toast")?.remove();
+  }, 1800);
 }
 
-function setHoveredHandIndex(handIndex) {
-  const next = handIndex && !handHoverLocked() && ui.state.phase === "play" && !ui.discardMode ? handIndex : null;
-  if (ui.hoveredHandIndex === next) return;
-  if (ui.hoverPreviewTimer) {
-    window.clearTimeout(ui.hoverPreviewTimer);
-    ui.hoverPreviewTimer = null;
-  }
-  if (!next) {
-    ui.hoveredHandIndex = null;
-    applyHandHoverPreview();
-    return;
-  }
-  ui.hoverPreviewTimer = window.setTimeout(() => {
-    ui.hoverPreviewTimer = null;
-    ui.hoveredHandIndex = next;
-    applyHandHoverPreview();
-    playSfx("hover");
-  }, 90);
-}
-
-function applyHandHoverPreview() {
-  const tool = armedToolEntry();
-  const { previews } = selectedTarget();
-  const previewByPile = new Map(previews.map((preview) => [preview.pileIndex, preview]));
-  app.querySelectorAll(".hand-card[data-hand-index]").forEach((card) => {
-    const handIndex = Number(card.dataset.handIndex);
-    card.classList.toggle("is-hovered", ui.hoveredHandIndex === handIndex);
-    card.classList.toggle("is-selected", ui.selectedHandIndex === handIndex);
-  });
-  app.querySelectorAll(".pile-card[data-pile-index]").forEach((pile) => {
-    const pileIndex = Number(pile.dataset.pileIndex);
-    const preview = previewByPile.get(pileIndex);
-    pile.classList.toggle("is-match", pilePreviewGlows(preview));
-    pile.classList.toggle("is-break", preview?.breaksCombo === true);
-    pile.classList.toggle("is-tool-target", Boolean(tool && preview?.playable));
-    pile.classList.toggle("is-relocate-target", Boolean(tool?.id === "relocate" && preview?.playable));
-    pile.classList.toggle("is-graft-target", Boolean(tool?.id === "graft" && preview?.playable));
-    pile.classList.toggle("is-prune-target", Boolean(tool?.id === "prune" && preview?.playable));
-    const previewSlot = pile.querySelector(".pile-preview");
-    if (previewSlot) {
-      const content = pilePreviewContent(preview);
-      previewSlot.innerHTML = content;
-      previewSlot.hidden = !content;
-    }
-  });
+function selectCard(index) {
+  if (ui.motion || ui.state.phase !== "play" || !ui.state.hand[index]) return;
+  ui.selectedHandIndex = ui.selectedHandIndex === index ? null : index;
+  render();
 }
 
 function rectSnapshot(rect) {
-  if (!rect) return null;
-  return {
-    left: rect.left,
-    top: rect.top,
-    width: rect.width,
-    height: rect.height,
-  };
+  return rect ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height } : null;
 }
 
-function handCardRect(handIndex) {
-  return rectSnapshot(app.querySelector(`.hand-card[data-hand-index="${handIndex}"]`)?.getBoundingClientRect());
-}
-
-function pileLandingRect(pileIndex) {
-  return rectSnapshot(app.querySelector(`.pile-card[data-pile-index="${pileIndex}"] .mini-stack`)?.getBoundingClientRect());
-}
-
-function pileCellRect(pileIndex) {
-  return rectSnapshot(app.querySelector(`.pile-card[data-pile-index="${pileIndex}"]`)?.getBoundingClientRect());
-}
-
-function playFromHandToPile(handIndex, pileIndex, opts = {}) {
-  if (ui.state.phase !== "play") return { ok: false, reason: "not_playing" };
-  const playedCard = ui.state.hand[handIndex - 1] ? { ...ui.state.hand[handIndex - 1] } : null;
-  const sourceRect = rectSnapshot(opts.sourceRect) ?? handCardRect(handIndex);
-  const targetRect = rectSnapshot(opts.targetRect) ?? pileLandingRect(pileIndex) ?? pileCellRect(pileIndex);
-  const beforeHand = ui.state.hand.map((card) => card.id);
-  const toolIndex = opts.toolIndex ?? null;
-  const result = perfMonitor.measure("game.playCard", () => toolIndex
-    ? playEndlessCardWithTool(ui.state, toolIndex, handIndex, pileIndex)
-    : playCurrentCard(handIndex, pileIndex), {
-    ...performanceDetail(),
-    handIndex,
-    pileIndex,
-    toolIndex,
-  });
-  if (!result.ok) {
-    queueMotion({ type: "reject", handIndex }, 360);
-    playSfx("reject");
-    showToast(result.reason);
-    return result;
-  }
-  const beforeIds = new Set(beforeHand);
-  const dealtIds = ui.state.hand.filter((card) => !beforeIds.has(card.id)).map((card) => card.id);
-  if (toolIndex) clearToolSelection();
-  else ui.selectedHandIndex = null;
-  clearHoverPreview();
-  ui.discardSelection.clear();
-  const motionDuration = result.harvest ? HARVEST_MOTION_MS : LANDING_MOTION_MS;
-  queueMotion({
-    type: "landing",
-    pileIndex: result.preview?.pileIndex ?? pileIndex,
-    points: previewPoints(result.preview),
-    harvested: result.harvest != null,
-    formula: result.harvest ? `${result.harvest.addTotal} x ${result.harvest.multiplyTotal}` : result.preview?.scoreFormula,
-    brokeCombo: result.preview?.breaksCombo === true,
-    dealtIds,
-    beforeHandIds: beforeHand,
-    playedHandIndex: handIndex,
-    source: sourceRect,
-    target: targetRect,
-    card: playedCard,
-    toolId: result.tool?.id ?? null,
-  }, motionDuration);
-  playSfx("place", { preview: result.preview });
-  if (ui.state.phase === "reward" || ui.state.phase === "won" || result.harvest) {
-    const rewardDelay = result.harvest
-      ? HARVEST_REWARD_SFX_DELAY_MS
-      : ui.motion?.type === "landing" ? LANDING_MOTION_MS : 150;
-    window.setTimeout(() => playSfx("reward"), rewardDelay);
-  }
-  persist();
-  render();
-  return result;
-}
-
-function playPruneTool(pileIndex) {
-  const tool = armedToolEntry();
-  if (!tool || tool.id !== "prune") return { ok: false, reason: "wrong_tool" };
-  const result = perfMonitor.measure("game.tool", () => useEndlessPruneTool(ui.state, tool.index, pileIndex), {
-    ...performanceDetail(),
-    toolId: tool.id,
-    pileIndex,
-  });
-  if (!result.ok) {
-    playSfx("reject");
-    showToast(result.reason);
-    return result;
-  }
-  clearToolSelection();
-  clearHoverPreview();
-  queueMotion({ type: "tool", toolId: "prune", pileIndex, removedCard: result.removedCard }, 520);
-  playSfx("place", { preview: result.preview });
-  persist();
-  render();
-  return result;
-}
-
-function playBestCard(handIndex) {
-  const targetIndex = handIndex ?? currentHandSummary().bestIndex;
-  if (!targetIndex) return { ok: false, reason: "no_card" };
-  const target = currentBestTarget(targetIndex);
-  if (!target.bestIndex) {
-    rejectUnplayableHand(targetIndex);
-    return { ok: false, reason: "no_playable_pile" };
-  }
-  return playFromHandToPile(targetIndex, target.bestIndex);
-}
-
-function quickPlayPriorityTarget(handIndex, sourceRect = null) {
-  if (ui.state.phase !== "play" || ui.discardMode || armedToolEntry()) return false;
-  const target = currentPriorityTarget(handIndex);
-  if (!target.bestIndex) return false;
-  const result = playFromHandToPile(handIndex, target.bestIndex, {
-    sourceRect: sourceRect ?? handCardRect(handIndex),
-    targetRect: pileLandingRect(target.bestIndex) ?? pileCellRect(target.bestIndex),
-  });
-  return result.ok === true;
-}
-
-function swapWholeHand() {
-  const beforeIds = new Set(ui.state.hand.map((card) => card.id));
-  const indices = ui.state.hand.map((_, index) => index + 1);
-  const result = perfMonitor.measure("game.discard", () => discardCurrentCards(indices), performanceDetail());
-  if (!result.ok) {
-    playSfx("reject");
-    showToast(result.reason);
-    return result;
-  }
-  const dealtIds = ui.state.hand.filter((card) => !beforeIds.has(card.id)).map((card) => card.id);
+function finishPlacement(handIndex, pileIndex) {
+  const result = perfMonitor.measure("game.place", () => playHourlyCard(ui.state, handIndex, pileIndex), { handIndex, pileIndex });
+  ui.motion = null;
   ui.selectedHandIndex = null;
-  ui.armedToolIndex = null;
-  clearHoverPreview();
-  ui.menuOpen = false;
-  ui.discardMode = false;
-  ui.discardSelection.clear();
-  queueMotion({ type: "deal", dealtIds }, dealMotionDuration(dealtIds.length));
-  playSfx("deal", { count: dealtIds.length });
-  persist();
-  return result;
-}
-
-function handleAction(action, button) {
-  if (gameplayInteractionBlocked() && [
-    "select-card",
-    "play-pile",
-    "select-tool",
-    "cancel-tool",
-    "auto-play",
-    "swap-hand",
-    "toggle-discard",
-    "apply-discard",
-  ].includes(action)) return;
-  if (action === "select-card") {
-    const index = Number(button.dataset.handIndex);
-    const tool = armedToolEntry();
-    if (tool) {
-      if (tool.id === "prune") {
-        showToast("가지치기할 정원을 고르세요.");
-        return;
-      }
-      if (!hasPlayableToolTarget(index)) {
-        rejectUnplayableHand(index);
-        return;
-      }
-      ui.selectedHandIndex = index;
-      ui.hoveredHandIndex = index;
-      applyHandHoverPreview();
-      playSfx("select");
-      render();
-      return;
-    }
-    if (isEndlessRun()) {
-      if (!hasPlayableTarget(index)) {
-        rejectUnplayableHand(index);
-        return;
-      }
-      playBestCard(index);
-      return;
-    }
-    if (quickPlayPriorityTarget(index, rectSnapshot(button.getBoundingClientRect()))) return;
-    if (!hasPlayableTarget(index)) {
-      rejectUnplayableHand(index);
-      return;
-    }
-    ui.selectedHandIndex = index;
-    playSfx("select");
-  } else if (action === "play-pile") {
-    const tool = armedToolEntry();
-    const pileIndex = Number(button.dataset.pileIndex);
-    if (ui.state.phase === "play" && tool?.id === "prune") {
-      playPruneTool(pileIndex);
-    } else if (ui.state.phase === "play" && tool && ui.selectedHandIndex) {
-      playFromHandToPile(ui.selectedHandIndex, pileIndex, { toolIndex: tool.index });
-    } else if (ui.state.phase === "play" && ui.selectedHandIndex) {
-      playFromHandToPile(ui.selectedHandIndex, pileIndex);
-    }
+  if (!result.ok) {
+    showToast("카드를 놓지 못했습니다.");
     return;
-  } else if (action === "select-tool") {
-    const index = Number(button.dataset.toolIndex);
-    ui.armedToolIndex = ui.armedToolIndex === index ? null : index;
-    ui.selectedHandIndex = null;
-    clearHoverPreview();
-    ui.discardMode = false;
-    ui.discardSelection.clear();
-    playSfx("select");
-  } else if (action === "cancel-tool") {
-    clearToolSelection();
-    clearHoverPreview();
-  } else if (action === "auto-play") {
-    clearToolSelection();
-    ui.menuOpen = false;
-    playBestCard(ui.selectedHandIndex);
-    return;
-  } else if (action === "swap-hand" || action === "toggle-discard" || action === "apply-discard") {
-    swapWholeHand();
-  } else if (action === "choose-reward") {
-    const result = perfMonitor.measure("game.reward", () => applyReward(ui.state, Number(button.dataset.rewardIndex)), performanceDetail());
-    if (!result.ok) {
-      playSfx("reject");
-      showToast(result.reason);
-    } else {
-      playSfx("reward");
-    }
-    persist();
-  } else if (action === "choose-tool-reward") {
-    const result = chooseEndlessToolReward(ui.state, button.dataset.toolId);
-    if (!result.ok) {
-      playSfx("reject");
-      showToast(result.reason);
-    } else if (!result.pendingReplacement) {
-      playSfx("reward");
-    }
-    persist();
-  } else if (action === "replace-tool-reward") {
-    const result = chooseEndlessToolReward(ui.state, button.dataset.toolId, Number(button.dataset.replaceIndex));
-    if (!result.ok) {
-      playSfx("reject");
-      showToast(result.reason);
-    } else {
-      playSfx("reward");
-    }
-    persist();
-  } else if (action === "skip-tool-reward") {
-    const result = skipEndlessToolReward(ui.state);
-    if (!result.ok) showToast(result.reason);
-    persist();
-  } else if (action === "open-menu") {
-    ui.menuOpen = true;
-  } else if (action === "open-deck") {
-    ui.menuOpen = true;
-    ui.menuTab = "deck";
-  } else if (action === "close-menu") {
-    ui.menuOpen = false;
-  } else if (action === "set-menu-tab") {
-    ui.menuTab = button.dataset.tab || "stages";
-  } else if (action === "select-stage") {
-    startStage(Number(button.dataset.stageIndex));
-    return;
-  } else if (action === "new-endless") {
-    startEndlessMode();
-    return;
-  } else if (action === "buy-run-shop") {
-    const result = purchaseRunShop(ui.state, Number(button.dataset.shopIndex));
-    if (!result.ok) {
-      playSfx("reject");
-      showToast(result.reason);
-    }
-    persist();
-  } else if (action === "buy-meta") {
-    const result = purchaseMetaUpgrade(ui.profile, button.dataset.upgradeId);
-    if (result.ok) ui.profile = result.profile;
-    else {
-      playSfx("reject");
-      showToast(result.reason);
-    }
-    persist();
-  } else if (action === "next-stage") {
-    startNextStage();
-    return;
-  } else if (action === "restart-run" || action === "new-run") {
-    if (isEndlessRun()) {
-      startEndlessMode();
-      return;
-    }
-    startStage(ui.state.stageIndex ?? ui.profile.numberCampaign.lastSelectedStage);
-    return;
-  } else if (action === "toggle-setting") {
-    const key = button.dataset.setting;
-    ui.settings[key] = button.checked;
-    saveSettings(ui.settings);
-  } else if (action === "reset-storage") {
-    resetAllStorage();
-    clearRun();
-    ui.profile = defaultMetaProfile();
-    ui.state = newEndlessRun(ui.profile, { seed: freshRunSeed() });
-    ui.armedToolIndex = null;
-    ui.settings = loadSettings();
-    ui.menuOpen = false;
-    clearMotion();
   }
+  if (result.harvest) {
+    ui.harvestPulse = result.harvest;
+    window.setTimeout(() => {
+      ui.harvestPulse = null;
+      render();
+    }, HARVEST_MS);
+  }
+  if (ui.state.phase === "result") {
+    recordResult();
+    ui.resultOpen = true;
+  }
+  saveRun();
   render();
 }
 
-function clearDropTargets() {
-  document.querySelectorAll(".pile-card.is-drop-target, .pile-card.is-drop-valid, .pile-card.is-drop-danger").forEach((node) => {
-    node.classList.remove("is-drop-target", "is-drop-valid", "is-drop-danger");
-  });
+function placeCard(handIndex, pileIndex, sourceRect = null) {
+  if (ui.motion || ui.state.phase !== "play") return;
+  const preview = previewHourlyPlacement(ui.state, handIndex, pileIndex);
+  if (!preview.ok) return;
+  const source = sourceRect ?? rectSnapshot(document.querySelector(`[data-hand-index="${handIndex}"]`)?.getBoundingClientRect());
+  const target = rectSnapshot(document.querySelector(`[data-pile-index="${pileIndex}"]`)?.getBoundingClientRect());
+  if (!source || !target || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    finishPlacement(handIndex, pileIndex);
+    return;
+  }
+  ui.motion = { card: ui.state.hand[handIndex], source, target };
+  ui.selectedHandIndex = null;
+  render();
+  window.setTimeout(() => finishPlacement(handIndex, pileIndex), FLIGHT_MS);
 }
 
-function pileFromPoint(x, y) {
-  const target = document.elementFromPoint(x, y)?.closest(".pile-card[data-pile-index]");
-  if (!target || target.disabled) return null;
-  return Number(target.dataset.pileIndex) || null;
+function retryCurrent() {
+  ui.resultOpen = false;
+  ui.selectedHandIndex = null;
+  ui.state = newHourlyRun(ui.state.seed, { solution: ui.solution ?? loadSolution(ui.state.seed) });
+  saveRun();
+  render();
 }
 
-function updateDragGhost() {
-  const drag = ui.drag;
-  if (!drag?.ghost) return;
-  drag.ghost.style.setProperty("--drag-x", `${Math.round(drag.x - drag.offsetX)}px`);
-  drag.ghost.style.setProperty("--drag-y", `${Math.round(drag.y - drag.offsetY - 3)}px`);
-  drag.ghost.style.setProperty("--drag-w", `${Math.round(drag.sourceRect.width)}px`);
-  drag.ghost.style.setProperty("--drag-h", `${Math.round(drag.sourceRect.height)}px`);
+function startSeed(seed) {
+  ui.loading = true;
+  ui.resultOpen = false;
+  ui.selectedHandIndex = null;
+  app.innerHTML = '<main class="hourly-loading"><strong>새 정원을 준비하는 중</strong><span>최대 점수를 계산하고 있어요.</span></main>';
+  window.setTimeout(() => {
+    ui.solution = loadSolution(seed);
+    ui.state = newHourlyRun(seed, { solution: ui.solution });
+    ui.pendingSeed = "";
+    ui.loading = false;
+    saveRun();
+    render();
+  }, 30);
 }
 
-function ensureDragGhost() {
-  const drag = ui.drag;
-  if (!drag || drag.ghost) return;
-  const ghost = document.createElement("div");
-  ghost.className = `drag-card is-ready ${drag.sourceEl.classList.contains("is-selected") ? "is-selected" : ""}`;
-  ghost.innerHTML = drag.sourceEl.innerHTML;
-  ghost.style.setProperty("--color", colorCss(drag.card.color));
-  drag.ghost = ghost;
-  updateDragGhost();
-  document.body.appendChild(ghost);
-  drag.sourceEl.classList.add("is-drag-source");
-  document.body.classList.add("is-card-dragging");
+function shouldUseNativeShare() {
+  const userAgent = navigator.userAgent ?? "";
+  const iPadDesktop = /Macintosh/i.test(userAgent) && navigator.maxTouchPoints > 1;
+  return typeof navigator.share === "function" && (/Android|iPhone|iPad|iPod/i.test(userAgent) || iPadDesktop);
 }
 
-function updateDropTarget(x, y) {
-  const drag = ui.drag;
-  if (!drag) return null;
-  const pileIndex = pileFromPoint(x, y);
-  if (drag.overPileIndex === pileIndex) return pileIndex;
-  clearDropTargets();
-  drag.overPileIndex = pileIndex;
-  drag.ghost?.classList.remove("is-over-valid", "is-over-break");
-  if (!pileIndex) return null;
-  const target = document.querySelector(`.pile-card[data-pile-index="${pileIndex}"]`);
-  const preview = drag.previews.find((item) => item.pileIndex === pileIndex);
-  target?.classList.add("is-drop-target", preview?.breaksCombo || preview?.playable === false ? "is-drop-danger" : "is-drop-valid");
-  drag.ghost?.classList.add(preview?.breaksCombo || preview?.playable === false ? "is-over-break" : "is-over-valid");
-  return pileIndex;
+function fallbackCopy(text) {
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  textarea.style.top = "0";
+  document.body.append(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  textarea.remove();
+  if (!copied) throw new Error("clipboard copy failed");
 }
 
-function endDragVisuals() {
-  const drag = ui.drag;
-  clearDropTargets();
-  drag?.sourceEl?.classList.remove("is-drag-source");
-  drag?.ghost?.remove();
-  document.body.classList.remove("is-card-dragging");
-  ui.drag = null;
+async function copyShareText(text) {
+  if (navigator.clipboard?.writeText && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  fallbackCopy(text);
 }
 
-function beginCardDrag(event, sourceEl) {
-  if (ui.state.phase !== "play" || ui.discardMode || sourceEl.disabled) return;
-  if (isEndlessRun()) return;
-  const handIndex = Number(sourceEl.dataset.handIndex);
-  const card = ui.state.hand[handIndex - 1];
-  if (!card) return;
-  if (!hasPlayableTarget(handIndex)) return;
-  const stopDragStart = perfMonitor.start("drag.start", performanceDetail());
-  const sourceRect = sourceEl.getBoundingClientRect();
-  const { previews } = currentBestTarget(handIndex);
+async function shareResult() {
+  const url = `${location.origin}${location.pathname}`;
+  const text = hourlyResultShareText(ui.state, url);
+  if (shouldUseNativeShare()) {
+    try {
+      await navigator.share({ text });
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+    }
+  }
+  try {
+    await copyShareText(text);
+    showToast("결과를 클립보드에 복사했어요.");
+  } catch {
+    showToast("공유 문구를 복사하지 못했습니다.");
+  }
+}
+
+function beginDrag(event, cardButton) {
+  if (event.button !== 0 || ui.motion || ui.state.phase !== "play") return;
+  const handIndex = Number(cardButton.dataset.handIndex);
+  const rect = cardButton.getBoundingClientRect();
   ui.selectedHandIndex = handIndex;
-  ui.suppressNextClick = true;
   ui.drag = {
     pointerId: event.pointerId,
     handIndex,
-    card,
-    previews,
-    sourceEl,
-    sourceRect,
-    ghost: null,
-    offsetX: event.clientX - sourceRect.left,
-    offsetY: event.clientY - sourceRect.top,
+    sourceRect: rectSnapshot(rect),
     startX: event.clientX,
     startY: event.clientY,
-    x: event.clientX,
-    y: event.clientY,
+    offsetX: event.clientX - rect.left,
+    offsetY: event.clientY - rect.top,
+    ghost: null,
     moved: false,
-    overPileIndex: null,
   };
-  if (event.pointerId != null) sourceEl.setPointerCapture?.(event.pointerId);
+  render();
   event.preventDefault();
-  stopDragStart({ handIndex });
 }
 
-function moveCardDrag(event) {
+function moveDrag(event) {
   const drag = ui.drag;
-  if (!drag) return;
-  if (drag.pointerId != null && event.pointerId != null && drag.pointerId !== event.pointerId) return;
-  if (drag.pointerId != null && event.pointerId == null) return;
-  drag.x = event.clientX;
-  drag.y = event.clientY;
+  if (!drag || (drag.pointerId != null && drag.pointerId !== event.pointerId)) return;
   const dx = event.clientX - drag.startX;
   const dy = event.clientY - drag.startY;
-  if (dx * dx + dy * dy > 36) {
+  if (!drag.moved && dx * dx + dy * dy > 25) {
     drag.moved = true;
-    ensureDragGhost();
+    const source = document.querySelector(`[data-hand-index="${drag.handIndex}"]`);
+    const ghost = source?.cloneNode(true);
+    if (ghost) {
+      ghost.className = "drag-ghost";
+      document.body.append(ghost);
+      drag.ghost = ghost;
+    }
   }
-  perfMonitor.measure("drag.move", () => {
-    updateDragGhost();
-    if (drag.moved) updateDropTarget(event.clientX, event.clientY);
-  }, {
-    ...performanceDetail(),
-    handIndex: drag.handIndex,
-  });
+  if (drag.ghost) {
+    drag.ghost.style.left = `${event.clientX - drag.offsetX}px`;
+    drag.ghost.style.top = `${event.clientY - drag.offsetY}px`;
+    drag.ghost.style.width = `${drag.sourceRect.width}px`;
+  }
+  document.querySelectorAll(".garden.is-drag-over").forEach((item) => item.classList.remove("is-drag-over"));
+  const target = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-pile-index]");
+  target?.classList.add("is-drag-over");
   event.preventDefault();
 }
 
-function releaseCardDrag(event) {
+function endDrag(event) {
   const drag = ui.drag;
-  if (!drag) return;
-  if (drag.pointerId != null && event.pointerId != null && drag.pointerId !== event.pointerId) return;
-  if (drag.pointerId != null && event.pointerId == null) return;
-  const pileIndex = event.type === "pointercancel" ? null : pileFromPoint(event.clientX, event.clientY);
-  const moved = drag.moved;
-  const handIndex = drag.handIndex;
-  const sourceRect = drag.sourceRect;
-  const canceled = event.type === "pointercancel";
-  endDragVisuals();
+  if (!drag || (drag.pointerId != null && drag.pointerId !== event.pointerId)) return;
+  const target = drag.moved ? document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-pile-index]") : null;
+  drag.ghost?.remove();
+  document.querySelectorAll(".garden.is-drag-over").forEach((item) => item.classList.remove("is-drag-over"));
+  ui.drag = null;
+  ui.suppressNextClick = true;
+  window.setTimeout(() => {
+    ui.suppressNextClick = false;
+  }, 0);
   event.preventDefault();
-  if (pileIndex) {
-    playFromHandToPile(handIndex, pileIndex, { sourceRect });
+  if (target) {
+    placeCard(drag.handIndex, Number(target.dataset.pileIndex), drag.sourceRect);
     return;
   }
-  if (moved) {
-    queueMotion({ type: "reject", handIndex }, 360);
-    playSfx("reject");
-    showToast("정원 더미 위에 놓아야 합니다.");
-    return;
-  }
-  if (canceled) {
-    ui.selectedHandIndex = handIndex;
+  if (drag.moved) showToast("정원 위에 카드를 놓으세요.");
+  else {
+    ui.selectedHandIndex = drag.handIndex;
     render();
-    return;
   }
-  if (quickPlayPriorityTarget(handIndex, sourceRect)) return;
-  ui.selectedHandIndex = handIndex;
-  playSfx("select");
-  render();
 }
 
-app.addEventListener("pointerdown", (event) => {
-  if (event.button !== 0) return;
-  const card = event.target.closest(".hand-card[data-action='select-card']");
-  if (!card) return;
-  beginCardDrag(event, card);
-});
-
-app.addEventListener("mousedown", (event) => {
-  if (ui.drag || event.button !== 0) return;
-  const card = event.target.closest(".hand-card[data-action='select-card']");
-  if (!card) return;
-  beginCardDrag(event, card);
-});
-
-app.addEventListener("pointerover", (event) => {
-  const card = event.target.closest(".hand-card[data-action='select-card']");
-  if (!card || handHoverLocked()) return;
-  if (event.pointerType === "touch") return;
-  setHoveredHandIndex(Number(card.dataset.handIndex));
-});
-
-app.addEventListener("pointerout", (event) => {
-  const card = event.target.closest(".hand-card[data-action='select-card']");
-  if (!card || (event.relatedTarget && card.contains(event.relatedTarget))) return;
-  if (ui.hoveredHandIndex === Number(card.dataset.handIndex)) setHoveredHandIndex(null);
-});
-
-app.addEventListener("focusin", (event) => {
-  const card = event.target.closest(".hand-card[data-action='select-card']");
-  if (!card) return;
-  setHoveredHandIndex(Number(card.dataset.handIndex));
-});
-
-app.addEventListener("focusout", (event) => {
-  const card = event.target.closest(".hand-card[data-action='select-card']");
-  if (!card || card.contains(event.relatedTarget)) return;
-  if (ui.hoveredHandIndex === Number(card.dataset.handIndex)) setHoveredHandIndex(null);
-});
-
-window.addEventListener("pointermove", moveCardDrag);
-window.addEventListener("pointerup", releaseCardDrag);
-window.addEventListener("pointercancel", releaseCardDrag);
-window.addEventListener("mousemove", moveCardDrag);
-window.addEventListener("mouseup", releaseCardDrag);
+function handleAction(action, button) {
+  if (action === "select-card") selectCard(Number(button.dataset.handIndex));
+  else if (action === "place-card" && ui.selectedHandIndex != null) placeCard(ui.selectedHandIndex, Number(button.dataset.pileIndex));
+  else if (action === "retry") retryCurrent();
+  else if (action === "start-ready") startSeed(ui.pendingSeed || kstHourSeed());
+  else if (action === "help") { ui.helpOpen = true; render(); }
+  else if (action === "close-help") { ui.helpOpen = false; render(); }
+  else if (action === "share") shareResult();
+}
 
 app.addEventListener("click", (event) => {
   if (ui.suppressNextClick) {
@@ -4471,72 +1267,74 @@ app.addEventListener("click", (event) => {
     event.stopPropagation();
     return;
   }
-  const button = actionButton(event.target);
+  if (ui.drag) return;
+  const button = event.target.closest("[data-action]");
   if (!button || button.disabled) return;
-  const action = button.dataset.action;
-  perfMonitor.measure("action", () => handleAction(action, button), { ...performanceDetail(), action });
+  if (button.classList.contains("overlay") && event.target !== button) return;
+  handleAction(button.dataset.action, button);
 });
 
-app.addEventListener("change", (event) => {
-  const target = event.target;
-  if (target.matches("[data-action='toggle-setting']")) {
-    perfMonitor.measure("action", () => handleAction("toggle-setting", target), {
-      ...performanceDetail(),
-      action: "toggle-setting",
-    });
+app.addEventListener("pointerdown", (event) => {
+  const card = event.target.closest(".hand-card[data-hand-index]");
+  if (card) beginDrag(event, card);
+});
+
+app.addEventListener("error", (event) => {
+  const image = event.target;
+  if (!(image instanceof HTMLImageElement) || image.dataset.fallbackApplied === "true") return;
+  image.dataset.fallbackApplied = "true";
+  image.src = FALLBACK_CARD_IMAGE;
+}, true);
+
+window.addEventListener("pointermove", moveDrag, { passive: false });
+window.addEventListener("pointerup", endDrag, { passive: false });
+window.addEventListener("pointercancel", endDrag, { passive: false });
+
+window.addEventListener("keydown", (event) => {
+  if (ui.motion || event.target instanceof HTMLInputElement) return;
+  const key = event.key.toLowerCase();
+  if (key >= "1" && key <= "5") selectCard(Number(key) - 1);
+  else if (["q", "w", "e", "r"].includes(key) && ui.selectedHandIndex != null) {
+    placeCard(ui.selectedHandIndex, { q: 0, w: 1, e: 2, r: 3 }[key]);
+  } else if (key === "escape") {
+    ui.selectedHandIndex = null;
+    ui.helpOpen = false;
+    render();
   }
 });
 
-window.addEventListener("keydown", (event) => {
-  if (event.target instanceof HTMLInputElement) return;
-  const key = event.key.toLowerCase();
-  perfMonitor.measure("keyboard", () => {
-    if (gameplayInteractionBlocked() && ["1", "2", "3", "4", "5", "6", "7", "q", "w", "e", "r", "enter", " "].includes(key)) return;
-    if (key === "6" || key === "7") {
-      const toolIndex = Number(key) - 5;
-      if (ui.state.phase === "play" && ui.state.tools?.[toolIndex - 1]) {
-        ui.armedToolIndex = ui.armedToolIndex === toolIndex ? null : toolIndex;
-        ui.selectedHandIndex = null;
-        clearHoverPreview();
-        render();
-      }
-    } else if (key >= "1" && key <= "5") {
-      const index = Number(key);
-      if (ui.state.hand[index - 1] && armedToolEntry()?.id !== "prune") ui.selectedHandIndex = index;
-      render();
-    } else if (["q", "w", "e", "r"].includes(key)) {
-      const pile = { q: 1, w: 2, e: 3, r: 4 }[key];
-      const tool = armedToolEntry();
-      if (ui.state.phase === "play" && tool?.id === "prune") {
-        playPruneTool(pile);
-      } else if (ui.state.phase === "play" && tool && ui.selectedHandIndex) {
-        playFromHandToPile(ui.selectedHandIndex, pile, { toolIndex: tool.index });
-      } else if (ui.state.phase === "play" && ui.selectedHandIndex) {
-        if (isEndlessRun()) playBestCard(ui.selectedHandIndex);
-        else playFromHandToPile(ui.selectedHandIndex, pile);
-      }
-    } else if (key === "enter" || key === " ") {
-      if (ui.state.phase === "play" && !armedToolEntry()) playBestCard(ui.selectedHandIndex ?? currentHandSummary().bestIndex);
-    } else if (key === "m") {
-      ui.menuOpen = true;
-      render();
-    } else if (key === "escape") {
-      if (armedToolEntry()) clearToolSelection();
-      else ui.menuOpen = false;
-      render();
-    }
-  }, { ...performanceDetail(), key });
-});
+function updateClock() {
+  const currentSeed = kstHourSeed();
+  if (currentSeed !== ui.state.seed && currentSeed !== ui.pendingSeed) {
+    ui.pendingSeed = currentSeed;
+    render();
+    return;
+  }
+  const timer = document.querySelector("[data-timer]");
+  if (timer) timer.textContent = currentTimerText();
+}
+
+function bootstrap() {
+  try {
+    restoreOrCreateRun();
+    ui.loading = false;
+    render();
+    window.setInterval(updateClock, 1000);
+  } catch (error) {
+    ui.loading = false;
+    app.innerHTML = `<main class="hourly-error"><strong>게임을 준비하지 못했습니다.</strong><span>${escapeHtml(error.message)}</span><button type="button" onclick="location.reload()">새로고침</button></main>`;
+  }
+}
+
+bootstrap();
 
 installPerformanceTools({
+  namespace: "gardenStacksPerf",
   monitor: perfMonitor,
   render,
   root: app,
-  getDetail: performanceDetail,
+  getDetail: () => ({ seed: ui.state?.seed, phase: ui.state?.phase, motion: ui.motion?.type ?? null }),
 });
-
-persist();
-render();
 
 
 })();

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const root = path.resolve(new URL("..", import.meta.url).pathname);
-const sharedInputs = [
+const legacyInputs = [
   "src/performance.js",
   "src/game/random.js",
   "src/game/catalog.js",
@@ -11,8 +11,16 @@ const sharedInputs = [
   "src/game/storage.js",
 ];
 const builds = [
-  { inputs: [...sharedInputs, "src/app.js"], output: "public/app.bundle.js" },
-  { inputs: [...sharedInputs, "src/simple-app.js"], output: "simple/simple.bundle.js" },
+  { inputs: [...legacyInputs, "src/app.js"], output: "public/app.bundle.js" },
+  {
+    inputs: [
+      "src/performance.js",
+      "src/game/random.js",
+      "src/game/hourly-harvest.js",
+      "src/simple-app.js",
+    ],
+    output: "simple/simple.bundle.js",
+  },
 ];
 
 function stripImports(source) {

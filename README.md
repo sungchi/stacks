@@ -10,7 +10,7 @@
 - 추가 Garden Stacks 산출물: `/Users/sungchi/Desktop/Projects/textbattle2`
 - 구현 방식/UI 운영감: `/Users/sungchi/Desktop/Projects/malitmot`
 
-현재 구현 기준은 `Garden Stacks 4.1 / Four Garden Piles`의 4정원 숫자 솔리테어다. Lua 프로토타입의 구조를 그대로 이식하지 않고, `malitmot`처럼 브라우저에서 바로 실행 가능한 HTML/CSS/ES module 중심으로 옮긴다.
+현재 기본 게임은 KST 시간 seed마다 같은 40장 덱을 제공하는 `매시간 네 정원 수확`이다. 네 장을 한 정원에 모아 합으로 수확하고, 놓은 정원부터 시계방향 꼭대기 숫자가 이어진 길이만큼 곱해 별 목표에 도전한다. 기존 무한 정원과 캠페인은 명시 모드로 보존한다.
 
 ## 문서 인덱스
 
@@ -36,19 +36,20 @@
 ## 구현 방향
 
 - 첫 화면은 랜딩 페이지가 아니라 실제 게임 화면이어야 한다.
-- 정적 웹 앱을 기본으로 한다. `index.html`은 `public/app.bundle.js`를 읽는 오프라인 번들 방식으로 실행된다.
+- 정적 웹 앱을 기본으로 한다. 기본 주소는 `simple/simple.bundle.js` 시간 게임으로 이동하고 명시적 레거시 모드는 `public/app.bundle.js`를 사용한다.
 - 게임 규칙은 DOM 코드에서 분리해 순수 JS 모듈로 작성한다.
 - 저장은 우선 `localStorage`를 사용한다.
 - 모바일 우선으로 만들되, 데스크톱에서는 실제 4정원 보드와 손패가 넓게 읽히게 한다.
 - 기본 UI 스타일은 B/W 가이드의 흰 바탕, 검은 선, 회색 보조면, 컬러 게임 애셋 조합을 따른다.
-- `simple/index.html`은 전체 게임 시스템과 저장을 공유하되, 플레이 화면을 상태줄·4정원·손패·핵심 액션·메뉴로 줄인 별도 심플 UI다.
+- `simple/index.html`은 시간별 seed, 별 목표, 4정원, 수동 손패 배치, 다시하기, 공유를 제공하는 기본 플레이 UI다.
 
 ## 실행
 
 - `npm run build:offline`: `src/` ES module 소스를 `public/app.bundle.js`와 `simple/simple.bundle.js`로 갱신한다.
-- `npm test`: 숫자 솔리테어 순수 규칙 테스트를 실행한다.
+- `npm test`: 시간 정원과 레거시 숫자 솔리테어의 순수 규칙 테스트를 실행한다.
 - `npm run serve`: `http://127.0.0.1:4173/`에서 로컬 확인 서버를 연다.
-- 심플 UI는 서버 실행 후 `http://127.0.0.1:4173/simple/`에서 연다.
+- 기본 시간 게임은 `http://127.0.0.1:4173/` 또는 `/simple/`에서 연다.
+- 레거시 무한 정원은 `/?mode=endless`, 캠페인은 `/?mode=campaign`으로 연다.
 - `npm run open`: `index.html`을 연다.
 
 소스 파일을 수정한 뒤에는 `npm run build:offline`을 다시 실행한다.
