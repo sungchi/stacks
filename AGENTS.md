@@ -80,7 +80,7 @@
 - 브라우저 전용 API는 UI 계층에만 둔다.
 - 저장 키는 버전을 포함해 이후 마이그레이션이 가능하게 한다.
 - UI 변경은 360px 모바일 폭과 데스크톱 폭에서 텍스트 겹침을 확인한다.
-- 시간 정원 `src/` 소스만 수정하면 `npm run build:hourly`로 `simple/simple.bundle.js`를 갱신할 수 있다. 전체 검수에서는 `npm run build:offline`으로 레거시 `public/app.bundle.js`까지 함께 갱신한다.
+- 시간 정원 `src/` 소스만 수정하면 `npm run build:current`로 `simple/simple.bundle.js`만 갱신한다. `npm run build:hourly`는 같은 대상의 명시적 별칭이다. 전체 검수에서는 `npm run build:offline`으로 레거시 `public/app.bundle.js`까지 함께 갱신한다.
 
 문서 작업 시:
 

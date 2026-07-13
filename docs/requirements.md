@@ -51,7 +51,7 @@ Stacks (스택스) 최신 프로토타입의 `Stacks (스택스) 4.1 / Four Gard
 - Vite/React 같은 프레임워크는 도입하지 않는다.
 - 소스는 ES module로 유지하고, `scripts/build-offline.mjs`가 레거시 `public/app.bundle.js`와 기본 시간 게임 `simple/simple.bundle.js` classic script 번들을 만든다.
 - 기본 `index.html`은 모드가 없으면 `simple/` 시간 게임으로 이동하고, 명시적 레거시 모드에서는 `public/app.bundle.js`를 로드한다.
-- `package.json`은 `type: module`, `test: node --test`, `build:offline`, `open`, `serve` 스크립트를 제공한다.
+- `package.json`은 `type: module`, `test: node --test`, `build:current`, `build:hourly`, `build:legacy`, `build:offline`, `open`, `serve` 스크립트를 제공한다.
 - 게임 규칙은 `src/game/`의 순수 ES module로 둔다.
 - DOM 이벤트, 애니메이션, `localStorage`, Web Share 같은 브라우저 API는 UI 계층에 둔다.
 
@@ -349,7 +349,7 @@ MVP 기본값:
 ## 7. 애셋
 
 - 런타임 애셋은 `public/assets/garden-stacks/` 아래 파일만 참조한다.
-- 런타임 번들은 레거시 `public/app.bundle.js`와 기본 시간 게임 `simple/simple.bundle.js`다. 직접 수정하지 말고 `src/`를 수정한 뒤 `npm run build:offline`으로 갱신한다.
+- 런타임 번들은 레거시 `public/app.bundle.js`와 기본 시간 게임 `simple/simple.bundle.js`다. 직접 수정하지 않는다. 시간 정원만 바꾸면 `npm run build:current`, 레거시만 바꾸면 `npm run build:legacy`, 전체 완료 검수에서는 `npm run build:offline`으로 갱신한다.
 - 카드 이미지는 `generated/cards/manifest.json`의 키를 기준으로 매핑한다.
 - 종/도감 이미지는 `generated/species/manifest.json`을 기준으로 매핑한다.
 - UI 컴포넌트는 `ui/promoted/`, 효과는 `ui/effects/`, 더미 모티프는 `ui/pile_motifs/`를 우선 사용한다.

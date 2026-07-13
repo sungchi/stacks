@@ -9,7 +9,7 @@
 - [ ] 애셋을 다루면 [docs/assets.md](assets.md)를 확인했다.
 - [ ] 이번 작업 범위를 문서, 규칙, UI, 애셋, 테스트 중 무엇으로 볼지 정했다.
 - [ ] 요구사항이 부족하면 구현 전에 문서를 갱신했다.
-- [ ] `src/`를 수정한다면 마지막에 `npm run build:offline`을 실행할 계획을 세웠다.
+- [ ] 시간 정원만 수정하면 `npm run build:current`, 레거시만 수정하면 `npm run build:legacy`, 전체 완료 검수에서는 `npm run build:offline`을 실행할 계획을 세웠다.
 
 ## 2. 문서
 
@@ -75,8 +75,8 @@
 - [ ] 구버전 무한 정원 런은 버리고 프로필 최고 기록은 유지한다.
 - [ ] 현재 런 저장/복원이 가능하다.
 - [ ] 저장 키에 버전이 들어 있다.
-- [ ] 소스 변경 후 `public/app.bundle.js`가 갱신됐다.
-- [ ] `npm run build:current` 또는 `npm run build:hourly`가 레거시 번들을 다시 만들지 않고 현재 시간 정원 번들만 갱신한다.
+- [ ] 시간 정원 소스 변경 후 `simple/simple.bundle.js`, 레거시 소스 변경 후 `public/app.bundle.js`가 각각 갱신됐다.
+- [ ] `npm run build:current` 또는 같은 대상의 `npm run build:hourly`가 레거시 번들을 다시 만들지 않고 현재 시간 정원 번들만 갱신한다.
 
 ## 5. UI/UX
 
