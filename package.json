@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "build:offline": "node scripts/build-offline.mjs",
+    "build:current": "node scripts/build-offline.mjs --target hourly",
+    "build:hourly": "node scripts/build-offline.mjs --target hourly",
+    "build:legacy": "node scripts/build-offline.mjs --target legacy",
     "test": "node --test",
     "open": "open index.html",
     "serve": "python3 -m http.server 4173"

@@ -313,6 +313,8 @@ MVP 기본값:
 - 메인 UI의 손패 hover/focus도 기존 DOM의 카드·정원 강조와 미리보기만 갱신한다. 포인터 진입·이탈 때문에 전체 플레이 DOM을 반복 생성해서는 안 된다.
 - 새 런 시작과 전체 손패 교체로 손패가 보충될 때는 새 카드가 순차적으로 들어오는 deal 애니메이션을 재생한다.
 - 드래그 중 카드는 공중 카드, 더 커진 그림자, 더미 drop highlight를 보여준다.
+- 드래그 시작 시 안정적인 루트 요소가 포인터를 캡처하고, 터치는 10px·펜은 8px·마우스는 6px를 넘겨야 드래그로 전환한다.
+- `pointercancel`과 포인터 캡처 상실은 게임 상태를 바꾸지 않고 공중 카드와 drop highlight만 정리한다.
 - 유효 드롭은 해당 더미에 카드를 놓고 `grid_snap`, 점수 팝, 짧은 착지 pulse를 보여준다.
 - 무효 드롭은 손패 카드 `shake`와 짧은 안내를 보여주며 게임 상태를 바꾸지 않는다.
 - 개별 모션은 0.4초 안팎으로 짧게 유지하되 프레임 스냅 제한 없이 연속 easing 애니메이션을 우선한다.
@@ -327,7 +329,14 @@ MVP 기본값:
 - `gardenStacksPerf.samples(name, limit)`, `reset()`, `enable(value)`, `measureRender(count)`, `measureNextFrame(name)`으로 최근 샘플과 수동 렌더/프레임 측정을 확인할 수 있어야 한다.
 - 측정 샘플은 메모리 증가를 막기 위해 고정 크기 버퍼로 보관한다.
 - 드래그 중 공중 카드는 `left/top` 반복 갱신이 아니라 CSS 변수와 `transform: translate3d(...)` 중심으로 이동해 레이아웃 부담을 줄인다.
+- 연속 `pointermove`는 `requestAnimationFrame`당 한 번으로 합치고 `drag.start`, `drag.move`, `drag.end`를 별도로 측정한다.
 - 성능 계측은 기본 플레이 결과, 저장 데이터, 보상 선택 결과를 바꾸지 않아야 한다.
+
+### 5.3 빌드 대상
+
+- `npm run build:current`와 `npm run build:hourly`는 현재 기본 시간 정원의 `simple/simple.bundle.js`만 생성한다.
+- `npm run build:legacy`는 명시 모드용 `public/app.bundle.js`만 생성한다.
+- `npm run build:offline`은 두 대상을 모두 생성하며 전체 완료 검수에 사용한다.
 
 ## 6. 저장
 

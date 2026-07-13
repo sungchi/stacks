@@ -46,10 +46,13 @@
 ## 실행
 
 - `npm run build:offline`: `src/` ES module 소스를 `public/app.bundle.js`와 `simple/simple.bundle.js`로 갱신한다.
+- `npm run build:current`: 현재 기본 시간 정원만 별도로 빌드한다.
+- `npm run build:hourly`: 현재 기본 게임인 시간 정원 `simple/simple.bundle.js`만 갱신한다.
+- `npm run build:legacy`: 명시 모드용 `public/app.bundle.js`만 갱신한다.
 - `npm test`: 시간 정원과 레거시 숫자 솔리테어의 순수 규칙 테스트를 실행한다.
 - `npm run serve`: `http://127.0.0.1:4173/`에서 로컬 확인 서버를 연다.
 - 기본 시간 게임은 `http://127.0.0.1:4173/` 또는 `/simple/`에서 연다.
 - 레거시 무한 정원은 `/?mode=endless`, 캠페인은 `/?mode=campaign`으로 연다.
 - `npm run open`: `index.html`을 연다.
 
-소스 파일을 수정한 뒤에는 `npm run build:offline`을 다시 실행한다.
+시간 정원 소스만 수정했으면 `npm run build:current` 또는 `npm run build:hourly`, 레거시까지 포함한 전체 검수에서는 `npm run build:offline`을 실행한다.

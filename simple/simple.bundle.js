@@ -711,7 +711,37 @@ const HOURLY_ACTIVE_SEED_KEY = "garden-stacks:hourly-v1:active-seed";
 
 
 
+// ---- src/ui/pointer-drag.js ----
+const POINTER_DRAG_THRESHOLD_PX = Object.freeze({
+  mouse: 6,
+  pen: 8,
+  touch: 10,
+});
+
+function pointerDragThreshold(pointerType = "mouse") {
+  return POINTER_DRAG_THRESHOLD_PX[pointerType] ?? POINTER_DRAG_THRESHOLD_PX.mouse;
+}
+
+function exceedsPointerDragThreshold(pointerType, deltaX, deltaY) {
+  const threshold = pointerDragThreshold(pointerType);
+  return deltaX * deltaX + deltaY * deltaY > threshold * threshold;
+}
+
+function isPointerDragCancellation(eventType) {
+  return eventType === "pointercancel" || eventType === "lostpointercapture";
+}
+
+function dragGhostPosition(clientX, clientY, offsetX, offsetY) {
+  return {
+    x: Math.round(clientX - offsetX),
+    y: Math.round(clientY - offsetY),
+  };
+}
+
+
+
 // ---- src/simple-app.js ----
+
 
 
 
@@ -734,6 +764,7 @@ const ui = {
   motion: null,
   harvestPulse: null,
   drag: null,
+  rejectedHandIndex: null,
   suppressNextClick: false,
   loading: true,
 };
@@ -913,7 +944,6 @@ function renderHeader() {
         <span class="${ui.state.score >= ui.state.thresholds.one ? "is-earned" : ""}">★ ${ui.state.thresholds.one}</span>
         <span class="${ui.state.score >= ui.state.thresholds.two ? "is-earned" : ""}">★★ ${ui.state.thresholds.two}</span>
         <span class="${ui.state.score >= ui.state.thresholds.three ? "is-earned" : ""}">★★★ ${ui.state.thresholds.three}</span>
-        <span class="perfect-target">MAX ${ui.state.maximumScore}</span>
       </div>
     </header>
   `;
@@ -967,7 +997,7 @@ function renderHand() {
       <div class="hand-head"><div><strong>손패</strong><span>카드를 정원으로 옮기세요</span></div><div><span>남은 카드</span><strong>${remaining}</strong></div></div>
       <div class="hand-row">
         ${ui.state.hand.map((card, index) => `
-          <button class="hand-card ${ui.selectedHandIndex === index ? "is-selected" : ""}" type="button" data-action="select-card" data-hand-index="${index}" aria-pressed="${ui.selectedHandIndex === index}" aria-label="${escapeHtml(`${card.cardName} ${card.digit}, 손패 ${index + 1}`)}" ${ui.state.phase !== "play" || ui.motion ? "disabled" : ""}>
+          <button class="hand-card ${ui.selectedHandIndex === index ? "is-selected" : ""} ${ui.rejectedHandIndex === index ? "is-rejected" : ""}" type="button" data-action="select-card" data-hand-index="${index}" aria-pressed="${ui.selectedHandIndex === index}" aria-label="${escapeHtml(`${card.cardName} ${card.digit}, 손패 ${index + 1}`)}" ${ui.state.phase !== "play" || ui.motion ? "disabled" : ""}>
             ${cardMarkup(card)}
           </button>
         `).join("")}
@@ -1017,7 +1047,7 @@ function renderResult() {
         <span class="result-seed">#${ui.state.seed}</span>
         <h2 id="result-title">${ui.state.perfect ? "PERFECT" : starsText(ui.state.stars)}</h2>
         <strong class="result-score">${ui.state.score}점</strong>
-        <p>최대 목표 ${ui.state.maximumScore} · 이번 시간 최고 ${best.score}</p>
+        <p>이번 시간 최고 ${best.score}</p>
         <div class="result-actions">
           <button type="button" data-action="share">결과공유</button>
           <button class="primary-action" type="button" data-action="retry">다시하기</button>
@@ -1182,69 +1212,153 @@ async function shareResult() {
 }
 
 function beginDrag(event, cardButton) {
-  if (event.button !== 0 || ui.motion || ui.state.phase !== "play") return;
+  if (event.button !== 0 || ui.drag || ui.motion || ui.state.phase !== "play") return;
+  const stop = perfMonitor.start("drag.start", { pointerType: event.pointerType || "mouse" });
   const handIndex = Number(cardButton.dataset.handIndex);
   const rect = cardButton.getBoundingClientRect();
   ui.selectedHandIndex = handIndex;
   ui.drag = {
     pointerId: event.pointerId,
+    pointerType: event.pointerType || "mouse",
     handIndex,
     sourceRect: rectSnapshot(rect),
     startX: event.clientX,
     startY: event.clientY,
+    x: event.clientX,
+    y: event.clientY,
     offsetX: event.clientX - rect.left,
     offsetY: event.clientY - rect.top,
     ghost: null,
     moved: false,
+    overPileIndex: null,
+    frameId: null,
   };
+  if (event.pointerId != null) app.setPointerCapture?.(event.pointerId);
+  window.addEventListener("pointermove", moveDrag, { passive: false });
+  window.addEventListener("pointerup", endDrag, { passive: false });
+  window.addEventListener("pointercancel", endDrag, { passive: false });
   render();
   event.preventDefault();
+  stop({ handIndex });
+}
+
+function gardenFromPoint(clientX, clientY) {
+  const target = document.elementFromPoint(clientX, clientY)?.closest(".garden[data-pile-index]");
+  return target && !target.disabled ? target : null;
+}
+
+function clearDragTarget() {
+  document.querySelectorAll(".garden.is-drag-over").forEach((item) => item.classList.remove("is-drag-over"));
+}
+
+function updateDragTarget(drag, target) {
+  const pileIndex = target ? Number(target.dataset.pileIndex) : null;
+  if (pileIndex === drag.overPileIndex) return;
+  clearDragTarget();
+  target?.classList.add("is-drag-over");
+  drag.overPileIndex = pileIndex;
+}
+
+function updateDragFrame() {
+  const drag = ui.drag;
+  if (!drag) return;
+  drag.frameId = null;
+  perfMonitor.measure("drag.move", () => {
+    if (drag.ghost) {
+      const position = dragGhostPosition(drag.x, drag.y, drag.offsetX, drag.offsetY);
+      drag.ghost.style.setProperty("--drag-x", `${position.x}px`);
+      drag.ghost.style.setProperty("--drag-y", `${position.y}px`);
+    }
+    if (drag.moved) updateDragTarget(drag, gardenFromPoint(drag.x, drag.y));
+  }, { handIndex: drag.handIndex, pointerType: drag.pointerType });
+}
+
+function scheduleDragFrame(drag) {
+  if (drag.frameId != null) return;
+  drag.frameId = window.requestAnimationFrame(updateDragFrame);
+}
+
+function ensureDragGhost(drag) {
+  if (drag.ghost) return;
+  const source = document.querySelector(`[data-hand-index="${drag.handIndex}"]`);
+  const ghost = source?.cloneNode(true);
+  if (!ghost) return;
+  ghost.className = "drag-ghost";
+  ghost.setAttribute("aria-hidden", "true");
+  ghost.tabIndex = -1;
+  ghost.style.setProperty("--drag-width", `${Math.round(drag.sourceRect.width)}px`);
+  document.body.append(ghost);
+  drag.ghost = ghost;
 }
 
 function moveDrag(event) {
   const drag = ui.drag;
   if (!drag || (drag.pointerId != null && drag.pointerId !== event.pointerId)) return;
+  drag.x = event.clientX;
+  drag.y = event.clientY;
   const dx = event.clientX - drag.startX;
   const dy = event.clientY - drag.startY;
-  if (!drag.moved && dx * dx + dy * dy > 25) {
+  if (!drag.moved && exceedsPointerDragThreshold(drag.pointerType, dx, dy)) {
     drag.moved = true;
-    const source = document.querySelector(`[data-hand-index="${drag.handIndex}"]`);
-    const ghost = source?.cloneNode(true);
-    if (ghost) {
-      ghost.className = "drag-ghost";
-      document.body.append(ghost);
-      drag.ghost = ghost;
-    }
+    ensureDragGhost(drag);
   }
-  if (drag.ghost) {
-    drag.ghost.style.left = `${event.clientX - drag.offsetX}px`;
-    drag.ghost.style.top = `${event.clientY - drag.offsetY}px`;
-    drag.ghost.style.width = `${drag.sourceRect.width}px`;
-  }
-  document.querySelectorAll(".garden.is-drag-over").forEach((item) => item.classList.remove("is-drag-over"));
-  const target = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-pile-index]");
-  target?.classList.add("is-drag-over");
+  if (drag.moved) scheduleDragFrame(drag);
   event.preventDefault();
+}
+
+function rejectDraggedCard(handIndex) {
+  ui.rejectedHandIndex = handIndex;
+  window.setTimeout(() => {
+    if (ui.rejectedHandIndex === handIndex) ui.rejectedHandIndex = null;
+    document.querySelector(`[data-hand-index="${handIndex}"]`)?.classList.remove("is-rejected");
+  }, 360);
+}
+
+function clearDragSession(drag) {
+  ui.drag = null;
+  if (drag.frameId != null) window.cancelAnimationFrame(drag.frameId);
+  window.removeEventListener("pointermove", moveDrag);
+  window.removeEventListener("pointerup", endDrag);
+  window.removeEventListener("pointercancel", endDrag);
+  drag.ghost?.remove();
+  clearDragTarget();
+  if (drag.pointerId != null && app.hasPointerCapture?.(drag.pointerId)) {
+    app.releasePointerCapture?.(drag.pointerId);
+  }
 }
 
 function endDrag(event) {
   const drag = ui.drag;
   if (!drag || (drag.pointerId != null && drag.pointerId !== event.pointerId)) return;
-  const target = drag.moved ? document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-pile-index]") : null;
-  drag.ghost?.remove();
-  document.querySelectorAll(".garden.is-drag-over").forEach((item) => item.classList.remove("is-drag-over"));
-  ui.drag = null;
+  const canceled = isPointerDragCancellation(event.type);
+  const target = !canceled && drag.moved ? gardenFromPoint(event.clientX, event.clientY) : null;
+  const stop = perfMonitor.start("drag.end", {
+    handIndex: drag.handIndex,
+    pointerType: drag.pointerType,
+    moved: drag.moved,
+  });
+  clearDragSession(drag);
+  event.preventDefault();
+  if (canceled) {
+    stop({ canceled: true, placed: false });
+    return;
+  }
   ui.suppressNextClick = true;
   window.setTimeout(() => {
     ui.suppressNextClick = false;
   }, 0);
-  event.preventDefault();
   if (target) {
+    stop({ canceled: false, placed: true, pileIndex: Number(target.dataset.pileIndex) });
     placeCard(drag.handIndex, Number(target.dataset.pileIndex), drag.sourceRect);
     return;
   }
-  if (drag.moved) showToast("정원 위에 카드를 놓으세요.");
+  if (drag.moved) {
+    rejectDraggedCard(drag.handIndex);
+    stop({ canceled: false, placed: false });
+    showToast("정원 위에 카드를 놓으세요.");
+  }
   else {
+    stop({ canceled: false, placed: false });
     ui.selectedHandIndex = drag.handIndex;
     render();
   }
@@ -1279,16 +1393,14 @@ app.addEventListener("pointerdown", (event) => {
   if (card) beginDrag(event, card);
 });
 
+app.addEventListener("lostpointercapture", endDrag);
+
 app.addEventListener("error", (event) => {
   const image = event.target;
   if (!(image instanceof HTMLImageElement) || image.dataset.fallbackApplied === "true") return;
   image.dataset.fallbackApplied = "true";
   image.src = FALLBACK_CARD_IMAGE;
 }, true);
-
-window.addEventListener("pointermove", moveDrag, { passive: false });
-window.addEventListener("pointerup", endDrag, { passive: false });
-window.addEventListener("pointercancel", endDrag, { passive: false });
 
 window.addEventListener("keydown", (event) => {
   if (ui.motion || event.target instanceof HTMLInputElement) return;

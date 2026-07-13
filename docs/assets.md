@@ -45,7 +45,7 @@
 - manifest가 있는 폴더는 manifest를 우선 기준으로 삼는다.
 - 이미지 키와 게임 데이터 키가 다르면 게임 데이터에 `imageId`를 명시한다.
 - 누락 이미지가 있을 때는 `generated/cards/card_locked_unknown.png` 또는 중립 UI fallback을 쓴다.
-- 픽셀 애셋은 CSS에서 `image-rendering: pixelated`를 적용한다.
+- 픽셀 애셋은 정수 배율 확대에서 `image-rendering: pixelated`를 적용한다. 시간 정원 카드처럼 서로 다른 원본을 비정수 축소하고 회전하는 표면은 `image-rendering: auto`로 aliasing을 줄인다.
 
 ## 4. 주요 manifest
 
