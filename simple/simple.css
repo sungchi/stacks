@@ -358,6 +358,10 @@ button:disabled {
   animation: harvestPulse 620ms var(--ease);
 }
 
+.garden.is-landing {
+  animation: gardenLanding 300ms var(--ease);
+}
+
 .garden-head {
   display: flex;
   align-items: center;
@@ -392,6 +396,10 @@ button:disabled {
   aspect-ratio: 5 / 7;
   overflow: hidden;
   border-radius: 4px;
+}
+
+.garden-card.is-landing-card {
+  animation: cardLanding 260ms var(--ease);
 }
 
 .garden-slot {
@@ -512,10 +520,10 @@ button:disabled {
 
 .hand-card,
 .drag-ghost,
-.flight-card {
+.snap-card {
   position: relative;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto auto;
+  grid-template-rows: minmax(0, 1fr) auto;
   place-items: center;
   width: var(--card-width);
   aspect-ratio: 5 / 7;
@@ -555,13 +563,31 @@ button:disabled {
   animation: cardReject 320ms ease;
 }
 
+.hand-card.is-dealt {
+  animation: cardDeal 360ms var(--ease) both;
+  animation-delay: var(--deal-delay, 0ms);
+}
+
+.hand-card.is-snap-source {
+  opacity: 0;
+}
+
+body.is-card-dragging .hand-card {
+  transition: none;
+}
+
 .hand-card:disabled {
   opacity: 0.5;
 }
 
+.hand-card.is-snap-source,
+.hand-card.is-snap-source:disabled {
+  opacity: 0;
+}
+
 .hand-card .card-digit,
 .drag-ghost .card-digit,
-.flight-card .card-digit {
+.snap-card .card-digit {
   position: absolute;
   top: 6px;
   left: 8px;
@@ -573,7 +599,7 @@ button:disabled {
 
 .hand-card img,
 .drag-ghost img,
-.flight-card img {
+.snap-card img {
   width: 86%;
   height: 86%;
   object-fit: contain;
@@ -582,21 +608,13 @@ button:disabled {
 
 .hand-card strong,
 .drag-ghost strong,
-.flight-card strong {
+.snap-card strong {
   width: 100%;
   overflow: hidden;
   font-size: 14px;
   line-height: 1.15;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.hand-card small,
-.drag-ghost small,
-.flight-card small {
-  color: var(--muted);
-  font-size: 9px;
-  font-weight: 800;
 }
 
 .drag-ghost {
@@ -609,18 +627,21 @@ button:disabled {
   pointer-events: none;
   transform: translate3d(var(--drag-x, 0), var(--drag-y, 0), 0) rotate(2deg) scale(1.04);
   box-shadow: var(--shadow);
+  animation: none;
+  transition: none;
   will-change: transform;
 }
 
-.flight-card {
+.snap-card {
   position: fixed;
-  top: var(--flight-top);
-  left: var(--flight-left);
+  top: var(--snap-top);
+  left: var(--snap-left);
   z-index: 1100;
-  width: var(--flight-width);
+  width: var(--snap-width);
   margin: 0;
   pointer-events: none;
-  animation: cardFlight 340ms var(--ease) forwards;
+  transform-origin: top left;
+  animation: cardSnap 150ms var(--ease) forwards;
   box-shadow: var(--shadow);
 }
 
@@ -643,6 +664,31 @@ button:disabled {
   background: var(--paper);
   font-size: 12px;
   font-weight: 900;
+}
+
+.run-actions .redraw-action {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 158px;
+  justify-content: center;
+}
+
+.redraw-action strong {
+  font-size: 17px;
+  line-height: 1;
+}
+
+.redraw-action small {
+  font-size: 10px;
+  font-weight: 900;
+  opacity: 0.72;
+}
+
+.run-actions .redraw-action:disabled {
+  border-color: var(--line) !important;
+  background: var(--soft) !important;
+  color: var(--muted) !important;
 }
 
 .run-actions span {
@@ -719,6 +765,76 @@ button:disabled {
   font-size: 13px;
 }
 
+.sound-setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 42px;
+  padding: 0 2px;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.sound-setting input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.sound-setting i {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  border: 1px solid var(--ink);
+  border-radius: 12px;
+  background: var(--soft);
+}
+
+.sound-setting i::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--ink);
+  content: "";
+  transition: transform 120ms ease;
+}
+
+.sound-setting input:checked + i {
+  background: var(--green-soft);
+}
+
+.sound-setting input:checked + i::after {
+  transform: translateX(18px);
+}
+
+.sound-setting input:focus-visible + i {
+  outline: 3px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+.help-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.help-actions button {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--paper);
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .primary-action {
   border-color: var(--ink) !important;
   background: var(--ink) !important;
@@ -783,10 +899,27 @@ button:disabled {
   text-align: center;
 }
 
-@keyframes cardFlight {
-  0% { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
-  70% { transform: translate3d(calc(var(--flight-x) * 0.72), calc(var(--flight-y) * 0.72 - 18px), 0) rotate(3deg) scale(0.78); }
-  100% { transform: translate3d(var(--flight-x), var(--flight-y), 0) rotate(0deg) scale(0.35); opacity: 0.2; }
+@keyframes cardSnap {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  72% { transform: translate3d(var(--snap-x), var(--snap-y), 0) scale(calc(var(--snap-scale-x) * 1.04), calc(var(--snap-scale-y) * 1.04)); }
+  100% { transform: translate3d(var(--snap-x), var(--snap-y), 0) scale(var(--snap-scale-x), var(--snap-scale-y)); }
+}
+
+@keyframes cardDeal {
+  0% { opacity: 0; transform: translate3d(var(--deal-x, 0), 44px, 0) rotate(7deg) scale(0.86); }
+  68% { opacity: 1; transform: translate3d(0, calc(var(--fan-y, 0px) - 5px), 0) rotate(var(--fan-rotate, 0deg)) scale(1.025); }
+  100% { opacity: 1; transform: translate3d(0, var(--fan-y, 0px), 0) rotate(var(--fan-rotate, 0deg)) scale(1); }
+}
+
+@keyframes gardenLanding {
+  0%, 100% { box-shadow: none; }
+  45% { border-color: var(--ink); box-shadow: inset 0 0 0 2px var(--ink), 0 0 0 4px rgba(21, 23, 21, 0.12); }
+}
+
+@keyframes cardLanding {
+  0% { transform: scale(0.82); }
+  55% { transform: scale(1.08); }
+  100% { transform: scale(1); }
 }
 
 @keyframes harvestPulse {
@@ -847,13 +980,13 @@ button:disabled {
 
 .hourly-shell.is-view-mobile .hand-card,
 .hourly-shell.is-view-mobile .drag-ghost,
-.hourly-shell.is-view-mobile .flight-card {
+.hourly-shell.is-view-mobile .snap-card {
     padding: 6px;
 }
 
 .hourly-shell.is-view-mobile .hand-card strong,
 .hourly-shell.is-view-mobile .drag-ghost strong,
-.hourly-shell.is-view-mobile .flight-card strong {
+.hourly-shell.is-view-mobile .snap-card strong {
     font-size: 13px;
 }
 

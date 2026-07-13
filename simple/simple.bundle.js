@@ -242,12 +242,13 @@ function shuffled(items, rng = Math.random) {
 
 
 const HOURLY_MODE = "hourly";
-const HOURLY_RULES_VERSION = "hourly-four-harvest-v1";
+const HOURLY_RULES_VERSION = "hourly-four-harvest-v2";
 const HOURLY_ASSET_VERSION = "seed-art-v1";
 const HOURLY_HAND_SIZE = 5;
 const HOURLY_DECK_SIZE = 40;
 const HOURLY_PILE_COUNT = 4;
 const HOURLY_HARVEST_SIZE = 4;
+const HOURLY_REDRAW_LIMIT = 3;
 const HOURLY_CLOCKWISE_ORDER = [0, 1, 3, 2];
 const HOURLY_SHARE_URL = "https://plan9.kr/stacks";
 
@@ -486,6 +487,35 @@ function refillHourlyHand(state) {
   }
 }
 
+function canRedrawHourlyHand(state) {
+  return state?.phase === "play"
+    && safeInt(state.redrawsLeft) > 0
+    && Array.isArray(state.deck)
+    && state.deck.length > 0
+    && Array.isArray(state.hand)
+    && state.hand.length > 0;
+}
+
+function redrawHourlyHand(state) {
+  if (state?.phase !== "play") return { ok: false, reason: "not_playing" };
+  if (safeInt(state.redrawsLeft) <= 0) return { ok: false, reason: "no_redraws" };
+  if (!state.deck?.length || !state.hand?.length) return { ok: false, reason: "no_new_cards" };
+
+  const previousHand = state.hand.splice(0);
+  state.deck.push(...previousHand);
+  refillHourlyHand(state);
+  state.redrawsLeft -= 1;
+  state.redrawsUsed += 1;
+  state.updatedAt = Date.now();
+  return {
+    ok: true,
+    previousHand: copy(previousHand),
+    hand: copy(state.hand),
+    redrawsLeft: state.redrawsLeft,
+    state,
+  };
+}
+
 function playHourlyCard(state, handIndex, pileIndex) {
   const preview = previewHourlyPlacement(state, handIndex, pileIndex);
   if (!preview.ok) return preview;
@@ -542,8 +572,8 @@ function compactConnection(piles, triggerIndex, digit) {
   return length;
 }
 
-function compactKey(cursor, hand, piles) {
-  return `${cursor}|${[...hand].sort((a, b) => a - b).join("")}|${piles.map((pile) => `${pile.count},${pile.sum},${pile.top}`).join("/")}`;
+function compactKey(hand, queue, piles, redrawsLeft) {
+  return `${[...hand].sort((a, b) => a - b).join("")}|${queue}|${redrawsLeft}|${piles.map((pile) => `${pile.count},${pile.sum},${pile.top}`).join("/")}`;
 }
 
 function solverHeuristic(state) {
@@ -553,10 +583,10 @@ function solverHeuristic(state) {
     occupancy += pile.count;
     if (pile.count === 3) ready += pile.sum * 2 + Math.max(0, pile.top);
   }
-  return state.score * 1000 + ready * 10 - occupancy;
+  return state.score * 1000 + ready * 10 - occupancy + state.redrawsLeft;
 }
 
-function solverTransition(state, digit, handIndex, pileIndex, deckDigits) {
+function solverPlayTransition(state, digit, handIndex, pileIndex) {
   const piles = state.piles.map((pile) => ({ ...pile }));
   const pile = piles[pileIndex];
   let gain = 0;
@@ -568,15 +598,53 @@ function solverTransition(state, digit, handIndex, pileIndex, deckDigits) {
   }
 
   const hand = state.hand.filter((_, index) => index !== handIndex);
-  let cursor = state.cursor;
-  if (cursor < deckDigits.length) hand.push(deckDigits[cursor++]);
+  let queue = state.queue;
+  if (queue.length) {
+    hand.push(Number(queue[0]));
+    queue = queue.slice(1);
+  }
   return {
-    cursor,
     hand,
+    queue,
     piles,
     score: state.score + gain,
-    path: [...state.path, { digit, pileIndex }],
+    redrawsLeft: state.redrawsLeft,
+    trail: { action: { type: "play", digit, pileIndex }, previous: state.trail },
   };
+}
+
+function solverRedrawTransition(state) {
+  if (state.redrawsLeft <= 0 || !state.queue.length || !state.hand.length) return null;
+  const rotated = `${state.queue}${state.hand.join("")}`;
+  return {
+    hand: [...rotated.slice(0, HOURLY_HAND_SIZE)].map(Number),
+    queue: rotated.slice(HOURLY_HAND_SIZE),
+    piles: state.piles,
+    score: state.score,
+    redrawsLeft: state.redrawsLeft - 1,
+    trail: { action: { type: "redraw" }, previous: state.trail },
+  };
+}
+
+function solverRedrawOptions(state) {
+  const options = [state];
+  let next = state;
+  while (next.redrawsLeft > 0 && next.queue.length) {
+    next = solverRedrawTransition(next);
+    if (!next) break;
+    options.push(next);
+  }
+  return options;
+}
+
+function materializeSolverPath(trail) {
+  const path = [];
+  let current = trail;
+  while (current) {
+    path.push(current.action);
+    current = current.previous;
+  }
+  return path.reverse();
 }
 
 function solveHourlyHarvestMaximum(seed, options = {}) {
@@ -584,28 +652,31 @@ function solveHourlyHarvestMaximum(seed, options = {}) {
   const deckDigits = createHourlyDeck(seed).map((card) => card.digit);
   const emptyPile = () => ({ count: 0, sum: 0, top: -1 });
   let beam = [{
-    cursor: HOURLY_HAND_SIZE,
     hand: deckDigits.slice(0, HOURLY_HAND_SIZE),
+    queue: deckDigits.slice(HOURLY_HAND_SIZE).join(""),
     piles: [emptyPile(), emptyPile(), emptyPile(), emptyPile()],
     score: 0,
-    path: [],
+    redrawsLeft: HOURLY_REDRAW_LIMIT,
+    trail: null,
   }];
   let exploredStates = 0;
 
   for (let turn = 0; turn < HOURLY_DECK_SIZE; turn += 1) {
     const unique = new Map();
     for (const state of beam) {
-      const seenDigits = new Set();
-      for (let handIndex = 0; handIndex < state.hand.length; handIndex += 1) {
-        const digit = state.hand[handIndex];
-        if (seenDigits.has(digit)) continue;
-        seenDigits.add(digit);
-        for (let pileIndex = 0; pileIndex < HOURLY_PILE_COUNT; pileIndex += 1) {
-          const next = solverTransition(state, digit, handIndex, pileIndex, deckDigits);
-          const key = compactKey(next.cursor, next.hand, next.piles);
-          const previous = unique.get(key);
-          if (!previous || next.score > previous.score) unique.set(key, next);
-          exploredStates += 1;
+      for (const option of solverRedrawOptions(state)) {
+        const seenDigits = new Set();
+        for (let handIndex = 0; handIndex < option.hand.length; handIndex += 1) {
+          const digit = option.hand[handIndex];
+          if (seenDigits.has(digit)) continue;
+          seenDigits.add(digit);
+          for (let pileIndex = 0; pileIndex < HOURLY_PILE_COUNT; pileIndex += 1) {
+            const next = solverPlayTransition(option, digit, handIndex, pileIndex);
+            const key = compactKey(next.hand, next.queue, next.piles, next.redrawsLeft);
+            const previous = unique.get(key);
+            if (!previous || next.score > previous.score) unique.set(key, next);
+            exploredStates += 1;
+          }
         }
       }
     }
@@ -619,7 +690,7 @@ function solveHourlyHarvestMaximum(seed, options = {}) {
     seed,
     maximumScore: best?.score ?? 1,
     thresholds: thresholdsForMaximum(best?.score ?? 1),
-    path: best?.path ?? [],
+    path: materializeSolverPath(best?.trail),
     exploredStates,
     verified: true,
     solverVersion: `${HOURLY_RULES_VERSION}:beam-${beamWidth}`,
@@ -644,6 +715,8 @@ function newHourlyRun(seed, options = {}) {
     solverVerified: solution.verified === true,
     cardsPlayed: 0,
     harvests: 0,
+    redrawsLeft: HOURLY_REDRAW_LIMIT,
+    redrawsUsed: 0,
     stars: 0,
     perfect: false,
     lastHarvest: null,
@@ -667,6 +740,8 @@ function restoreHourlyRun(snapshot) {
   state.score = Math.max(0, safeInt(state.score));
   state.cardsPlayed = Math.max(0, safeInt(state.cardsPlayed));
   state.harvests = Math.max(0, safeInt(state.harvests));
+  state.redrawsLeft = Math.max(0, Math.min(HOURLY_REDRAW_LIMIT, safeInt(state.redrawsLeft, HOURLY_REDRAW_LIMIT)));
+  state.redrawsUsed = Math.max(0, Math.min(HOURLY_REDRAW_LIMIT, safeInt(state.redrawsUsed, HOURLY_REDRAW_LIMIT - state.redrawsLeft)));
   state.maximumScore = Math.max(1, safeInt(state.maximumScore, 1));
   state.thresholds = thresholdsForMaximum(state.maximumScore);
   state.stars = starsForScore(state.score, state.thresholds);
@@ -678,6 +753,12 @@ function restoreHourlyRun(snapshot) {
 function replayHourlySolution(seed, solution) {
   const run = newHourlyRun(seed, { solution });
   for (const action of solution.path ?? []) {
+    if (action.type === "redraw") {
+      const result = redrawHourlyHand(run);
+      if (!result.ok) return { ok: false, reason: result.reason, state: run };
+      continue;
+    }
+    if (action.type && action.type !== "play") return { ok: false, reason: "unknown_solution_action", state: run };
     const handIndex = run.hand.findIndex((card) => card.digit === action.digit);
     if (handIndex < 0) return { ok: false, reason: "missing_solution_card", state: run };
     const result = playHourlyCard(run, handIndex, action.pileIndex);
@@ -696,18 +777,18 @@ function hourlyResultShareText(state, url = HOURLY_SHARE_URL) {
 }
 
 function hourlyRunStorageKey(seed) {
-  return `garden-stacks:hourly-v1:${seed}:run`;
+  return `garden-stacks:hourly-v2:${seed}:run`;
 }
 
 function hourlyBestStorageKey(seed) {
-  return `garden-stacks:hourly-v1:${seed}:best`;
+  return `garden-stacks:hourly-v2:${seed}:best`;
 }
 
 function hourlySolutionStorageKey(seed) {
-  return `garden-stacks:hourly-v1:${seed}:solution`;
+  return `garden-stacks:hourly-v2:${seed}:solution`;
 }
 
-const HOURLY_ACTIVE_SEED_KEY = "garden-stacks:hourly-v1:active-seed";
+const HOURLY_ACTIVE_SEED_KEY = "garden-stacks:hourly-v2:active-seed";
 
 
 
@@ -749,8 +830,12 @@ const app = document.querySelector("#app");
 const perfMonitor = createPerformanceMonitor("Stacks Hourly");
 const SOLVER_BEAM_WIDTH = 2000;
 const SOLVER_VERSION = `${HOURLY_RULES_VERSION}:beam-${SOLVER_BEAM_WIDTH}`;
-const FLIGHT_MS = 340;
+const SNAP_MS = 150;
+const DEAL_CARD_MS = 360;
+const DEAL_STAGGER_MS = 70;
 const HARVEST_MS = 620;
+const LANDING_MS = 300;
+const SFX_SETTING_KEY = "garden-stacks:hourly:sfx";
 const FALLBACK_CARD_IMAGE = "public/assets/garden-stacks/generated/cards/card_locked_unknown.png";
 
 const ui = {
@@ -762,12 +847,36 @@ const ui = {
   resultOpen: false,
   toast: null,
   motion: null,
+  deal: null,
+  landingPulse: null,
   harvestPulse: null,
   drag: null,
   rejectedHandIndex: null,
   suppressNextClick: false,
+  pendingDealSound: false,
+  sfxEnabled: readSfxSetting(),
   loading: true,
 };
+
+const audio = {
+  context: null,
+};
+
+function readSfxSetting() {
+  try {
+    return localStorage.getItem(SFX_SETTING_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+function writeSfxSetting(enabled) {
+  try {
+    localStorage.setItem(SFX_SETTING_KEY, enabled ? "on" : "off");
+  } catch {
+    // Sound preference can remain tab-local when storage is unavailable.
+  }
+}
 
 function readJson(key) {
   try {
@@ -785,6 +894,68 @@ function writeJson(key, value) {
   } catch {
     return false;
   }
+}
+
+function midiFrequency(note) {
+  return 440 * 2 ** ((note - 69) / 12);
+}
+
+function audioContext() {
+  if (!ui.sfxEnabled) return null;
+  const AudioContextClass = window.AudioContext ?? window.webkitAudioContext;
+  if (!AudioContextClass) return null;
+  try {
+    if (!audio.context) audio.context = new AudioContextClass({ latencyHint: "interactive" });
+    return audio.context;
+  } catch {
+    return null;
+  }
+}
+
+function playMidiTone(ctx, note, options = {}) {
+  const start = ctx.currentTime + (options.delay ?? 0);
+  const duration = options.duration ?? 0.07;
+  const oscillator = ctx.createOscillator();
+  const gain = ctx.createGain();
+  oscillator.type = options.type ?? "triangle";
+  oscillator.frequency.setValueAtTime(midiFrequency(note), start);
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(options.gain ?? 0.012, start + 0.008);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+  oscillator.connect(gain).connect(ctx.destination);
+  oscillator.start(start);
+  oscillator.stop(start + duration + 0.03);
+}
+
+function playSfx(name, detail = {}) {
+  const ctx = audioContext();
+  if (!ctx) return;
+  const run = () => {
+    if (name === "deal") {
+      const count = Math.max(1, Math.min(5, Number(detail.count) || 1));
+      [57, 60, 64, 67, 72].slice(0, count).forEach((note, index) => {
+        playMidiTone(ctx, note, { delay: index * 0.045, duration: 0.055, gain: 0.009, type: "square" });
+      });
+    } else if (name === "place") {
+      playMidiTone(ctx, detail.harvest ? 55 : 62, { duration: 0.055, gain: 0.014 });
+      playMidiTone(ctx, detail.harvest ? 72 : 69, { delay: 0.035, duration: 0.09, gain: 0.011 });
+    } else if (name === "reject") {
+      playMidiTone(ctx, 45, { duration: 0.08, gain: 0.012, type: "sawtooth" });
+    }
+  };
+  if (ctx.state === "suspended") void ctx.resume().then(run).catch(() => {});
+  else run();
+}
+
+function interactionLocked() {
+  return Boolean(ui.motion || ui.deal);
+}
+
+function validSolutionPath(path) {
+  if (!Array.isArray(path)) return false;
+  const plays = path.filter((action) => !action.type || action.type === "play").length;
+  const redraws = path.filter((action) => action.type === "redraw").length;
+  return plays === 40 && redraws <= HOURLY_REDRAW_LIMIT && path.length === plays + redraws;
 }
 
 function activeSeed() {
@@ -807,7 +978,7 @@ function loadSolution(seed) {
   const cached = readJson(hourlySolutionStorageKey(seed));
   if (cached?.seed === seed
     && cached.solverVersion === SOLVER_VERSION
-    && cached.path?.length === 40
+    && validSolutionPath(cached.path)
     && cached.maximumScore > 0) {
     const replay = replayHourlySolution(seed, cached);
     if (replay.ok) return cached;
@@ -909,12 +1080,11 @@ function previewLabel(preview) {
   return `연쇄 합 ${preview.chainSum} · +${preview.points}`;
 }
 
-function cardMarkup(card, compact = false) {
+function cardMarkup(card) {
   return `
     <span class="card-digit">${card.digit}</span>
     <img src="${escapeHtml(card.imagePath)}" alt="" draggable="false" />
     <strong>${escapeHtml(card.cardName)}</strong>
-    ${compact ? "" : `<small>${card.digit} 정원 카드</small>`}
   `;
 }
 
@@ -961,15 +1131,17 @@ function renderPendingBanner() {
 
 function renderGarden(pile, pileIndex, preview) {
   const isPulse = ui.harvestPulse?.pileIndex === pileIndex;
+  const isLanding = ui.landingPulse?.pileIndex === pileIndex;
   const isConnected = preview?.harvest && preview.connection.pileIndices.includes(pileIndex);
   const slots = Array.from({ length: 4 }, (_, index) => {
     const card = pile[index];
+    const isLandingCard = isLanding && ui.landingPulse?.cardId === card?.id;
     return card
-      ? `<span class="garden-card" style="--slot:${index}">${cardMarkup(card, true)}</span>`
+      ? `<span class="garden-card ${isLandingCard ? "is-landing-card" : ""}" style="--slot:${index}">${cardMarkup(card)}</span>`
       : `<span class="garden-slot" aria-hidden="true">${index + 1}</span>`;
   }).join("");
   return `
-    <button class="garden ${preview ? "is-target" : ""} ${preview?.harvest ? "will-harvest" : ""} ${isConnected ? "is-connected" : ""} ${isPulse ? "is-harvesting" : ""}" type="button" data-action="place-card" data-pile-index="${pileIndex}" ${ui.state.phase !== "play" || ui.motion ? "disabled" : ""}>
+    <button class="garden ${preview ? "is-target" : ""} ${preview?.harvest ? "will-harvest" : ""} ${isConnected ? "is-connected" : ""} ${isPulse ? "is-harvesting" : ""} ${isLanding ? "is-landing" : ""}" type="button" data-action="place-card" data-pile-index="${pileIndex}" ${ui.state.phase !== "play" || interactionLocked() ? "disabled" : ""}>
       <span class="garden-head"><strong>정원 ${pileIndex + 1}</strong><small>${pile.length}/4</small></span>
       <span class="garden-slots">${slots}</span>
       <span class="garden-preview">${escapeHtml(previewLabel(preview)) || "\u00a0"}</span>
@@ -990,20 +1162,29 @@ function renderBoard() {
   `;
 }
 
+function renderHandCard(card, index) {
+  const dealIndex = ui.deal?.cardIds.indexOf(card.id) ?? -1;
+  const isDeal = dealIndex >= 0;
+  const isSnapSource = ui.motion?.handIndex === index;
+  const dealX = Math.round((dealIndex - 2) * -16);
+  return `
+    <button class="hand-card ${ui.selectedHandIndex === index ? "is-selected" : ""} ${ui.rejectedHandIndex === index ? "is-rejected" : ""} ${isDeal ? "is-dealt" : ""} ${isSnapSource ? "is-snap-source" : ""}" type="button" data-action="select-card" data-hand-index="${index}" aria-pressed="${ui.selectedHandIndex === index}" aria-label="${escapeHtml(`${card.cardName} ${card.digit}, 손패 ${index + 1}`)}" style="--deal-delay:${Math.max(0, dealIndex) * DEAL_STAGGER_MS}ms;--deal-x:${dealX}px" ${ui.state.phase !== "play" || interactionLocked() ? "disabled" : ""}>
+      ${cardMarkup(card)}
+    </button>
+  `;
+}
+
 function renderHand() {
   const remaining = ui.state.deck.length + ui.state.hand.length;
+  const canRedraw = canRedrawHourlyHand(ui.state) && !interactionLocked();
   return `
     <section class="hand-section" aria-label="손패">
       <div class="hand-head"><div><strong>손패</strong><span>카드를 정원으로 옮기세요</span></div><div><span>남은 카드</span><strong>${remaining}</strong></div></div>
       <div class="hand-row">
-        ${ui.state.hand.map((card, index) => `
-          <button class="hand-card ${ui.selectedHandIndex === index ? "is-selected" : ""} ${ui.rejectedHandIndex === index ? "is-rejected" : ""}" type="button" data-action="select-card" data-hand-index="${index}" aria-pressed="${ui.selectedHandIndex === index}" aria-label="${escapeHtml(`${card.cardName} ${card.digit}, 손패 ${index + 1}`)}" ${ui.state.phase !== "play" || ui.motion ? "disabled" : ""}>
-            ${cardMarkup(card)}
-          </button>
-        `).join("")}
+        ${ui.state.hand.map(renderHandCard).join("")}
       </div>
       <div class="run-actions">
-        <button type="button" data-action="retry">다시하기</button>
+        <button class="primary-action redraw-action" type="button" data-action="redraw" ${canRedraw ? "" : "disabled"}><span>카드 새로받기</span><strong>${ui.state.redrawsLeft}</strong><small>/${HOURLY_REDRAW_LIMIT}</small></button>
         <span>${ui.state.cardsPlayed}/40 사용</span>
       </div>
     </section>
@@ -1013,9 +1194,11 @@ function renderHand() {
 function renderMotion() {
   if (!ui.motion) return "";
   const { source, target, card } = ui.motion;
-  const x = target.left + target.width / 2 - (source.left + source.width / 2);
-  const y = target.top + target.height / 2 - (source.top + source.height / 2);
-  return `<div class="flight-card" style="--flight-left:${source.left}px;--flight-top:${source.top}px;--flight-width:${source.width}px;--flight-x:${x}px;--flight-y:${y}px">${cardMarkup(card)}</div>`;
+  const x = target.left - source.left;
+  const y = target.top - source.top;
+  const scaleX = target.width / source.width;
+  const scaleY = target.height / source.height;
+  return `<div class="snap-card" style="--snap-left:${source.left}px;--snap-top:${source.top}px;--snap-width:${source.width}px;--snap-x:${x}px;--snap-y:${y}px;--snap-scale-x:${scaleX};--snap-scale-y:${scaleY}">${cardMarkup(card)}</div>`;
 }
 
 function renderHelp() {
@@ -1028,11 +1211,15 @@ function renderHelp() {
           <li>손패 카드 한 장을 원하는 정원으로 옮깁니다.</li>
           <li>정원에 네 장이 쌓이면 네 숫자를 더해 수확합니다.</li>
           <li>놓은 정원부터 시계방향 숫자가 이어지면 연결 수만큼 곱합니다.</li>
+          <li>카드 새로받기는 손패를 덱 뒤로 보내며 한 게임에 세 번 쓸 수 있습니다.</li>
           <li>40장을 모두 사용한 점수로 별을 받습니다.</li>
-          <li>새 시간 게임은 준비된 뒤 직접 시작합니다.</li>
         </ol>
         <p><strong>예:</strong> 네 장 합 19 × 정원 연결 3 = 57점</p>
-        <button class="primary-action" type="button" data-action="close-help">시작하기</button>
+        <label class="sound-setting"><span>효과음</span><input type="checkbox" data-action="toggle-sound" ${ui.sfxEnabled ? "checked" : ""} /><i aria-hidden="true"></i></label>
+        <div class="help-actions">
+          <button type="button" data-action="retry">현재 게임 다시하기</button>
+          <button class="primary-action" type="button" data-action="close-help">계속하기</button>
+        </div>
       </section>
     </div>
   `;
@@ -1050,7 +1237,7 @@ function renderResult() {
         <p>이번 시간 최고 ${best.score}</p>
         <div class="result-actions">
           <button type="button" data-action="share">결과공유</button>
-          <button class="primary-action" type="button" data-action="retry">다시하기</button>
+          <button type="button" data-action="help">게임방법</button>
           ${ui.pendingSeed ? '<button type="button" data-action="start-ready">새 게임 시작</button>' : ""}
         </div>
       </section>
@@ -1071,8 +1258,8 @@ function render() {
       ${renderPendingBanner()}
       ${renderBoard()}
       ${renderHand()}
-      ${renderHelp()}
       ${renderResult()}
+      ${renderHelp()}
       ${renderToast()}
       ${renderMotion()}
     </main>
@@ -1093,7 +1280,7 @@ function showToast(message) {
 }
 
 function selectCard(index) {
-  if (ui.motion || ui.state.phase !== "play" || !ui.state.hand[index]) return;
+  if (interactionLocked() || ui.state.phase !== "play" || !ui.state.hand[index]) return;
   ui.selectedHandIndex = ui.selectedHandIndex === index ? null : index;
   render();
 }
@@ -1110,6 +1297,14 @@ function finishPlacement(handIndex, pileIndex) {
     showToast("카드를 놓지 못했습니다.");
     return;
   }
+  ui.landingPulse = { pileIndex, cardId: result.card.id };
+  playSfx("place", { harvest: Boolean(result.harvest) });
+  window.setTimeout(() => {
+    if (ui.landingPulse?.cardId !== result.card.id) return;
+    ui.landingPulse = null;
+    document.querySelector(`[data-pile-index="${pileIndex}"]`)?.classList.remove("is-landing");
+    document.querySelector(`[data-pile-index="${pileIndex}"] .garden-card.is-landing-card`)?.classList.remove("is-landing-card");
+  }, LANDING_MS);
   if (result.harvest) {
     ui.harvestPulse = result.harvest;
     window.setTimeout(() => {
@@ -1125,34 +1320,86 @@ function finishPlacement(handIndex, pileIndex) {
   render();
 }
 
+function placementTargetRect(pileIndex) {
+  const slotIndex = Math.min(ui.state.piles[pileIndex]?.length ?? 0, 3);
+  const slot = document.querySelector(`[data-pile-index="${pileIndex}"] .garden-slots > :nth-child(${slotIndex + 1})`);
+  return rectSnapshot(slot?.getBoundingClientRect());
+}
+
 function placeCard(handIndex, pileIndex, sourceRect = null) {
-  if (ui.motion || ui.state.phase !== "play") return;
+  if (interactionLocked() || ui.state.phase !== "play") return;
   const preview = previewHourlyPlacement(ui.state, handIndex, pileIndex);
   if (!preview.ok) return;
   const source = sourceRect ?? rectSnapshot(document.querySelector(`[data-hand-index="${handIndex}"]`)?.getBoundingClientRect());
-  const target = rectSnapshot(document.querySelector(`[data-pile-index="${pileIndex}"]`)?.getBoundingClientRect());
+  const target = placementTargetRect(pileIndex);
   if (!source || !target || matchMedia("(prefers-reduced-motion: reduce)").matches) {
     finishPlacement(handIndex, pileIndex);
     return;
   }
-  ui.motion = { card: ui.state.hand[handIndex], source, target };
+  ui.motion = { type: "snap", card: ui.state.hand[handIndex], handIndex, pileIndex, source, target };
   ui.selectedHandIndex = null;
   render();
-  window.setTimeout(() => finishPlacement(handIndex, pileIndex), FLIGHT_MS);
+  window.setTimeout(() => finishPlacement(handIndex, pileIndex), SNAP_MS);
+}
+
+function startDealMotion(cards, options = {}) {
+  const cardIds = cards.map((card) => card.id);
+  ui.pendingDealSound = options.sound === false && cardIds.length > 0;
+  if (options.sound !== false) playSfx("deal", { count: cardIds.length });
+  if (!cardIds.length || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    ui.deal = null;
+    ui.pendingDealSound = false;
+    return;
+  }
+  const id = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  ui.deal = { id, cardIds };
+  const duration = DEAL_CARD_MS + Math.max(0, cardIds.length - 1) * DEAL_STAGGER_MS;
+  window.setTimeout(() => {
+    if (ui.deal?.id !== id) return;
+    ui.deal = null;
+    ui.pendingDealSound = false;
+    render();
+  }, duration);
+}
+
+function playPendingDealSound() {
+  if (!ui.pendingDealSound) return;
+  ui.pendingDealSound = false;
+  playSfx("deal", { count: ui.deal?.cardIds.length ?? ui.state?.hand.length ?? 5 });
+}
+
+function redrawCurrentHand() {
+  if (interactionLocked() || !canRedrawHourlyHand(ui.state)) return;
+  const result = perfMonitor.measure("game.redraw", () => redrawHourlyHand(ui.state));
+  if (!result.ok) {
+    showToast("지금은 카드를 새로 받을 수 없습니다.");
+    return;
+  }
+  ui.selectedHandIndex = null;
+  saveRun();
+  startDealMotion(result.hand);
+  render();
 }
 
 function retryCurrent() {
   ui.resultOpen = false;
+  ui.helpOpen = false;
   ui.selectedHandIndex = null;
+  ui.motion = null;
+  ui.deal = null;
   ui.state = newHourlyRun(ui.state.seed, { solution: ui.solution ?? loadSolution(ui.state.seed) });
   saveRun();
+  startDealMotion(ui.state.hand);
   render();
 }
 
 function startSeed(seed) {
   ui.loading = true;
   ui.resultOpen = false;
+  ui.helpOpen = false;
   ui.selectedHandIndex = null;
+  ui.motion = null;
+  ui.deal = null;
   app.innerHTML = '<main class="hourly-loading"><strong>새 정원을 준비하는 중</strong><span>최대 점수를 계산하고 있어요.</span></main>';
   window.setTimeout(() => {
     ui.solution = loadSolution(seed);
@@ -1160,6 +1407,7 @@ function startSeed(seed) {
     ui.pendingSeed = "";
     ui.loading = false;
     saveRun();
+    startDealMotion(ui.state.hand);
     render();
   }, 30);
 }
@@ -1212,7 +1460,7 @@ async function shareResult() {
 }
 
 function beginDrag(event, cardButton) {
-  if (event.button !== 0 || ui.drag || ui.motion || ui.state.phase !== "play") return;
+  if (event.button !== 0 || ui.drag || interactionLocked() || ui.state.phase !== "play") return;
   const stop = perfMonitor.start("drag.start", { pointerType: event.pointerType || "mouse" });
   const handIndex = Number(cardButton.dataset.handIndex);
   const rect = cardButton.getBoundingClientRect();
@@ -1233,6 +1481,7 @@ function beginDrag(event, cardButton) {
     overPileIndex: null,
     frameId: null,
   };
+  document.body.classList.add("is-card-dragging");
   if (event.pointerId != null) app.setPointerCapture?.(event.pointerId);
   window.addEventListener("pointermove", moveDrag, { passive: false });
   window.addEventListener("pointerup", endDrag, { passive: false });
@@ -1308,6 +1557,7 @@ function moveDrag(event) {
 
 function rejectDraggedCard(handIndex) {
   ui.rejectedHandIndex = handIndex;
+  playSfx("reject");
   window.setTimeout(() => {
     if (ui.rejectedHandIndex === handIndex) ui.rejectedHandIndex = null;
     document.querySelector(`[data-hand-index="${handIndex}"]`)?.classList.remove("is-rejected");
@@ -1316,6 +1566,7 @@ function rejectDraggedCard(handIndex) {
 
 function clearDragSession(drag) {
   ui.drag = null;
+  document.body.classList.remove("is-card-dragging");
   if (drag.frameId != null) window.cancelAnimationFrame(drag.frameId);
   window.removeEventListener("pointermove", moveDrag);
   window.removeEventListener("pointerup", endDrag);
@@ -1332,6 +1583,12 @@ function endDrag(event) {
   if (!drag || (drag.pointerId != null && drag.pointerId !== event.pointerId)) return;
   const canceled = isPointerDragCancellation(event.type);
   const target = !canceled && drag.moved ? gardenFromPoint(event.clientX, event.clientY) : null;
+  if (drag.ghost) {
+    const position = dragGhostPosition(event.clientX, event.clientY, drag.offsetX, drag.offsetY);
+    drag.ghost.style.setProperty("--drag-x", `${position.x}px`);
+    drag.ghost.style.setProperty("--drag-y", `${position.y}px`);
+  }
+  const dropSourceRect = rectSnapshot(drag.ghost?.getBoundingClientRect()) ?? drag.sourceRect;
   const stop = perfMonitor.start("drag.end", {
     handIndex: drag.handIndex,
     pointerType: drag.pointerType,
@@ -1349,7 +1606,7 @@ function endDrag(event) {
   }, 0);
   if (target) {
     stop({ canceled: false, placed: true, pileIndex: Number(target.dataset.pileIndex) });
-    placeCard(drag.handIndex, Number(target.dataset.pileIndex), drag.sourceRect);
+    placeCard(drag.handIndex, Number(target.dataset.pileIndex), dropSourceRect);
     return;
   }
   if (drag.moved) {
@@ -1367,10 +1624,16 @@ function endDrag(event) {
 function handleAction(action, button) {
   if (action === "select-card") selectCard(Number(button.dataset.handIndex));
   else if (action === "place-card" && ui.selectedHandIndex != null) placeCard(ui.selectedHandIndex, Number(button.dataset.pileIndex));
+  else if (action === "redraw") redrawCurrentHand();
   else if (action === "retry") retryCurrent();
   else if (action === "start-ready") startSeed(ui.pendingSeed || kstHourSeed());
   else if (action === "help") { ui.helpOpen = true; render(); }
   else if (action === "close-help") { ui.helpOpen = false; render(); }
+  else if (action === "toggle-sound") {
+    ui.sfxEnabled = button.checked;
+    writeSfxSetting(ui.sfxEnabled);
+    if (ui.sfxEnabled) playSfx("place");
+  }
   else if (action === "share") shareResult();
 }
 
@@ -1389,6 +1652,7 @@ app.addEventListener("click", (event) => {
 });
 
 app.addEventListener("pointerdown", (event) => {
+  playPendingDealSound();
   const card = event.target.closest(".hand-card[data-hand-index]");
   if (card) beginDrag(event, card);
 });
@@ -1403,7 +1667,8 @@ app.addEventListener("error", (event) => {
 }, true);
 
 window.addEventListener("keydown", (event) => {
-  if (ui.motion || event.target instanceof HTMLInputElement) return;
+  playPendingDealSound();
+  if (interactionLocked() || event.target instanceof HTMLInputElement) return;
   const key = event.key.toLowerCase();
   if (key >= "1" && key <= "5") selectCard(Number(key) - 1);
   else if (["q", "w", "e", "r"].includes(key) && ui.selectedHandIndex != null) {
@@ -1430,6 +1695,9 @@ function bootstrap() {
   try {
     restoreOrCreateRun();
     ui.loading = false;
+    if (ui.state.cardsPlayed === 0 && ui.state.redrawsUsed === 0) {
+      startDealMotion(ui.state.hand, { sound: navigator.userActivation?.hasBeenActive === true });
+    }
     render();
     window.setInterval(updateClock, 1000);
   } catch (error) {
@@ -1445,7 +1713,7 @@ installPerformanceTools({
   monitor: perfMonitor,
   render,
   root: app,
-  getDetail: () => ({ seed: ui.state?.seed, phase: ui.state?.phase, motion: ui.motion?.type ?? null }),
+  getDetail: () => ({ seed: ui.state?.seed, phase: ui.state?.phase, motion: ui.motion?.type ?? (ui.deal ? "deal" : null) }),
 });
 
 

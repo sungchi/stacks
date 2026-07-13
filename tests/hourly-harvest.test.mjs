@@ -5,6 +5,8 @@ import fs from "node:fs";
 import {
   HOURLY_CLOCKWISE_ORDER,
   HOURLY_ART_VARIANTS,
+  HOURLY_REDRAW_LIMIT,
+  canRedrawHourlyHand,
   createHourlyDeck,
   formatDuration,
   gardenConnection,
@@ -13,6 +15,7 @@ import {
   newHourlyRun,
   playHourlyCard,
   previewHourlyPlacement,
+  redrawHourlyHand,
   replayHourlySolution,
   restoreHourlyRun,
   secondsUntilNextHour,
@@ -123,6 +126,27 @@ test("non-harvest placement remains legal in every garden", () => {
   assert.equal(preview.cardsUntilHarvest, 3);
 });
 
+test("hourly hand can be redrawn three times without discarding cards", () => {
+  const solution = { maximumScore: 300, thresholds: thresholdsForMaximum(300), solverVersion: "test", verified: true };
+  const state = newHourlyRun("2026071312", { solution });
+  const originalHandIds = state.hand.map((item) => item.id);
+  const originalCardIds = [...state.hand, ...state.deck].map((item) => item.id).sort();
+
+  for (let remaining = HOURLY_REDRAW_LIMIT - 1; remaining >= 0; remaining -= 1) {
+    assert.equal(canRedrawHourlyHand(state), true);
+    const result = redrawHourlyHand(state);
+    assert.equal(result.ok, true);
+    assert.equal(state.redrawsLeft, remaining);
+    assert.equal(state.cardsPlayed, 0);
+    assert.equal(state.hand.length, 5);
+  }
+
+  assert.notDeepEqual(state.hand.map((item) => item.id), originalHandIds);
+  assert.deepEqual([...state.hand, ...state.deck].map((item) => item.id).sort(), originalCardIds);
+  assert.equal(canRedrawHourlyHand(state), false);
+  assert.deepEqual(redrawHourlyHand(state), { ok: false, reason: "no_redraws" });
+});
+
 test("star thresholds are rounded and PERFECT remains separate", () => {
   const thresholds = thresholdsForMaximum(347);
   assert.deepEqual(thresholds, { one: 120, two: 200, three: 270, perfect: 347 });
@@ -134,7 +158,8 @@ test("star thresholds are rounded and PERFECT remains separate", () => {
 test("deterministic solver target replays to its verified score", () => {
   const solution = solveHourlyHarvestMaximum("2026071310", { beamWidth: 250 });
   const replay = replayHourlySolution("2026071310", solution);
-  assert.equal(solution.path.length, 40);
+  assert.equal(solution.path.filter((action) => action.type === "play").length, 40);
+  assert.ok(solution.path.filter((action) => action.type === "redraw").length <= HOURLY_REDRAW_LIMIT);
   assert.equal(solution.verified, true);
   assert.equal(replay.ok, true);
   assert.equal(replay.score, solution.maximumScore);
@@ -143,8 +168,11 @@ test("deterministic solver target replays to its verified score", () => {
 test("hourly snapshot restore and share text preserve the challenge result", () => {
   const solution = solveHourlyHarvestMaximum("2026071311", { beamWidth: 250 });
   const run = newHourlyRun("2026071311", { solution });
+  redrawHourlyHand(run);
   const restored = restoreHourlyRun(snapshotHourlyRun(run));
   assert.equal(restored.seed, run.seed);
   assert.equal(restored.hand[0].variantId, run.hand[0].variantId);
+  assert.equal(restored.redrawsLeft, 2);
+  assert.equal(restored.redrawsUsed, 1);
   assert.match(hourlyResultShareText(restored, "https://example.com"), /^스택스 #2026071311 도전중 0점 \/ 최대 \d+점 https:\/\/example\.com$/);
 });

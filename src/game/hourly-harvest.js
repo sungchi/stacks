@@ -1,12 +1,13 @@
 import { createRng, shuffleInPlace } from "./random.js";
 
 export const HOURLY_MODE = "hourly";
-export const HOURLY_RULES_VERSION = "hourly-four-harvest-v1";
+export const HOURLY_RULES_VERSION = "hourly-four-harvest-v2";
 export const HOURLY_ASSET_VERSION = "seed-art-v1";
 export const HOURLY_HAND_SIZE = 5;
 export const HOURLY_DECK_SIZE = 40;
 export const HOURLY_PILE_COUNT = 4;
 export const HOURLY_HARVEST_SIZE = 4;
+export const HOURLY_REDRAW_LIMIT = 3;
 export const HOURLY_CLOCKWISE_ORDER = [0, 1, 3, 2];
 export const HOURLY_SHARE_URL = "https://plan9.kr/stacks";
 
@@ -245,6 +246,35 @@ function refillHourlyHand(state) {
   }
 }
 
+export function canRedrawHourlyHand(state) {
+  return state?.phase === "play"
+    && safeInt(state.redrawsLeft) > 0
+    && Array.isArray(state.deck)
+    && state.deck.length > 0
+    && Array.isArray(state.hand)
+    && state.hand.length > 0;
+}
+
+export function redrawHourlyHand(state) {
+  if (state?.phase !== "play") return { ok: false, reason: "not_playing" };
+  if (safeInt(state.redrawsLeft) <= 0) return { ok: false, reason: "no_redraws" };
+  if (!state.deck?.length || !state.hand?.length) return { ok: false, reason: "no_new_cards" };
+
+  const previousHand = state.hand.splice(0);
+  state.deck.push(...previousHand);
+  refillHourlyHand(state);
+  state.redrawsLeft -= 1;
+  state.redrawsUsed += 1;
+  state.updatedAt = Date.now();
+  return {
+    ok: true,
+    previousHand: copy(previousHand),
+    hand: copy(state.hand),
+    redrawsLeft: state.redrawsLeft,
+    state,
+  };
+}
+
 export function playHourlyCard(state, handIndex, pileIndex) {
   const preview = previewHourlyPlacement(state, handIndex, pileIndex);
   if (!preview.ok) return preview;
@@ -301,8 +331,8 @@ function compactConnection(piles, triggerIndex, digit) {
   return length;
 }
 
-function compactKey(cursor, hand, piles) {
-  return `${cursor}|${[...hand].sort((a, b) => a - b).join("")}|${piles.map((pile) => `${pile.count},${pile.sum},${pile.top}`).join("/")}`;
+function compactKey(hand, queue, piles, redrawsLeft) {
+  return `${[...hand].sort((a, b) => a - b).join("")}|${queue}|${redrawsLeft}|${piles.map((pile) => `${pile.count},${pile.sum},${pile.top}`).join("/")}`;
 }
 
 function solverHeuristic(state) {
@@ -312,10 +342,10 @@ function solverHeuristic(state) {
     occupancy += pile.count;
     if (pile.count === 3) ready += pile.sum * 2 + Math.max(0, pile.top);
   }
-  return state.score * 1000 + ready * 10 - occupancy;
+  return state.score * 1000 + ready * 10 - occupancy + state.redrawsLeft;
 }
 
-function solverTransition(state, digit, handIndex, pileIndex, deckDigits) {
+function solverPlayTransition(state, digit, handIndex, pileIndex) {
   const piles = state.piles.map((pile) => ({ ...pile }));
   const pile = piles[pileIndex];
   let gain = 0;
@@ -327,15 +357,53 @@ function solverTransition(state, digit, handIndex, pileIndex, deckDigits) {
   }
 
   const hand = state.hand.filter((_, index) => index !== handIndex);
-  let cursor = state.cursor;
-  if (cursor < deckDigits.length) hand.push(deckDigits[cursor++]);
+  let queue = state.queue;
+  if (queue.length) {
+    hand.push(Number(queue[0]));
+    queue = queue.slice(1);
+  }
   return {
-    cursor,
     hand,
+    queue,
     piles,
     score: state.score + gain,
-    path: [...state.path, { digit, pileIndex }],
+    redrawsLeft: state.redrawsLeft,
+    trail: { action: { type: "play", digit, pileIndex }, previous: state.trail },
   };
+}
+
+function solverRedrawTransition(state) {
+  if (state.redrawsLeft <= 0 || !state.queue.length || !state.hand.length) return null;
+  const rotated = `${state.queue}${state.hand.join("")}`;
+  return {
+    hand: [...rotated.slice(0, HOURLY_HAND_SIZE)].map(Number),
+    queue: rotated.slice(HOURLY_HAND_SIZE),
+    piles: state.piles,
+    score: state.score,
+    redrawsLeft: state.redrawsLeft - 1,
+    trail: { action: { type: "redraw" }, previous: state.trail },
+  };
+}
+
+function solverRedrawOptions(state) {
+  const options = [state];
+  let next = state;
+  while (next.redrawsLeft > 0 && next.queue.length) {
+    next = solverRedrawTransition(next);
+    if (!next) break;
+    options.push(next);
+  }
+  return options;
+}
+
+function materializeSolverPath(trail) {
+  const path = [];
+  let current = trail;
+  while (current) {
+    path.push(current.action);
+    current = current.previous;
+  }
+  return path.reverse();
 }
 
 export function solveHourlyHarvestMaximum(seed, options = {}) {
@@ -343,28 +411,31 @@ export function solveHourlyHarvestMaximum(seed, options = {}) {
   const deckDigits = createHourlyDeck(seed).map((card) => card.digit);
   const emptyPile = () => ({ count: 0, sum: 0, top: -1 });
   let beam = [{
-    cursor: HOURLY_HAND_SIZE,
     hand: deckDigits.slice(0, HOURLY_HAND_SIZE),
+    queue: deckDigits.slice(HOURLY_HAND_SIZE).join(""),
     piles: [emptyPile(), emptyPile(), emptyPile(), emptyPile()],
     score: 0,
-    path: [],
+    redrawsLeft: HOURLY_REDRAW_LIMIT,
+    trail: null,
   }];
   let exploredStates = 0;
 
   for (let turn = 0; turn < HOURLY_DECK_SIZE; turn += 1) {
     const unique = new Map();
     for (const state of beam) {
-      const seenDigits = new Set();
-      for (let handIndex = 0; handIndex < state.hand.length; handIndex += 1) {
-        const digit = state.hand[handIndex];
-        if (seenDigits.has(digit)) continue;
-        seenDigits.add(digit);
-        for (let pileIndex = 0; pileIndex < HOURLY_PILE_COUNT; pileIndex += 1) {
-          const next = solverTransition(state, digit, handIndex, pileIndex, deckDigits);
-          const key = compactKey(next.cursor, next.hand, next.piles);
-          const previous = unique.get(key);
-          if (!previous || next.score > previous.score) unique.set(key, next);
-          exploredStates += 1;
+      for (const option of solverRedrawOptions(state)) {
+        const seenDigits = new Set();
+        for (let handIndex = 0; handIndex < option.hand.length; handIndex += 1) {
+          const digit = option.hand[handIndex];
+          if (seenDigits.has(digit)) continue;
+          seenDigits.add(digit);
+          for (let pileIndex = 0; pileIndex < HOURLY_PILE_COUNT; pileIndex += 1) {
+            const next = solverPlayTransition(option, digit, handIndex, pileIndex);
+            const key = compactKey(next.hand, next.queue, next.piles, next.redrawsLeft);
+            const previous = unique.get(key);
+            if (!previous || next.score > previous.score) unique.set(key, next);
+            exploredStates += 1;
+          }
         }
       }
     }
@@ -378,7 +449,7 @@ export function solveHourlyHarvestMaximum(seed, options = {}) {
     seed,
     maximumScore: best?.score ?? 1,
     thresholds: thresholdsForMaximum(best?.score ?? 1),
-    path: best?.path ?? [],
+    path: materializeSolverPath(best?.trail),
     exploredStates,
     verified: true,
     solverVersion: `${HOURLY_RULES_VERSION}:beam-${beamWidth}`,
@@ -403,6 +474,8 @@ export function newHourlyRun(seed, options = {}) {
     solverVerified: solution.verified === true,
     cardsPlayed: 0,
     harvests: 0,
+    redrawsLeft: HOURLY_REDRAW_LIMIT,
+    redrawsUsed: 0,
     stars: 0,
     perfect: false,
     lastHarvest: null,
@@ -426,6 +499,8 @@ export function restoreHourlyRun(snapshot) {
   state.score = Math.max(0, safeInt(state.score));
   state.cardsPlayed = Math.max(0, safeInt(state.cardsPlayed));
   state.harvests = Math.max(0, safeInt(state.harvests));
+  state.redrawsLeft = Math.max(0, Math.min(HOURLY_REDRAW_LIMIT, safeInt(state.redrawsLeft, HOURLY_REDRAW_LIMIT)));
+  state.redrawsUsed = Math.max(0, Math.min(HOURLY_REDRAW_LIMIT, safeInt(state.redrawsUsed, HOURLY_REDRAW_LIMIT - state.redrawsLeft)));
   state.maximumScore = Math.max(1, safeInt(state.maximumScore, 1));
   state.thresholds = thresholdsForMaximum(state.maximumScore);
   state.stars = starsForScore(state.score, state.thresholds);
@@ -437,6 +512,12 @@ export function restoreHourlyRun(snapshot) {
 export function replayHourlySolution(seed, solution) {
   const run = newHourlyRun(seed, { solution });
   for (const action of solution.path ?? []) {
+    if (action.type === "redraw") {
+      const result = redrawHourlyHand(run);
+      if (!result.ok) return { ok: false, reason: result.reason, state: run };
+      continue;
+    }
+    if (action.type && action.type !== "play") return { ok: false, reason: "unknown_solution_action", state: run };
     const handIndex = run.hand.findIndex((card) => card.digit === action.digit);
     if (handIndex < 0) return { ok: false, reason: "missing_solution_card", state: run };
     const result = playHourlyCard(run, handIndex, action.pileIndex);
@@ -455,15 +536,15 @@ export function hourlyResultShareText(state, url = HOURLY_SHARE_URL) {
 }
 
 export function hourlyRunStorageKey(seed) {
-  return `garden-stacks:hourly-v1:${seed}:run`;
+  return `garden-stacks:hourly-v2:${seed}:run`;
 }
 
 export function hourlyBestStorageKey(seed) {
-  return `garden-stacks:hourly-v1:${seed}:best`;
+  return `garden-stacks:hourly-v2:${seed}:best`;
 }
 
 export function hourlySolutionStorageKey(seed) {
-  return `garden-stacks:hourly-v1:${seed}:solution`;
+  return `garden-stacks:hourly-v2:${seed}:solution`;
 }
 
-export const HOURLY_ACTIVE_SEED_KEY = "garden-stacks:hourly-v1:active-seed";
+export const HOURLY_ACTIVE_SEED_KEY = "garden-stacks:hourly-v2:active-seed";
