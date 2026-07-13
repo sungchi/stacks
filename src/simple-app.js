@@ -130,13 +130,6 @@ function requestedViewMode() {
   return ["mobile", "desktop"].includes(view) ? view : "auto";
 }
 
-function mobileHandPreviewMode() {
-  const viewMode = requestedViewMode();
-  if (viewMode === "mobile") return true;
-  if (viewMode === "desktop") return false;
-  return window.matchMedia("(max-width: 640px)").matches;
-}
-
 function clampSelectedHand() {
   if (!ui.state.hand.length) {
     ui.selectedHandIndex = null;
@@ -405,22 +398,6 @@ function rejectUnplayableHand(handIndex) {
   queueMotion({ type: "reject", handIndex }, 360);
   playSfx("reject");
   showToast("놓을 수 있는 정원 더미가 없습니다.");
-}
-
-function previewHandCard(handIndex) {
-  if (!hasPlayableTarget(handIndex)) {
-    rejectUnplayableHand(handIndex);
-    return false;
-  }
-  if (ui.hoverPreviewTimer) {
-    window.clearTimeout(ui.hoverPreviewTimer);
-    ui.hoverPreviewTimer = null;
-  }
-  ui.selectedHandIndex = handIndex;
-  ui.hoveredHandIndex = handIndex;
-  applyHandHoverPreview();
-  playSfx("select");
-  return true;
 }
 
 function freshRunSeed() {
@@ -1280,8 +1257,12 @@ function handleAction(action, button) {
       render();
       return;
     }
-    if (isEndlessRun() && mobileHandPreviewMode() && ui.selectedHandIndex !== index) {
-      previewHandCard(index);
+    if (isEndlessRun()) {
+      if (!hasPlayableTarget(index)) {
+        rejectUnplayableHand(index);
+        return;
+      }
+      playBestCard(index);
       return;
     }
     if (quickPlayPriorityTarget(index, rectSnapshot(button.getBoundingClientRect()))) return;
@@ -1575,7 +1556,7 @@ app.addEventListener("mousedown", (event) => {
 app.addEventListener("pointerover", (event) => {
   const card = event.target.closest(".hand-card[data-action='select-card']");
   if (!card || handHoverLocked()) return;
-  if (event.pointerType === "touch" && isEndlessRun() && mobileHandPreviewMode()) return;
+  if (event.pointerType === "touch") return;
   setHoveredHandIndex(Number(card.dataset.handIndex));
 });
 
