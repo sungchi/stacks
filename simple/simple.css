@@ -278,10 +278,6 @@ button:disabled {
   gap: 8px;
 }
 
-.garden-grid.is-success-pop .garden-slots {
-  animation: harvestAnswerPop 430ms ease;
-}
-
 .harvest-flying-score {
   position: absolute;
   z-index: 20;
@@ -302,18 +298,13 @@ button:disabled {
   line-height: 1;
   pointer-events: none;
   white-space: nowrap;
-  animation: harvestScoreFly 1000ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  opacity: 0;
+  animation: harvestScoreFly 500ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  animation-delay: var(--effect-delay, 0ms);
 }
 
 .harvest-flying-score strong {
   font: inherit;
-}
-
-.harvest-flying-score small {
-  font-size: 10px;
-  font-weight: 900;
-  line-height: 1.1;
-  text-align: center;
 }
 
 .harvest-success-ring {
@@ -328,7 +319,8 @@ button:disabled {
   opacity: 0;
   pointer-events: none;
   transform: translate(-50%, -50%) scale(0.55);
-  animation: harvestSuccessRing 620ms ease-out forwards;
+  animation: harvestSuccessRing 500ms ease-out forwards;
+  animation-delay: var(--effect-delay, 0ms);
 }
 
 .harvest-success-sparks {
@@ -352,15 +344,16 @@ button:disabled {
   background: #fff;
   opacity: 0;
   transform: translate(-50%, -50%) scale(0.7);
-  animation: harvestSuccessSpark 680ms ease-out forwards;
+  animation: harvestSuccessSpark 520ms ease-out forwards;
+  animation-delay: calc(var(--effect-delay, 0ms) + var(--spark-delay, 0ms));
 }
 
 .harvest-success-sparks i:nth-child(1) { --spark-x: -104px; --spark-y: -84px; }
-.harvest-success-sparks i:nth-child(2) { --spark-x: 92px; --spark-y: -92px; animation-delay: 25ms; }
-.harvest-success-sparks i:nth-child(3) { --spark-x: 118px; --spark-y: 8px; animation-delay: 50ms; }
-.harvest-success-sparks i:nth-child(4) { --spark-x: 70px; --spark-y: 104px; animation-delay: 75ms; }
-.harvest-success-sparks i:nth-child(5) { --spark-x: -80px; --spark-y: 92px; animation-delay: 100ms; }
-.harvest-success-sparks i:nth-child(6) { --spark-x: -118px; --spark-y: 10px; animation-delay: 125ms; }
+.harvest-success-sparks i:nth-child(2) { --spark-x: 92px; --spark-y: -92px; --spark-delay: 20ms; }
+.harvest-success-sparks i:nth-child(3) { --spark-x: 118px; --spark-y: 8px; --spark-delay: 40ms; }
+.harvest-success-sparks i:nth-child(4) { --spark-x: 70px; --spark-y: 104px; --spark-delay: 60ms; }
+.harvest-success-sparks i:nth-child(5) { --spark-x: -80px; --spark-y: 92px; --spark-delay: 80ms; }
+.harvest-success-sparks i:nth-child(6) { --spark-x: -118px; --spark-y: 10px; --spark-delay: 100ms; }
 
 .garden {
   position: relative;
@@ -402,6 +395,10 @@ button:disabled {
   background: var(--green-soft);
 }
 
+.garden.is-score-connected {
+  background: var(--green-soft);
+}
+
 .garden.is-drag-over {
   transform: translateY(-3px);
   border-color: var(--ink);
@@ -409,7 +406,8 @@ button:disabled {
 }
 
 .garden.is-harvesting {
-  animation: harvestPulse 620ms var(--ease);
+  animation: harvestPulse 430ms var(--ease);
+  animation-delay: var(--final-delay, 0ms);
 }
 
 .garden.is-landing {
@@ -435,6 +433,7 @@ button:disabled {
 }
 
 .garden-slots {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: center;
@@ -469,6 +468,73 @@ button:disabled {
   padding: 3px;
   border: 1px solid var(--ink);
   background: #fff;
+}
+
+.garden-card.is-harvest-ghost,
+.garden-card.has-board-multiplier {
+  overflow: visible;
+}
+
+.garden-card.is-harvest-ghost {
+  box-shadow: 0 2px 0 rgba(21, 23, 21, 0.12);
+}
+
+.harvest-addition,
+.board-chain-multiplier,
+.pile-chain-multiplier {
+  position: absolute;
+  z-index: 20;
+  top: 3px;
+  left: 50%;
+  min-width: 27px;
+  padding: 3px 5px;
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 1000;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  animation: harvestComboBadge 680ms var(--ease) both;
+  animation-delay: var(--effect-delay, 0ms);
+}
+
+.pile-chain-multiplier {
+  z-index: 24;
+  top: 3px;
+  min-width: 36px;
+}
+
+.pile-chain-multiplier.is-species {
+  min-width: 74px;
+  font-size: 9px;
+}
+
+.board-chain-multiplier.is-winner,
+.pile-chain-multiplier.is-winner {
+  border-width: 3px;
+  background: var(--green-soft);
+}
+
+.garden.is-resolving .garden-slots {
+  animation: harvestAnswerPop 430ms ease both;
+  animation-delay: var(--final-delay, 0ms);
+}
+
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
 }
 
 .garden-card .card-digit {
@@ -1106,6 +1172,13 @@ body.is-card-carrying .garden.is-target {
   to { outline-offset: -8px; }
 }
 
+@keyframes harvestComboBadge {
+  0% { opacity: 0; transform: translate(-50%, 8px) scale(0.82); }
+  18% { opacity: 1; transform: translate(-50%, -2px) scale(1.08); }
+  68% { opacity: 1; transform: translate(-50%, -15px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -25px) scale(0.94); }
+}
+
 @keyframes harvestScoreFly {
   0% { opacity: 0; transform: translate(-50%, -30%) scale(0.9); }
   14% { opacity: 1; transform: translate(-50%, -58%) scale(1.04); }
@@ -1250,5 +1323,18 @@ body.is-card-carrying .garden.is-target {
     animation-duration: 1ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 1ms !important;
+  }
+
+  .harvest-addition,
+  .board-chain-multiplier,
+  .pile-chain-multiplier,
+  .harvest-success-ring,
+  .harvest-success-sparks {
+    display: none !important;
+  }
+
+  .harvest-flying-score {
+    opacity: 1 !important;
+    animation: none !important;
   }
 }

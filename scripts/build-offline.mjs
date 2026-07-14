@@ -19,6 +19,7 @@ const builds = [
       "src/i18n.js",
       "src/game/random.js",
       "src/game/hourly-harvest.js",
+      "src/ui/harvest-feedback.js",
       "src/ui/pointer-drag.js",
       "src/simple-app.js",
     ],

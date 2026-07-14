@@ -260,6 +260,7 @@ const TRANSLATIONS = {
     "garden.clockwise": "시계방향 정원 순서",
     "garden.rule": "네 장 합 × 최고 배수 · 같은 종 네 장은 ×5",
     "harvest.sameSpecies": "같은 종 ×5",
+    "harvest.aria": "수확 합 {sum} × 최고 배수 {multiplier}, {points}점 획득",
     "hand.cardAria": "{name} {digit}, 손패 {index}",
     "hand.region": "손패",
     "hand.title": "손패",
@@ -328,6 +329,7 @@ const TRANSLATIONS = {
     "garden.clockwise": "Clockwise garden order",
     "garden.rule": "Four-card sum × best multiplier · same species ×5",
     "harvest.sameSpecies": "Same species ×5",
+    "harvest.aria": "Harvest sum {sum} × best multiplier {multiplier}, {points} points earned",
     "hand.cardAria": "{name} {digit}, hand card {index}",
     "hand.region": "Hand",
     "hand.title": "Hand",
@@ -396,6 +398,7 @@ const TRANSLATIONS = {
     "garden.clockwise": "時計回りのガーデン順",
     "garden.rule": "4枚の合計 × 最高倍率・同じ種4枚は×5",
     "harvest.sameSpecies": "同じ種 ×5",
+    "harvest.aria": "収穫の合計 {sum} × 最高倍率 {multiplier}、{points}点獲得",
     "hand.cardAria": "{name} {digit}、手札 {index}",
     "hand.region": "手札",
     "hand.title": "手札",
@@ -1164,6 +1167,99 @@ const HOURLY_ACTIVE_SEED_KEY = "garden-stacks:hourly-v4:active-seed";
 
 
 
+// ---- src/ui/harvest-feedback.js ----
+const HARVEST_ADD_STEP_MS = 300;
+const HARVEST_MULTIPLIER_START_MS = 1050;
+const HARVEST_LINK_STEP_MS = 120;
+const HARVEST_FINAL_DELAY_MS = 1400;
+const HARVEST_FEEDBACK_DURATION_MS = 1950;
+const HARVEST_REDUCED_DURATION_MS = 450;
+
+const HARVEST_ADDITION_NOTES = Object.freeze([60, 64, 67, 72]);
+const HARVEST_MULTIPLIER_NOTES = Object.freeze([74, 77, 81, 84]);
+
+function safeInt(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.floor(number) : fallback;
+}
+
+function createHourlyHarvestFeedback(harvest, options = {}) {
+  const reducedMotion = options.reducedMotion === true;
+  const multiplier = Math.max(1, safeInt(harvest?.multiplier, 1));
+  const additions = Array.from(harvest?.cards ?? []).slice(0, 4).map((card, index) => ({
+    cardId: String(card?.id ?? ""),
+    digit: safeInt(card?.digit),
+    delayMs: reducedMotion ? 0 : index * HARVEST_ADD_STEP_MS,
+  }));
+  const cardChainMultiplier = Math.max(1, Math.min(4, safeInt(harvest?.cardChain?.length, 1)));
+  const cardChain = cardChainMultiplier > 1 ? {
+    multiplier: cardChainMultiplier,
+    delayMs: reducedMotion ? 0 : HARVEST_MULTIPLIER_START_MS,
+    winner: cardChainMultiplier === multiplier,
+  } : null;
+  const connectionEvents = Array.from(harvest?.connection?.pileIndices ?? []).slice(1).map((pileIndex, index) => {
+    const connectionMultiplier = index + 2;
+    return {
+      pileIndex: safeInt(pileIndex, -1),
+      multiplier: connectionMultiplier,
+      delayMs: reducedMotion ? 0 : HARVEST_MULTIPLIER_START_MS + index * HARVEST_LINK_STEP_MS,
+      winner: connectionMultiplier === multiplier,
+    };
+  });
+  const species = harvest?.speciesMatch?.matched === true ? {
+    multiplier: 5,
+    speciesId: String(harvest.speciesMatch.speciesId ?? ""),
+    delayMs: reducedMotion ? 0 : HARVEST_MULTIPLIER_START_MS,
+    winner: multiplier === 5,
+  } : null;
+
+  return {
+    reducedMotion,
+    additions,
+    cardChain,
+    connectionEvents,
+    species,
+    final: {
+      multiplier,
+      points: Math.max(0, safeInt(harvest?.points)),
+      delayMs: reducedMotion ? 0 : HARVEST_FINAL_DELAY_MS,
+    },
+    durationMs: reducedMotion ? HARVEST_REDUCED_DURATION_MS : HARVEST_FEEDBACK_DURATION_MS,
+  };
+}
+
+function createHourlyHarvestTonePlan(feedback) {
+  const tones = (feedback?.additions ?? []).map((event, index) => ({
+    stage: "addition",
+    note: HARVEST_ADDITION_NOTES[index] ?? HARVEST_ADDITION_NOTES.at(-1),
+    delay: event.delayMs / 1000,
+    duration: 0.085,
+    gain: 0.16,
+  }));
+  const multiplierDelays = new Set([
+    feedback?.cardChain?.delayMs,
+    feedback?.species?.delayMs,
+    ...(feedback?.connectionEvents ?? []).map((event) => event.delayMs),
+  ].filter(Number.isFinite));
+  [...multiplierDelays].sort((a, b) => a - b).forEach((delayMs, index) => {
+    tones.push({
+      stage: "multiplier",
+      note: HARVEST_MULTIPLIER_NOTES[index] ?? HARVEST_MULTIPLIER_NOTES.at(-1),
+      delay: delayMs / 1000,
+      duration: 0.11,
+      gain: 0.17,
+    });
+  });
+  const finalDelay = (feedback?.final?.delayMs ?? HARVEST_FINAL_DELAY_MS) / 1000;
+  tones.push(
+    { stage: "final-bass", note: 48, delay: finalDelay, duration: 0.16, gain: 0.14 },
+    { stage: "final", note: 84, delay: finalDelay, duration: 0.18, gain: 0.19 },
+  );
+  return tones;
+}
+
+
+
 // ---- src/ui/pointer-drag.js ----
 const POINTER_DRAG_THRESHOLD_PX = Object.freeze({
   mouse: 6,
@@ -1209,6 +1305,7 @@ function dragGhostPosition(clientX, clientY, offsetX, offsetY) {
 
 
 
+
 const app = document.querySelector("#app");
 const perfMonitor = createPerformanceMonitor("Stacks Hourly");
 const SOLVER_BEAM_WIDTH = 2000;
@@ -1216,7 +1313,6 @@ const SOLVER_VERSION = `${HOURLY_RULES_VERSION}:beam-${SOLVER_BEAM_WIDTH}`;
 const SNAP_MS = 150;
 const DEAL_CARD_MS = 360;
 const DEAL_STAGGER_MS = 70;
-const HARVEST_MS = 1100;
 const LANDING_MS = 300;
 const SFX_SETTING_KEY = "garden-stacks:hourly:sfx";
 const HELP_SEEN_KEY = "garden-stacks:hourly:help-seen:v2";
@@ -1389,18 +1485,17 @@ function wavDataUri(tones, duration) {
 }
 
 function fallbackSfxUri(name, detail = {}) {
-  const key = `${name}:${detail.sameSpecies ? "species" : detail.harvest ? "harvest" : "normal"}:${detail.count ?? 0}`;
+  const feedback = detail.feedback;
+  const key = `${name}:${detail.count ?? 0}:${feedback?.cardChain?.multiplier ?? 1}:${feedback?.connectionEvents?.length ?? 0}:${feedback?.species ? 5 : 1}`;
   if (audio.wavCache.has(key)) return audio.wavCache.get(key);
   let tones = [];
   if (name === "deal") {
     const count = Math.max(1, Math.min(5, Number(detail.count) || 1));
     tones = [57, 60, 64, 67, 72].slice(0, count).map((note, index) => ({ note, delay: index * 0.045, duration: 0.08, gain: 0.18 }));
+  } else if (name === "harvest") {
+    tones = createHourlyHarvestTonePlan(feedback);
   } else if (name === "place") {
-    tones = detail.sameSpecies
-      ? [{ note: 60, delay: 0, duration: 0.09, gain: 0.2 }, { note: 72, delay: 0.045, duration: 0.12, gain: 0.18 }, { note: 79, delay: 0.09, duration: 0.16, gain: 0.16 }]
-      : detail.harvest
-      ? [{ note: 55, delay: 0, duration: 0.08, gain: 0.22 }, { note: 72, delay: 0.04, duration: 0.13, gain: 0.17 }]
-      : [{ note: 62, delay: 0, duration: 0.07, gain: 0.22 }, { note: 69, delay: 0.035, duration: 0.11, gain: 0.17 }];
+    tones = [{ note: 62, delay: 0, duration: 0.07, gain: 0.22 }, { note: 69, delay: 0.035, duration: 0.11, gain: 0.17 }];
   } else if (name === "reject") {
     tones = [{ note: 45, delay: 0, duration: 0.12, gain: 0.2 }];
   }
@@ -1532,15 +1627,18 @@ function playSfx(name, detail = {}) {
       [57, 60, 64, 67, 72].slice(0, count).forEach((note, index) => {
         playMidiTone(ctx, note, { delay: index * 0.045, duration: 0.055, gain: 0.018, type: "square" });
       });
-    } else if (name === "place") {
-      if (detail.sameSpecies) {
-        [60, 72, 79].forEach((note, index) => {
-          playMidiTone(ctx, note, { delay: index * 0.045, duration: 0.09 + index * 0.025, gain: 0.024, type: "triangle" });
+    } else if (name === "harvest") {
+      createHourlyHarvestTonePlan(detail.feedback).forEach((tone) => {
+        playMidiTone(ctx, tone.note, {
+          delay: tone.delay,
+          duration: tone.duration,
+          gain: tone.gain * 0.13,
+          type: "triangle",
         });
-      } else {
-        playMidiTone(ctx, detail.harvest ? 55 : 62, { duration: 0.055, gain: 0.028 });
-        playMidiTone(ctx, detail.harvest ? 72 : 69, { delay: 0.035, duration: 0.09, gain: 0.022 });
-      }
+      });
+    } else if (name === "place") {
+      playMidiTone(ctx, 62, { duration: 0.055, gain: 0.028 });
+      playMidiTone(ctx, 69, { delay: 0.035, duration: 0.09, gain: 0.022 });
     } else if (name === "reject") {
       playMidiTone(ctx, 45, { duration: 0.08, gain: 0.024, type: "sawtooth" });
     }
@@ -1570,7 +1668,7 @@ function playSfx(name, detail = {}) {
 }
 
 function interactionLocked() {
-  return Boolean(ui.motion || ui.deal);
+  return Boolean(ui.motion || ui.deal || ui.harvestPulse);
 }
 
 function validSolutionPath(path) {
@@ -1761,23 +1859,37 @@ function renderPendingBanner() {
 }
 
 function renderGarden(pile, pileIndex, preview) {
-  const isPulse = ui.harvestPulse?.pileIndex === pileIndex;
+  const resolution = ui.harvestPulse?.pileIndex === pileIndex ? ui.harvestPulse : null;
+  const feedback = ui.harvestPulse?.feedback;
+  const displayPile = resolution?.cards ?? pile;
+  const boardConnection = feedback?.connectionEvents.find((event) => event.pileIndex === pileIndex) ?? null;
+  const isPulse = Boolean(resolution);
   const isLanding = ui.landingPulse?.pileIndex === pileIndex;
   const isConnected = preview?.harvest && preview.connection.pileIndices.includes(pileIndex);
   const isSpeciesMatch = preview?.speciesMatch?.matched === true;
   const label = t("garden.title", { label: hourlyGardenLabel(pileIndex) });
   const placementPreview = previewLabel(preview);
   const slots = Array.from({ length: 4 }, (_, index) => {
-    const card = pile[index];
+    const card = displayPile[index];
     const isLandingCard = isLanding && ui.landingPulse?.cardId === card?.id;
+    const addition = resolution?.feedback?.additions[index] ?? null;
+    const connection = !resolution && index === pile.length - 1 ? boardConnection : null;
     return card
-      ? `<span class="garden-card ${isLandingCard ? "is-landing-card" : ""}" style="--slot:${index}">${cardMarkup(card)}</span>`
+      ? `<span class="garden-card ${isLandingCard ? "is-landing-card" : ""} ${resolution ? "is-harvest-ghost" : ""} ${connection ? "has-board-multiplier" : ""}" style="--slot:${index}">${cardMarkup(card)}${addition ? `<span class="harvest-addition" style="--effect-delay:${addition.delayMs}ms" aria-hidden="true">+${addition.digit}</span>` : ""}${connection ? `<span class="board-chain-multiplier ${connection.winner ? "is-winner" : ""}" style="--effect-delay:${connection.delayMs}ms" aria-hidden="true">×${connection.multiplier}</span>` : ""}</span>`
       : `<span class="garden-slot" aria-hidden="true">${index + 1}</span>`;
   }).join("");
+  const centerMultiplier = resolution?.feedback?.species
+    ? `<span class="pile-chain-multiplier is-species ${resolution.feedback.species.winner ? "is-winner" : ""}" style="--effect-delay:${resolution.feedback.species.delayMs}ms" aria-hidden="true">${escapeHtml(t("harvest.sameSpecies"))}</span>`
+    : resolution?.feedback?.cardChain
+      ? `<span class="pile-chain-multiplier ${resolution.feedback.cardChain.winner ? "is-winner" : ""}" style="--effect-delay:${resolution.feedback.cardChain.delayMs}ms" aria-hidden="true">×${resolution.feedback.cardChain.multiplier}</span>`
+      : "";
+  const accessibleLabel = resolution
+    ? t("harvest.aria", { sum: resolution.chainSum, multiplier: resolution.multiplier, points: resolution.points })
+    : `${label}${placementPreview ? `, ${placementPreview}` : ""}`;
   return `
-    <button class="garden ${preview ? "is-target" : ""} ${preview?.harvest ? "will-harvest" : ""} ${isConnected ? "is-connected" : ""} ${isSpeciesMatch ? "is-species-match" : ""} ${isPulse ? "is-harvesting" : ""} ${isLanding ? "is-landing" : ""}" type="button" data-action="place-card" data-pile-index="${pileIndex}" aria-label="${escapeHtml(`${label}${placementPreview ? `, ${placementPreview}` : ""}`)}" ${ui.state.phase !== "play" || interactionLocked() ? "disabled" : ""}>
-      <span class="garden-head"><strong>${escapeHtml(label)}</strong><small>${pile.length}/4</small></span>
-      <span class="garden-slots">${slots}</span>
+    <button class="garden ${preview ? "is-target" : ""} ${preview?.harvest ? "will-harvest" : ""} ${isConnected ? "is-connected" : ""} ${boardConnection ? "is-score-connected" : ""} ${isSpeciesMatch ? "is-species-match" : ""} ${isPulse ? "is-harvesting is-resolving" : ""} ${isLanding ? "is-landing" : ""}" type="button" data-action="place-card" data-pile-index="${pileIndex}" aria-label="${escapeHtml(accessibleLabel)}" style="--final-delay:${feedback?.final?.delayMs ?? 0}ms" ${ui.state.phase !== "play" || interactionLocked() ? "disabled" : ""}>
+      <span class="garden-head"><strong>${escapeHtml(label)}</strong><small>${resolution ? 4 : pile.length}/4</small></span>
+      <span class="garden-slots">${slots}${centerMultiplier}</span>
       <span class="garden-preview">${escapeHtml(previewLabel(preview)) || "\u00a0"}</span>
     </button>
   `;
@@ -1788,11 +1900,13 @@ function renderHarvestBurst() {
   const pileIndex = ui.harvestPulse.pileIndex;
   const x = pileIndex % 2 === 0 ? 25 : 75;
   const y = pileIndex < 2 ? 25 : 75;
-  const style = `--burst-x:${x}%;--burst-y:${y}%;`;
+  const feedback = ui.harvestPulse.feedback;
+  const style = `--burst-x:${x}%;--burst-y:${y}%;--effect-delay:${feedback.final.delayMs}ms;`;
   return `
     <span class="harvest-success-ring" style="${style}" aria-hidden="true"></span>
     <span class="harvest-success-sparks" style="${style}" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>
-    <span class="harvest-flying-score ${ui.harvestPulse.speciesMatch?.matched ? "is-species-match" : ""}" style="${style}" aria-hidden="true">${ui.harvestPulse.speciesMatch?.matched ? `<small>${escapeHtml(t("harvest.sameSpecies"))}</small>` : ""}<strong>+${ui.harvestPulse.points}</strong></span>
+    <span class="harvest-flying-score" style="${style}" aria-hidden="true"><strong>+${feedback.final.points}</strong></span>
+    <span class="sr-only" role="status">${escapeHtml(t("harvest.aria", { sum: ui.harvestPulse.chainSum, multiplier: feedback.final.multiplier, points: feedback.final.points }))}</span>
   `;
 }
 
@@ -1802,7 +1916,7 @@ function renderBoard() {
   return `
     <section class="board-section" aria-label="${escapeHtml(t("garden.region"))}">
       <div class="clockwise-label" aria-label="${escapeHtml(t("garden.clockwise"))}">${clockwiseLabels.map((label, index) => `<span>${label}</span>${index < clockwiseLabels.length - 1 ? "<i>→</i>" : ""}`).join("")}</div>
-      <div class="garden-grid ${ui.harvestPulse ? "is-success-pop" : ""}">
+      <div class="garden-grid">
         ${ui.state.piles.map((pile, index) => renderGarden(pile, index, previews[index])).join("")}
         ${renderHarvestBurst()}
       </div>
@@ -1973,10 +2087,11 @@ function finishPlacement(handIndex, pileIndex) {
     return;
   }
   ui.landingPulse = { pileIndex, cardId: result.card.id };
-  playSfx("place", {
-    harvest: Boolean(result.harvest),
-    sameSpecies: result.harvest?.speciesMatch?.matched === true,
-  });
+  const standardFeedback = result.harvest ? createHourlyHarvestFeedback(result.harvest) : null;
+  const visualFeedback = result.harvest
+    ? createHourlyHarvestFeedback(result.harvest, { reducedMotion: matchMedia("(prefers-reduced-motion: reduce)").matches })
+    : null;
+  playSfx(result.harvest ? "harvest" : "place", { feedback: standardFeedback });
   window.setTimeout(() => {
     if (ui.landingPulse?.cardId !== result.card.id) return;
     ui.landingPulse = null;
@@ -1985,12 +2100,12 @@ function finishPlacement(handIndex, pileIndex) {
   }, LANDING_MS);
   if (result.harvest) {
     const harvestId = `${Date.now()}_${result.card.id}`;
-    ui.harvestPulse = { ...result.harvest, id: harvestId };
+    ui.harvestPulse = { ...result.harvest, feedback: visualFeedback, id: harvestId };
     window.setTimeout(() => {
       if (ui.harvestPulse?.id !== harvestId) return;
       ui.harvestPulse = null;
       render();
-    }, HARVEST_MS);
+    }, visualFeedback.durationMs);
   }
   if (ui.state.phase === "result") {
     recordResult();
@@ -2000,7 +2115,7 @@ function finishPlacement(handIndex, pileIndex) {
         if (ui.state.phase !== "result" || ui.state.completedAt !== completedAt) return;
         ui.resultOpen = true;
         render();
-      }, HARVEST_MS);
+      }, visualFeedback.durationMs);
     } else {
       ui.resultOpen = true;
     }
