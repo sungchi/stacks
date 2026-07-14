@@ -174,11 +174,11 @@ button:disabled {
 .star-targets {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 5px;
 }
 
-.star-targets span {
+.star-targets > span {
   display: grid;
   place-items: center;
   min-width: 0;
@@ -193,7 +193,18 @@ button:disabled {
   white-space: nowrap;
 }
 
-.star-targets span.is-earned {
+.star-targets > span.current-score {
+  border-color: var(--ink);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.star-targets > span.current-score strong {
+  margin-left: 3px;
+  font-size: 12px;
+}
+
+.star-targets > span.is-earned {
   border-color: #b48a08;
   background: #fff6cd;
   color: #614900;
@@ -245,30 +256,6 @@ button:disabled {
   display: grid;
   gap: 8px;
   width: 100%;
-}
-
-.clockwise-label {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 900;
-}
-
-.clockwise-label span {
-  display: grid;
-  place-items: center;
-  width: 19px;
-  height: 19px;
-  border: 1px solid var(--line);
-  border-radius: 50%;
-  background: var(--paper);
-}
-
-.clockwise-label i {
-  font-style: normal;
 }
 
 .garden-grid {
@@ -376,23 +363,6 @@ button:disabled {
 
 .garden.is-target {
   border-color: #8a9289;
-}
-
-.garden.will-harvest {
-  border-color: var(--green);
-  box-shadow: inset 0 0 0 1px var(--green);
-}
-
-.garden.is-species-match {
-  border-color: var(--ink);
-  outline: 2px solid var(--ink);
-  outline-offset: -5px;
-  box-shadow: 0 4px 0 rgba(21, 23, 21, 0.16);
-  animation: speciesTargetPulse 900ms ease-in-out infinite alternate;
-}
-
-.garden.is-connected {
-  background: var(--green-soft);
 }
 
 .garden.is-score-connected {
@@ -566,17 +536,13 @@ button:disabled {
 .garden-preview {
   display: block;
   overflow: hidden;
-  color: var(--muted);
+  color: var(--ink);
   font-size: 9px;
   font-weight: 900;
   line-height: 20px;
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.garden.will-harvest .garden-preview {
-  color: var(--green);
 }
 
 .rule-line {
@@ -1165,11 +1131,6 @@ body.is-card-carrying .garden.is-target {
   0% { box-shadow: inset 0 0 0 1px var(--green); }
   45% { box-shadow: inset 0 0 0 3px var(--green), 0 0 0 5px rgba(47, 107, 69, 0.16); transform: scale(1.015); }
   100% { box-shadow: none; transform: scale(1); }
-}
-
-@keyframes speciesTargetPulse {
-  from { outline-offset: -5px; }
-  to { outline-offset: -8px; }
 }
 
 @keyframes harvestComboBadge {

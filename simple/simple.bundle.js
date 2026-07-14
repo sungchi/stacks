@@ -246,18 +246,16 @@ const TRANSLATIONS = {
     "score.stars": "별",
     "score.harvests": "수확",
     "score.best": "최고",
-    "score.targetsAria": "별 목표 점수",
+    "score.targetsAria": "현재 점수와 별 목표 점수",
     "banner.ready": "새 게임이 준비됐어요.",
     "banner.garden": "{seed} 정원",
     "common.start": "시작",
-    "preview.cardsLeft.one": "{count}/4 · 1장 남음",
-    "preview.cardsLeft.many": "{count}/4 · {remaining}장 남음",
+    "preview.pending": "+0 · {count}/4 · 수확까지 {remaining}장",
     "preview.connected": "합 {sum} × 연결 {connection} = +{points}",
     "preview.harvest": "합 {sum} × 최장 {multiplier} = +{points}",
     "preview.sameSpecies": "합 {sum} × 같은 종 5 = +{points}",
     "garden.title": "정원 {label}",
     "garden.region": "네 정원",
-    "garden.clockwise": "시계방향 정원 순서",
     "garden.rule": "네 장 합 × 최고 배수 · 같은 종 네 장은 ×5",
     "harvest.sameSpecies": "같은 종 ×5",
     "harvest.aria": "수확 합 {sum} × 최고 배수 {multiplier}, {points}점 획득",
@@ -315,18 +313,16 @@ const TRANSLATIONS = {
     "score.stars": "Stars",
     "score.harvests": "Harvests",
     "score.best": "Best",
-    "score.targetsAria": "Star score targets",
+    "score.targetsAria": "Current score and star targets",
     "banner.ready": "A new game is ready.",
     "banner.garden": "{seed} garden",
     "common.start": "Start",
-    "preview.cardsLeft.one": "{count}/4 · 1 card left",
-    "preview.cardsLeft.many": "{count}/4 · {remaining} cards left",
+    "preview.pending": "+0 · {count}/4 · {remaining} to harvest",
     "preview.connected": "Sum {sum} × Link {connection} = +{points}",
     "preview.harvest": "Sum {sum} × Longest {multiplier} = +{points}",
     "preview.sameSpecies": "Sum {sum} × Same species 5 = +{points}",
     "garden.title": "Garden {label}",
     "garden.region": "Four gardens",
-    "garden.clockwise": "Clockwise garden order",
     "garden.rule": "Four-card sum × best multiplier · same species ×5",
     "harvest.sameSpecies": "Same species ×5",
     "harvest.aria": "Harvest sum {sum} × best multiplier {multiplier}, {points} points earned",
@@ -384,18 +380,16 @@ const TRANSLATIONS = {
     "score.stars": "星",
     "score.harvests": "収穫",
     "score.best": "ベスト",
-    "score.targetsAria": "星の目標スコア",
+    "score.targetsAria": "現在のスコアと星の目標",
     "banner.ready": "新しいゲームを遊べます。",
     "banner.garden": "{seed}のガーデン",
     "common.start": "スタート",
-    "preview.cardsLeft.one": "{count}/4 · あと1枚",
-    "preview.cardsLeft.many": "{count}/4 · あと{remaining}枚",
+    "preview.pending": "+0点 · {count}/4 · 収穫まで{remaining}枚",
     "preview.connected": "合計 {sum} × 連結 {connection} = +{points}",
     "preview.harvest": "合計 {sum} × 最長 {multiplier} = +{points}",
     "preview.sameSpecies": "合計 {sum} × 同じ種5 = +{points}",
     "garden.title": "ガーデン {label}",
     "garden.region": "4つのガーデン",
-    "garden.clockwise": "時計回りのガーデン順",
     "garden.rule": "4枚の合計 × 最高倍率・同じ種4枚は×5",
     "harvest.sameSpecies": "同じ種 ×5",
     "harvest.aria": "収穫の合計 {sum} × 最高倍率 {multiplier}、{points}点獲得",
@@ -1800,7 +1794,7 @@ function selectedPreviews() {
 function previewLabel(preview) {
   if (!preview?.ok) return "";
   if (!preview.harvest) {
-    return t(preview.cardsUntilHarvest === 1 ? "preview.cardsLeft.one" : "preview.cardsLeft.many", {
+    return t("preview.pending", {
       count: preview.countAfter,
       remaining: preview.cardsUntilHarvest,
     });
@@ -1825,6 +1819,7 @@ function cardMarkup(card) {
 }
 
 function renderHeader() {
+  const visibleScore = Math.max(0, ui.state.score - (ui.harvestPulse?.points ?? 0));
   return `
     <header class="hourly-header">
       <div class="brand-lockup">
@@ -1840,9 +1835,10 @@ function renderHeader() {
         </div>
       </div>
       <div class="star-targets" aria-label="${escapeHtml(t("score.targetsAria"))}">
-        <span class="${ui.state.score >= ui.state.thresholds.one ? "is-earned" : ""}">★ ${ui.state.thresholds.one}</span>
-        <span class="${ui.state.score >= ui.state.thresholds.two ? "is-earned" : ""}">★★ ${ui.state.thresholds.two}</span>
-        <span class="${ui.state.score >= ui.state.thresholds.three ? "is-earned" : ""}">★★★ ${ui.state.thresholds.three}</span>
+        <span class="current-score">${escapeHtml(t("score.score"))} <strong>${visibleScore}</strong></span>
+        <span class="${visibleScore >= ui.state.thresholds.one ? "is-earned" : ""}">★ ${ui.state.thresholds.one}</span>
+        <span class="${visibleScore >= ui.state.thresholds.two ? "is-earned" : ""}">★★ ${ui.state.thresholds.two}</span>
+        <span class="${visibleScore >= ui.state.thresholds.three ? "is-earned" : ""}">★★★ ${ui.state.thresholds.three}</span>
       </div>
     </header>
   `;
@@ -1865,8 +1861,6 @@ function renderGarden(pile, pileIndex, preview) {
   const boardConnection = feedback?.connectionEvents.find((event) => event.pileIndex === pileIndex) ?? null;
   const isPulse = Boolean(resolution);
   const isLanding = ui.landingPulse?.pileIndex === pileIndex;
-  const isConnected = preview?.harvest && preview.connection.pileIndices.includes(pileIndex);
-  const isSpeciesMatch = preview?.speciesMatch?.matched === true;
   const label = t("garden.title", { label: hourlyGardenLabel(pileIndex) });
   const placementPreview = previewLabel(preview);
   const slots = Array.from({ length: 4 }, (_, index) => {
@@ -1887,7 +1881,7 @@ function renderGarden(pile, pileIndex, preview) {
     ? t("harvest.aria", { sum: resolution.chainSum, multiplier: resolution.multiplier, points: resolution.points })
     : `${label}${placementPreview ? `, ${placementPreview}` : ""}`;
   return `
-    <button class="garden ${preview ? "is-target" : ""} ${preview?.harvest ? "will-harvest" : ""} ${isConnected ? "is-connected" : ""} ${boardConnection ? "is-score-connected" : ""} ${isSpeciesMatch ? "is-species-match" : ""} ${isPulse ? "is-harvesting is-resolving" : ""} ${isLanding ? "is-landing" : ""}" type="button" data-action="place-card" data-pile-index="${pileIndex}" aria-label="${escapeHtml(accessibleLabel)}" style="--final-delay:${feedback?.final?.delayMs ?? 0}ms" ${ui.state.phase !== "play" || interactionLocked() ? "disabled" : ""}>
+    <button class="garden ${preview ? "is-target" : ""} ${boardConnection ? "is-score-connected" : ""} ${isPulse ? "is-harvesting is-resolving" : ""} ${isLanding ? "is-landing" : ""}" type="button" data-action="place-card" data-pile-index="${pileIndex}" aria-label="${escapeHtml(accessibleLabel)}" style="--final-delay:${feedback?.final?.delayMs ?? 0}ms" ${ui.state.phase !== "play" || interactionLocked() ? "disabled" : ""}>
       <span class="garden-head"><strong>${escapeHtml(label)}</strong><small>${resolution ? 4 : pile.length}/4</small></span>
       <span class="garden-slots">${slots}${centerMultiplier}</span>
       <span class="garden-preview">${escapeHtml(previewLabel(preview)) || "\u00a0"}</span>
@@ -1912,10 +1906,8 @@ function renderHarvestBurst() {
 
 function renderBoard() {
   const previews = selectedPreviews();
-  const clockwiseLabels = HOURLY_CLOCKWISE_ORDER.map(hourlyGardenLabel);
   return `
     <section class="board-section" aria-label="${escapeHtml(t("garden.region"))}">
-      <div class="clockwise-label" aria-label="${escapeHtml(t("garden.clockwise"))}">${clockwiseLabels.map((label, index) => `<span>${label}</span>${index < clockwiseLabels.length - 1 ? "<i>→</i>" : ""}`).join("")}</div>
       <div class="garden-grid">
         ${ui.state.piles.map((pile, index) => renderGarden(pile, index, previews[index])).join("")}
         ${renderHarvestBurst()}
