@@ -10,7 +10,7 @@ import {
   translateText,
 } from "../src/i18n.js";
 import {
-  HOURLY_ART_VARIANTS,
+  HOURLY_SPECIES_POOL,
   hourlyResultShareText,
 } from "../src/game/hourly-harvest.js";
 
@@ -39,14 +39,13 @@ test("text translation interpolates variables and falls back safely", () => {
   assert.equal(translateText("fr", "score.score"), "점수");
 });
 
-test("all 40 hourly card variants have names in all three languages", () => {
-  const variants = Object.values(HOURLY_ART_VARIANTS).flat();
-  assert.equal(variants.length, 40);
+test("all hourly species candidates have names in all three languages", () => {
+  assert.equal(HOURLY_SPECIES_POOL.length, 28);
   assert.equal(Object.keys(CARD_NAMES).length, 40);
-  for (const [slug, koreanName] of variants) {
-    assert.equal(translateCardName("ko", `0:${slug}`, "missing"), koreanName);
+  for (const { speciesId, cardName } of HOURLY_SPECIES_POOL) {
+    assert.equal(translateCardName("ko", `0:${speciesId}`, "missing"), cardName);
     for (const language of SUPPORTED_LANGUAGES) {
-      assert.notEqual(translateCardName(language, `0:${slug}`, "missing"), "missing");
+      assert.notEqual(translateCardName(language, `0:${speciesId}`, "missing"), "missing");
     }
   }
 });

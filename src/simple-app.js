@@ -51,7 +51,7 @@ const DEAL_STAGGER_MS = 70;
 const HARVEST_MS = 1100;
 const LANDING_MS = 300;
 const SFX_SETTING_KEY = "garden-stacks:hourly:sfx";
-const HELP_SEEN_KEY = "garden-stacks:hourly:help-seen:v1";
+const HELP_SEEN_KEY = "garden-stacks:hourly:help-seen:v2";
 const FALLBACK_CARD_IMAGE = "public/assets/garden-stacks/generated/cards/card_locked_unknown.png";
 
 const ui = {
@@ -221,14 +221,16 @@ function wavDataUri(tones, duration) {
 }
 
 function fallbackSfxUri(name, detail = {}) {
-  const key = `${name}:${detail.harvest ? "harvest" : "normal"}:${detail.count ?? 0}`;
+  const key = `${name}:${detail.sameSpecies ? "species" : detail.harvest ? "harvest" : "normal"}:${detail.count ?? 0}`;
   if (audio.wavCache.has(key)) return audio.wavCache.get(key);
   let tones = [];
   if (name === "deal") {
     const count = Math.max(1, Math.min(5, Number(detail.count) || 1));
     tones = [57, 60, 64, 67, 72].slice(0, count).map((note, index) => ({ note, delay: index * 0.045, duration: 0.08, gain: 0.18 }));
   } else if (name === "place") {
-    tones = detail.harvest
+    tones = detail.sameSpecies
+      ? [{ note: 60, delay: 0, duration: 0.09, gain: 0.2 }, { note: 72, delay: 0.045, duration: 0.12, gain: 0.18 }, { note: 79, delay: 0.09, duration: 0.16, gain: 0.16 }]
+      : detail.harvest
       ? [{ note: 55, delay: 0, duration: 0.08, gain: 0.22 }, { note: 72, delay: 0.04, duration: 0.13, gain: 0.17 }]
       : [{ note: 62, delay: 0, duration: 0.07, gain: 0.22 }, { note: 69, delay: 0.035, duration: 0.11, gain: 0.17 }];
   } else if (name === "reject") {
@@ -363,8 +365,14 @@ function playSfx(name, detail = {}) {
         playMidiTone(ctx, note, { delay: index * 0.045, duration: 0.055, gain: 0.018, type: "square" });
       });
     } else if (name === "place") {
-      playMidiTone(ctx, detail.harvest ? 55 : 62, { duration: 0.055, gain: 0.028 });
-      playMidiTone(ctx, detail.harvest ? 72 : 69, { delay: 0.035, duration: 0.09, gain: 0.022 });
+      if (detail.sameSpecies) {
+        [60, 72, 79].forEach((note, index) => {
+          playMidiTone(ctx, note, { delay: index * 0.045, duration: 0.09 + index * 0.025, gain: 0.024, type: "triangle" });
+        });
+      } else {
+        playMidiTone(ctx, detail.harvest ? 55 : 62, { duration: 0.055, gain: 0.028 });
+        playMidiTone(ctx, detail.harvest ? 72 : 69, { delay: 0.035, duration: 0.09, gain: 0.022 });
+      }
     } else if (name === "reject") {
       playMidiTone(ctx, 45, { duration: 0.08, gain: 0.024, type: "sawtooth" });
     }
@@ -531,7 +539,7 @@ function previewLabel(preview) {
       remaining: preview.cardsUntilHarvest,
     });
   }
-  return t("preview.harvest", {
+  return t(preview.speciesMatch?.matched ? "preview.sameSpecies" : "preview.harvest", {
     sum: preview.chainSum,
     multiplier: preview.multiplier,
     points: preview.points,
@@ -588,6 +596,9 @@ function renderGarden(pile, pileIndex, preview) {
   const isPulse = ui.harvestPulse?.pileIndex === pileIndex;
   const isLanding = ui.landingPulse?.pileIndex === pileIndex;
   const isConnected = preview?.harvest && preview.connection.pileIndices.includes(pileIndex);
+  const isSpeciesMatch = preview?.speciesMatch?.matched === true;
+  const label = t("garden.title", { label: hourlyGardenLabel(pileIndex) });
+  const placementPreview = previewLabel(preview);
   const slots = Array.from({ length: 4 }, (_, index) => {
     const card = pile[index];
     const isLandingCard = isLanding && ui.landingPulse?.cardId === card?.id;
@@ -596,8 +607,8 @@ function renderGarden(pile, pileIndex, preview) {
       : `<span class="garden-slot" aria-hidden="true">${index + 1}</span>`;
   }).join("");
   return `
-    <button class="garden ${preview ? "is-target" : ""} ${preview?.harvest ? "will-harvest" : ""} ${isConnected ? "is-connected" : ""} ${isPulse ? "is-harvesting" : ""} ${isLanding ? "is-landing" : ""}" type="button" data-action="place-card" data-pile-index="${pileIndex}" ${ui.state.phase !== "play" || interactionLocked() ? "disabled" : ""}>
-      <span class="garden-head"><strong>${escapeHtml(t("garden.title", { label: hourlyGardenLabel(pileIndex) }))}</strong><small>${pile.length}/4</small></span>
+    <button class="garden ${preview ? "is-target" : ""} ${preview?.harvest ? "will-harvest" : ""} ${isConnected ? "is-connected" : ""} ${isSpeciesMatch ? "is-species-match" : ""} ${isPulse ? "is-harvesting" : ""} ${isLanding ? "is-landing" : ""}" type="button" data-action="place-card" data-pile-index="${pileIndex}" aria-label="${escapeHtml(`${label}${placementPreview ? `, ${placementPreview}` : ""}`)}" ${ui.state.phase !== "play" || interactionLocked() ? "disabled" : ""}>
+      <span class="garden-head"><strong>${escapeHtml(label)}</strong><small>${pile.length}/4</small></span>
       <span class="garden-slots">${slots}</span>
       <span class="garden-preview">${escapeHtml(previewLabel(preview)) || "\u00a0"}</span>
     </button>
@@ -613,7 +624,7 @@ function renderHarvestBurst() {
   return `
     <span class="harvest-success-ring" style="${style}" aria-hidden="true"></span>
     <span class="harvest-success-sparks" style="${style}" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>
-    <span class="harvest-flying-score" style="${style}" aria-hidden="true">+${ui.harvestPulse.points}</span>
+    <span class="harvest-flying-score ${ui.harvestPulse.speciesMatch?.matched ? "is-species-match" : ""}" style="${style}" aria-hidden="true">${ui.harvestPulse.speciesMatch?.matched ? `<small>${escapeHtml(t("harvest.sameSpecies"))}</small>` : ""}<strong>+${ui.harvestPulse.points}</strong></span>
   `;
 }
 
@@ -689,6 +700,7 @@ function renderHelp() {
           <li>${escapeHtml(t("help.rule3"))}</li>
           <li>${escapeHtml(t("help.rule4"))}</li>
           <li>${escapeHtml(t("help.rule5"))}</li>
+          <li>${escapeHtml(t("help.rule6"))}</li>
         </ol>
         <p><strong>${escapeHtml(t("help.exampleLabel"))}</strong> ${escapeHtml(t("help.example"))}</p>
         <fieldset class="language-setting">
@@ -793,7 +805,10 @@ function finishPlacement(handIndex, pileIndex) {
     return;
   }
   ui.landingPulse = { pileIndex, cardId: result.card.id };
-  playSfx("place", { harvest: Boolean(result.harvest) });
+  playSfx("place", {
+    harvest: Boolean(result.harvest),
+    sameSpecies: result.harvest?.speciesMatch?.matched === true,
+  });
   window.setTimeout(() => {
     if (ui.landingPulse?.cardId !== result.card.id) return;
     ui.landingPulse = null;

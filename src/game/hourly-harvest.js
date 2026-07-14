@@ -2,82 +2,55 @@ import { createRng, shuffleInPlace } from "./random.js";
 import { translateText } from "../i18n.js";
 
 export const HOURLY_MODE = "hourly";
-export const HOURLY_RULES_VERSION = "hourly-four-harvest-v3";
-export const HOURLY_ASSET_VERSION = "seed-art-v1";
+export const HOURLY_RULES_VERSION = "hourly-four-harvest-v4";
+export const HOURLY_ASSET_VERSION = "seed-species-v2";
 export const HOURLY_HAND_SIZE = 5;
 export const HOURLY_DECK_SIZE = 40;
 export const HOURLY_PILE_COUNT = 4;
 export const HOURLY_HARVEST_SIZE = 4;
 export const HOURLY_REDRAW_LIMIT = 3;
+export const HOURLY_SPECIES_PER_DECK = 10;
+export const HOURLY_SPECIES_COPIES = 4;
+export const HOURLY_SAME_SPECIES_MULTIPLIER = 5;
 export const HOURLY_CLOCKWISE_ORDER = [0, 1, 3, 2];
 export const HOURLY_GARDEN_LABELS = Object.freeze(["A", "B", "D", "C"]);
 export const HOURLY_SHARE_URL = "https://plan9.kr/stacks";
 
-const CARDS = "public/assets/garden-stacks/generated/cards";
 const SPECIES = "public/assets/garden-stacks/generated/species";
 
-export const HOURLY_ART_VARIANTS = {
-  0: [
-    ["meadow", "초지", `${CARDS}/floor_meadow.png`],
-    ["forest", "숲길", `${CARDS}/floor_forest.png`],
-    ["wetland", "물가", `${CARDS}/floor_wetland.png`],
-    ["shade-walk", "그늘길", `${CARDS}/floor_forest_shade_walk.png`],
-  ],
-  1: [
-    ["dandelion", "민들레", `${SPECIES}/bio_0001_dandelion.png`],
-    ["white-clover", "흰토끼풀", `${SPECIES}/bio_0002_white_clover.png`],
-    ["yarrow", "서양톱풀", `${SPECIES}/bio_0011_common_yarrow.png`],
-    ["red-clover", "붉은토끼풀", `${SPECIES}/bio_0012_red_clover.png`],
-  ],
-  2: [
-    ["sunflower", "해바라기", `${SPECIES}/bio_0003_common_sunflower.png`],
-    ["hydrangea", "수국", `${SPECIES}/bio_0004_bigleaf_hydrangea.png`],
-    ["lawn-daisy", "잔디데이지", `${SPECIES}/bio_0030_lawn_daisy.png`],
-    ["oxeye-daisy", "큰데이지", `${SPECIES}/bio_0039_oxeye_daisy.png`],
-  ],
-  3: [
-    ["honey-bee", "꿀벌", `${SPECIES}/bio_0008_western_honey_bee.png`],
-    ["bumble-bee", "뒤영벌", `${SPECIES}/bio_0657_common_eastern_bumble_bee.png`],
-    ["carpenter-bee", "목수벌", `${SPECIES}/bio_0669_eastern_carpenter_bee.png`],
-    ["lady-beetle", "무당벌레", `${SPECIES}/bio_0658_seven_spotted_lady_beetle.png`],
-  ],
-  4: [
-    ["watering", "물주기", `${CARDS}/hand_watering.png`],
-    ["soil-test", "흙살피기", `${CARDS}/work_soil_test.png`],
-    ["puddle", "빗물받기", `${CARDS}/work_temporary_puddle.png`],
-    ["conservation", "정원돌봄", `${CARDS}/plan_conservation_work.png`],
-  ],
-  5: [
-    ["maple", "단풍나무", `${SPECIES}/bio_0005_japanese_maple.png`],
-    ["oak", "상수리나무", `${SPECIES}/bio_0006_sawtooth_oak.png`],
-    ["white-oak", "흰참나무", `${SPECIES}/bio_0133_white_oak.png`],
-    ["birch", "자작나무", `${SPECIES}/bio_0162_silver_birch.png`],
-  ],
-  6: [
-    ["small-white", "배추흰나비", `${SPECIES}/bio_0009_small_white.png`],
-    ["monarch", "제왕나비", `${SPECIES}/bio_0656_monarch.png`],
-    ["red-admiral", "붉은줄나비", `${SPECIES}/bio_0659_red_admiral.png`],
-    ["swallowtail", "호랑나비", `${SPECIES}/bio_0662_eastern_tiger_swallowtail.png`],
-  ],
-  7: [
-    ["pruning", "가지치기", `${CARDS}/hand_pruning.png`],
-    ["flora-watch", "꽃살피기", `${CARDS}/work_flora_comparison.png`],
-    ["survey", "정원조사", `${CARDS}/work_region_ecology_survey.png`],
-    ["habitat", "꽃자리", `${CARDS}/plan_pollinator_habitat.png`],
-  ],
-  8: [
-    ["reed", "갈대", `${SPECIES}/bio_0007_common_reed.png`],
-    ["cattail", "부들", `${SPECIES}/bio_0156_broadleaf_cattail.png`],
-    ["waterlily", "수련", `${SPECIES}/bio_0444_american_white_waterlily.png`],
-    ["watercress", "물냉이", `${SPECIES}/bio_0586_watercress.png`],
-  ],
-  9: [
-    ["mallard", "청둥오리", `${SPECIES}/bio_0793_mallard.png`],
-    ["sparrow", "참새", `${SPECIES}/bio_0794_house_sparrow.png`],
-    ["robin", "울새", `${SPECIES}/bio_0796_american_robin.png`],
-    ["cardinal", "홍관조", `${SPECIES}/bio_0799_northern_cardinal.png`],
-  ],
-};
+export const HOURLY_SPECIES_POOL = Object.freeze([
+  { speciesId: "dandelion", category: "flora", cardName: "민들레", imagePath: `${SPECIES}/bio_0001_dandelion.png` },
+  { speciesId: "white-clover", category: "flora", cardName: "흰토끼풀", imagePath: `${SPECIES}/bio_0002_white_clover.png` },
+  { speciesId: "yarrow", category: "flora", cardName: "서양톱풀", imagePath: `${SPECIES}/bio_0011_common_yarrow.png` },
+  { speciesId: "red-clover", category: "flora", cardName: "붉은토끼풀", imagePath: `${SPECIES}/bio_0012_red_clover.png` },
+  { speciesId: "sunflower", category: "flora", cardName: "해바라기", imagePath: `${SPECIES}/bio_0003_common_sunflower.png` },
+  { speciesId: "hydrangea", category: "flora", cardName: "수국", imagePath: `${SPECIES}/bio_0004_bigleaf_hydrangea.png` },
+  { speciesId: "lawn-daisy", category: "flora", cardName: "잔디데이지", imagePath: `${SPECIES}/bio_0030_lawn_daisy.png` },
+  { speciesId: "oxeye-daisy", category: "flora", cardName: "큰데이지", imagePath: `${SPECIES}/bio_0039_oxeye_daisy.png` },
+  { speciesId: "maple", category: "flora", cardName: "단풍나무", imagePath: `${SPECIES}/bio_0005_japanese_maple.png` },
+  { speciesId: "oak", category: "flora", cardName: "상수리나무", imagePath: `${SPECIES}/bio_0006_sawtooth_oak.png` },
+  { speciesId: "white-oak", category: "flora", cardName: "흰참나무", imagePath: `${SPECIES}/bio_0133_white_oak.png` },
+  { speciesId: "birch", category: "flora", cardName: "자작나무", imagePath: `${SPECIES}/bio_0162_silver_birch.png` },
+  { speciesId: "reed", category: "flora", cardName: "갈대", imagePath: `${SPECIES}/bio_0007_common_reed.png` },
+  { speciesId: "cattail", category: "flora", cardName: "부들", imagePath: `${SPECIES}/bio_0156_broadleaf_cattail.png` },
+  { speciesId: "waterlily", category: "flora", cardName: "수련", imagePath: `${SPECIES}/bio_0444_american_white_waterlily.png` },
+  { speciesId: "watercress", category: "flora", cardName: "물냉이", imagePath: `${SPECIES}/bio_0586_watercress.png` },
+  { speciesId: "honey-bee", category: "fauna", cardName: "꿀벌", imagePath: `${SPECIES}/bio_0008_western_honey_bee.png` },
+  { speciesId: "bumble-bee", category: "fauna", cardName: "뒤영벌", imagePath: `${SPECIES}/bio_0657_common_eastern_bumble_bee.png` },
+  { speciesId: "carpenter-bee", category: "fauna", cardName: "목수벌", imagePath: `${SPECIES}/bio_0669_eastern_carpenter_bee.png` },
+  { speciesId: "lady-beetle", category: "fauna", cardName: "무당벌레", imagePath: `${SPECIES}/bio_0658_seven_spotted_lady_beetle.png` },
+  { speciesId: "small-white", category: "fauna", cardName: "배추흰나비", imagePath: `${SPECIES}/bio_0009_small_white.png` },
+  { speciesId: "monarch", category: "fauna", cardName: "제왕나비", imagePath: `${SPECIES}/bio_0656_monarch.png` },
+  { speciesId: "red-admiral", category: "fauna", cardName: "붉은줄나비", imagePath: `${SPECIES}/bio_0659_red_admiral.png` },
+  { speciesId: "swallowtail", category: "fauna", cardName: "호랑나비", imagePath: `${SPECIES}/bio_0662_eastern_tiger_swallowtail.png` },
+  { speciesId: "mallard", category: "fauna", cardName: "청둥오리", imagePath: `${SPECIES}/bio_0793_mallard.png` },
+  { speciesId: "sparrow", category: "fauna", cardName: "참새", imagePath: `${SPECIES}/bio_0794_house_sparrow.png` },
+  { speciesId: "robin", category: "fauna", cardName: "울새", imagePath: `${SPECIES}/bio_0796_american_robin.png` },
+  { speciesId: "cardinal", category: "fauna", cardName: "홍관조", imagePath: `${SPECIES}/bio_0799_northern_cardinal.png` },
+]);
+
+// Kept as an export alias for callers that used the earlier art-list name.
+export const HOURLY_ART_VARIANTS = HOURLY_SPECIES_POOL;
 
 function copy(value) {
   return JSON.parse(JSON.stringify(value));
@@ -113,30 +86,44 @@ export function formatDuration(totalSeconds) {
   return `${String(Math.floor(safe / 60)).padStart(2, "0")}:${String(safe % 60).padStart(2, "0")}`;
 }
 
-function variantFor(seed, digit, occurrence) {
-  const variants = HOURLY_ART_VARIANTS[digit] ?? HOURLY_ART_VARIANTS[0];
-  const order = variants.map((_, index) => index);
-  shuffleInPlace(order, createRng(`${seed}:${HOURLY_RULES_VERSION}:${HOURLY_ASSET_VERSION}:${digit}`));
-  const variant = variants[order[occurrence % order.length]] ?? variants[0];
-  return {
-    variantId: `${digit}:${variant[0]}`,
-    cardName: variant[1],
-    imagePath: variant[2],
-  };
-}
-
 export function createHourlyDeck(seed) {
+  const selected = ["flora", "fauna"].flatMap((category) => {
+    const candidates = HOURLY_SPECIES_POOL.filter((species) => species.category === category);
+    return shuffleInPlace(
+      [...candidates],
+      createRng(`${seed}:${HOURLY_RULES_VERSION}:${HOURLY_ASSET_VERSION}:${category}`),
+    ).slice(0, HOURLY_SPECIES_PER_DECK / 2);
+  });
+  shuffleInPlace(selected, createRng(`${seed}:${HOURLY_RULES_VERSION}:${HOURLY_ASSET_VERSION}:species-order`));
+
+  const digitOrder = shuffleInPlace(
+    Array.from({ length: 10 }, (_, digit) => digit),
+    createRng(`${seed}:${HOURLY_RULES_VERSION}:${HOURLY_ASSET_VERSION}:digit-order`),
+  );
+  const offsets = shuffleInPlace(
+    Array.from({ length: 10 }, (_, offset) => offset),
+    createRng(`${seed}:${HOURLY_RULES_VERSION}:${HOURLY_ASSET_VERSION}:species-offsets`),
+  ).slice(0, HOURLY_SPECIES_COPIES);
+  const occurrences = Array(10).fill(0);
   const cards = [];
-  for (let digit = 0; digit <= 9; digit += 1) {
-    for (let occurrence = 0; occurrence < 4; occurrence += 1) {
+  selected.forEach((species, speciesIndex) => {
+    offsets.forEach((offset) => {
+      const digit = digitOrder[(speciesIndex + offset) % digitOrder.length];
+      const occurrence = occurrences[digit];
+      occurrences[digit] += 1;
       cards.push({
         id: `${seed}:${digit}:${occurrence}`,
         digit,
         occurrence,
-        ...variantFor(seed, digit, occurrence),
+        speciesIndex,
+        speciesId: species.speciesId,
+        category: species.category,
+        variantId: `${digit}:${species.speciesId}`,
+        cardName: species.cardName,
+        imagePath: species.imagePath,
       });
-    }
-  }
+    });
+  });
   return shuffleInPlace(cards, createRng(`${seed}:${HOURLY_RULES_VERSION}:deck`));
 }
 
@@ -180,6 +167,19 @@ export function longestHourlyCardChain(cards) {
     }
   }
   return best;
+}
+
+export function sameSpeciesHarvest(cards) {
+  const speciesIds = Array.from(cards ?? [], (card) => String(card?.speciesId ?? ""));
+  const speciesId = speciesIds[0] ?? "";
+  const matched = speciesIds.length === HOURLY_HARVEST_SIZE
+    && Boolean(speciesId)
+    && speciesIds.every((candidate) => candidate === speciesId);
+  return {
+    matched,
+    speciesId: matched ? speciesId : null,
+    multiplier: matched ? HOURLY_SAME_SPECIES_MULTIPLIER : 1,
+  };
 }
 
 export function gardenConnection(piles, triggerIndex, triggerDigit = null) {
@@ -261,7 +261,8 @@ export function previewHourlyPlacement(state, handIndex, pileIndex) {
   const chainSum = nextPiles[targetIndex].reduce((sum, item) => sum + Number(item.digit), 0);
   const cardChain = longestHourlyCardChain(nextPiles[targetIndex]);
   const connection = gardenConnection(nextPiles, targetIndex, card.digit);
-  const multiplier = Math.max(cardChain.length, connection.length);
+  const speciesMatch = sameSpeciesHarvest(nextPiles[targetIndex]);
+  const multiplier = Math.max(cardChain.length, connection.length, speciesMatch.multiplier);
   const points = chainSum * multiplier;
   return {
     ok: true,
@@ -272,6 +273,7 @@ export function previewHourlyPlacement(state, handIndex, pileIndex) {
     harvest: true,
     chainSum,
     cardChain,
+    speciesMatch,
     multiplier,
     points,
     connection,
@@ -331,6 +333,7 @@ export function playHourlyCard(state, handIndex, pileIndex) {
       chainSum: preview.chainSum,
       cardChain: copy(preview.cardChain),
       connection: copy(preview.connection),
+      speciesMatch: copy(preview.speciesMatch),
       multiplier: preview.multiplier,
       points: preview.points,
     };
@@ -347,13 +350,24 @@ export function playHourlyCard(state, handIndex, pileIndex) {
   return { ok: true, card: copy(card), preview: copy(preview), harvest: copy(state.lastHarvest), state };
 }
 
-function compactPile(cards) {
-  return cards.reduce((pile, digit) => ({
-    count: pile.count + 1,
-    sum: pile.sum + Number(digit),
-    top: Number(digit),
-    digits: `${pile.digits}${digit}`,
-  }), { count: 0, sum: 0, top: -1, digits: "" });
+function solverCardToken(card) {
+  return Number(card.digit) * HOURLY_SPECIES_PER_DECK + Number(card.speciesIndex);
+}
+
+function solverTokenDigit(token) {
+  return Math.floor(Number(token) / HOURLY_SPECIES_PER_DECK);
+}
+
+function solverTokenSpecies(token) {
+  return Number(token) % HOURLY_SPECIES_PER_DECK;
+}
+
+function encodeSolverToken(token) {
+  return String.fromCharCode(0x100 + Number(token));
+}
+
+function decodeSolverToken(character) {
+  return character.charCodeAt(0) - 0x100;
 }
 
 function compactConnection(piles, triggerIndex, digit) {
@@ -373,7 +387,7 @@ function compactConnection(piles, triggerIndex, digit) {
 }
 
 function compactKey(hand, queue, piles, redrawsLeft) {
-  return `${[...hand].sort((a, b) => a - b).join("")}|${queue}|${redrawsLeft}|${piles.map((pile) => pile.digits).join("/")}`;
+  return `${[...hand].sort((a, b) => a - b).join(".")}|${queue}|${redrawsLeft}|${piles.map((pile) => pile.tokens).join("/")}`;
 }
 
 function solverHeuristic(state) {
@@ -381,33 +395,48 @@ function solverHeuristic(state) {
   let occupancy = 0;
   for (const pile of state.piles) {
     occupancy += pile.count;
-    if (pile.count === 3) ready += pile.sum * 2 + Math.max(0, pile.top);
+    if (pile.count === 3) {
+      const sameSpeciesReady = pile.species.length === 3
+        && [...pile.species].every((species) => species === pile.species[0]);
+      ready += pile.sum * 2 + Math.max(0, pile.top) + (sameSpeciesReady ? 50 : 0);
+    }
   }
   return state.score * 1000 + ready * 10 - occupancy + state.redrawsLeft;
 }
 
-function solverPlayTransition(state, digit, handIndex, pileIndex) {
+function solverPlayTransition(state, token, handIndex, pileIndex) {
+  const digit = solverTokenDigit(token);
+  const speciesIndex = solverTokenSpecies(token);
   const piles = state.piles.map((pile) => ({ ...pile }));
   const pile = piles[pileIndex];
   let gain = 0;
   if (pile.count === 3) {
     const cardChainLength = longestHourlyCardChain(`${pile.digits}${digit}`).length;
     const connectionLength = compactConnection(piles, pileIndex, digit);
-    gain = (pile.sum + digit) * Math.max(cardChainLength, connectionLength);
-    piles[pileIndex] = { count: 0, sum: 0, top: -1, digits: "" };
+    const sameSpecies = pile.species.length === 3
+      && [...pile.species].every((species) => Number(species) === speciesIndex);
+    const multiplier = Math.max(
+      cardChainLength,
+      connectionLength,
+      sameSpecies ? HOURLY_SAME_SPECIES_MULTIPLIER : 1,
+    );
+    gain = (pile.sum + digit) * multiplier;
+    piles[pileIndex] = { count: 0, sum: 0, top: -1, digits: "", species: "", tokens: "" };
   } else {
     piles[pileIndex] = {
       count: pile.count + 1,
       sum: pile.sum + digit,
       top: digit,
       digits: `${pile.digits}${digit}`,
+      species: `${pile.species}${speciesIndex}`,
+      tokens: `${pile.tokens}${encodeSolverToken(token)}`,
     };
   }
 
   const hand = state.hand.filter((_, index) => index !== handIndex);
   let queue = state.queue;
   if (queue.length) {
-    hand.push(Number(queue[0]));
+    hand.push(decodeSolverToken(queue[0]));
     queue = queue.slice(1);
   }
   return {
@@ -416,15 +445,15 @@ function solverPlayTransition(state, digit, handIndex, pileIndex) {
     piles,
     score: state.score + gain,
     redrawsLeft: state.redrawsLeft,
-    trail: { action: { type: "play", digit, pileIndex }, previous: state.trail },
+    trail: { action: { type: "play", digit, speciesIndex, pileIndex }, previous: state.trail },
   };
 }
 
 function solverRedrawTransition(state) {
   if (state.redrawsLeft <= 0 || !state.queue.length || !state.hand.length) return null;
-  const rotated = `${state.queue}${state.hand.join("")}`;
+  const rotated = `${state.queue}${state.hand.map(encodeSolverToken).join("")}`;
   return {
-    hand: [...rotated.slice(0, HOURLY_HAND_SIZE)].map(Number),
+    hand: [...rotated.slice(0, HOURLY_HAND_SIZE)].map(decodeSolverToken),
     queue: rotated.slice(HOURLY_HAND_SIZE),
     piles: state.piles,
     score: state.score,
@@ -456,11 +485,11 @@ function materializeSolverPath(trail) {
 
 export function solveHourlyHarvestMaximum(seed, options = {}) {
   const beamWidth = Math.max(250, safeInt(options.beamWidth, 6000));
-  const deckDigits = createHourlyDeck(seed).map((card) => card.digit);
-  const emptyPile = () => ({ count: 0, sum: 0, top: -1, digits: "" });
+  const deckTokens = createHourlyDeck(seed).map(solverCardToken);
+  const emptyPile = () => ({ count: 0, sum: 0, top: -1, digits: "", species: "", tokens: "" });
   let beam = [{
-    hand: deckDigits.slice(0, HOURLY_HAND_SIZE),
-    queue: deckDigits.slice(HOURLY_HAND_SIZE).join(""),
+    hand: deckTokens.slice(0, HOURLY_HAND_SIZE),
+    queue: deckTokens.slice(HOURLY_HAND_SIZE).map(encodeSolverToken).join(""),
     piles: [emptyPile(), emptyPile(), emptyPile(), emptyPile()],
     score: 0,
     redrawsLeft: HOURLY_REDRAW_LIMIT,
@@ -472,13 +501,13 @@ export function solveHourlyHarvestMaximum(seed, options = {}) {
     const unique = new Map();
     for (const state of beam) {
       for (const option of solverRedrawOptions(state)) {
-        const seenDigits = new Set();
+        const seenCards = new Set();
         for (let handIndex = 0; handIndex < option.hand.length; handIndex += 1) {
-          const digit = option.hand[handIndex];
-          if (seenDigits.has(digit)) continue;
-          seenDigits.add(digit);
+          const token = option.hand[handIndex];
+          if (seenCards.has(token)) continue;
+          seenCards.add(token);
           for (let pileIndex = 0; pileIndex < HOURLY_PILE_COUNT; pileIndex += 1) {
-            const next = solverPlayTransition(option, digit, handIndex, pileIndex);
+            const next = solverPlayTransition(option, token, handIndex, pileIndex);
             const key = compactKey(next.hand, next.queue, next.piles, next.redrawsLeft);
             const previous = unique.get(key);
             if (!previous || next.score > previous.score) unique.set(key, next);
@@ -566,7 +595,9 @@ export function replayHourlySolution(seed, solution) {
       continue;
     }
     if (action.type && action.type !== "play") return { ok: false, reason: "unknown_solution_action", state: run };
-    const handIndex = run.hand.findIndex((card) => card.digit === action.digit);
+    const handIndex = run.hand.findIndex((card) => (
+      card.digit === action.digit && card.speciesIndex === action.speciesIndex
+    ));
     if (handIndex < 0) return { ok: false, reason: "missing_solution_card", state: run };
     const result = playHourlyCard(run, handIndex, action.pileIndex);
     if (!result.ok) return { ok: false, reason: result.reason, state: run };
@@ -592,15 +623,15 @@ export function hourlyResultShareText(state, url = HOURLY_SHARE_URL, language = 
 }
 
 export function hourlyRunStorageKey(seed) {
-  return `garden-stacks:hourly-v3:${seed}:run`;
+  return `garden-stacks:hourly-v4:${seed}:run`;
 }
 
 export function hourlyBestStorageKey(seed) {
-  return `garden-stacks:hourly-v3:${seed}:best`;
+  return `garden-stacks:hourly-v4:${seed}:best`;
 }
 
 export function hourlySolutionStorageKey(seed) {
-  return `garden-stacks:hourly-v3:${seed}:solution`;
+  return `garden-stacks:hourly-v4:${seed}:solution`;
 }
 
-export const HOURLY_ACTIVE_SEED_KEY = "garden-stacks:hourly-v3:active-seed";
+export const HOURLY_ACTIVE_SEED_KEY = "garden-stacks:hourly-v4:active-seed";
