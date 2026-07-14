@@ -210,7 +210,7 @@ const LANGUAGE_STORAGE_KEY = "garden-stacks:language:v1";
 const TRANSLATIONS = {
   ko: {
     "document.title": "Stacks (스택스) - 매시간 숫자 정원",
-    "document.description": "매시간 같은 숫자 덱으로 네 장 합과 시계방향 정원 연결을 만드는 모바일 숫자 카드 게임.",
+    "document.description": "매시간 같은 숫자 덱으로 네 장 합과 카드·정원 최장 연쇄를 만드는 모바일 숫자 카드 게임.",
     "loading.title": "새 정원을 준비하는 중",
     "loading.detail": "최대 점수를 계산하고 있어요.",
     "error.title": "게임을 준비하지 못했습니다.",
@@ -220,12 +220,12 @@ const TRANSLATIONS = {
     "help.title": "게임방법",
     "help.close": "닫기",
     "help.rule1": "손패 카드 한 장을 원하는 정원으로 옮깁니다.",
-    "help.rule2": "정원에 네 장이 쌓이면 네 숫자를 더해 수확합니다.",
-    "help.rule3": "놓은 정원부터 시계방향 숫자가 이어지면 연결 수만큼 곱합니다.",
+    "help.rule2": "정원에 네 장이 쌓이면 숫자를 더하고, 놓인 순서에서 가장 긴 ±1 카드 연쇄를 찾습니다.",
+    "help.rule3": "카드 연쇄와 놓은 정원부터의 시계방향 정원 연결 중 더 긴 길이를 ×1~×4 배수로 씁니다.",
     "help.rule4": "카드 새로받기는 손패를 덱 뒤로 보내며 한 게임에 세 번 쓸 수 있습니다.",
     "help.rule5": "40장을 모두 사용한 점수로 별을 받습니다.",
     "help.exampleLabel": "예:",
-    "help.example": "네 장 합 19 × 정원 연결 3 = 57점",
+    "help.example": "네 장 합 19 × 최장 연쇄 3 = 57점",
     "help.sound": "효과음",
     "help.language": "언어",
     "help.retry": "현재 게임 다시하기",
@@ -252,11 +252,11 @@ const TRANSLATIONS = {
     "preview.cardsLeft.one": "{count}/4 · 1장 남음",
     "preview.cardsLeft.many": "{count}/4 · {remaining}장 남음",
     "preview.connected": "합 {sum} × 연결 {connection} = +{points}",
-    "preview.harvest": "연쇄 합 {sum} · +{points}",
+    "preview.harvest": "합 {sum} × 최장 {multiplier} = +{points}",
     "garden.title": "정원 {label}",
     "garden.region": "네 정원",
     "garden.clockwise": "시계방향 정원 순서",
-    "garden.rule": "네 장 연쇄는 합 · 시계방향 정원 연결은 곱",
+    "garden.rule": "네 장 합 × 카드·정원 중 최장 연쇄",
     "hand.cardAria": "{name} {digit}, 손패 {index}",
     "hand.region": "손패",
     "hand.title": "손패",
@@ -275,7 +275,7 @@ const TRANSLATIONS = {
   },
   en: {
     "document.title": "Stacks - Hourly Number Garden",
-    "document.description": "A mobile number-card game where everyone plays the same hourly deck, harvesting four-card sums and clockwise garden links.",
+    "document.description": "A mobile number-card game where everyone plays the same hourly deck, scoring four-card sums with the longest card or garden chain.",
     "loading.title": "Preparing a new garden",
     "loading.detail": "Calculating the target scores.",
     "error.title": "The game could not be prepared.",
@@ -285,12 +285,12 @@ const TRANSLATIONS = {
     "help.title": "How to play",
     "help.close": "Close",
     "help.rule1": "Move one card from your hand to any garden.",
-    "help.rule2": "When a garden reaches four cards, add their numbers and harvest it.",
-    "help.rule3": "If numbers continue clockwise from the garden you played, multiply by the link length.",
+    "help.rule2": "When a garden reaches four cards, add them and find the longest ±1 card chain in play order.",
+    "help.rule3": "Use the longer of that card chain and the clockwise garden link as the ×1–×4 multiplier.",
     "help.rule4": "Redraw sends your hand to the back of the deck and can be used three times per game.",
     "help.rule5": "Use all 40 cards to earn stars from your final score.",
     "help.exampleLabel": "Example:",
-    "help.example": "Four-card sum 19 × 3 linked gardens = 57 points",
+    "help.example": "Four-card sum 19 × longest chain 3 = 57 points",
     "help.sound": "Sound effects",
     "help.language": "Language",
     "help.retry": "Restart this game",
@@ -317,11 +317,11 @@ const TRANSLATIONS = {
     "preview.cardsLeft.one": "{count}/4 · 1 card left",
     "preview.cardsLeft.many": "{count}/4 · {remaining} cards left",
     "preview.connected": "Sum {sum} × Link {connection} = +{points}",
-    "preview.harvest": "Chain sum {sum} · +{points}",
+    "preview.harvest": "Sum {sum} × Longest {multiplier} = +{points}",
     "garden.title": "Garden {label}",
     "garden.region": "Four gardens",
     "garden.clockwise": "Clockwise garden order",
-    "garden.rule": "Four-card chains add · Clockwise garden links multiply",
+    "garden.rule": "Four-card sum × longest card or garden chain",
     "hand.cardAria": "{name} {digit}, hand card {index}",
     "hand.region": "Hand",
     "hand.title": "Hand",
@@ -340,7 +340,7 @@ const TRANSLATIONS = {
   },
   ja: {
     "document.title": "Stacks（スタックス）- 毎時の数字ガーデン",
-    "document.description": "毎時同じ数字デッキで、4枚の合計と時計回りのガーデン連結を作るモバイルカードゲーム。",
+    "document.description": "毎時同じ数字デッキで、4枚の合計とカード・ガーデンの最長連鎖を作るモバイルカードゲーム。",
     "loading.title": "新しいガーデンを準備中",
     "loading.detail": "目標スコアを計算しています。",
     "error.title": "ゲームを準備できませんでした。",
@@ -350,12 +350,12 @@ const TRANSLATIONS = {
     "help.title": "遊び方",
     "help.close": "閉じる",
     "help.rule1": "手札から1枚を選び、好きなガーデンへ移動します。",
-    "help.rule2": "ガーデンに4枚たまると、4つの数字を足して収穫します。",
-    "help.rule3": "置いたガーデンから時計回りに数字が続くと、連結数を掛けます。",
+    "help.rule2": "ガーデンに4枚たまると数字を足し、置いた順で最長の±1カード連鎖を探します。",
+    "help.rule3": "カード連鎖と置いたガーデンから時計回りの連結を比べ、長い方を×1〜×4の倍率にします。",
     "help.rule4": "手札交換は手札をデッキの後ろへ送り、1ゲームに3回使えます。",
     "help.rule5": "40枚をすべて使ったスコアで星を獲得します。",
     "help.exampleLabel": "例：",
-    "help.example": "4枚の合計19 × ガーデン連結3 = 57点",
+    "help.example": "4枚の合計19 × 最長連鎖3 = 57点",
     "help.sound": "効果音",
     "help.language": "言語",
     "help.retry": "このゲームをやり直す",
@@ -382,11 +382,11 @@ const TRANSLATIONS = {
     "preview.cardsLeft.one": "{count}/4 · あと1枚",
     "preview.cardsLeft.many": "{count}/4 · あと{remaining}枚",
     "preview.connected": "合計 {sum} × 連結 {connection} = +{points}",
-    "preview.harvest": "連鎖合計 {sum} · +{points}",
+    "preview.harvest": "合計 {sum} × 最長 {multiplier} = +{points}",
     "garden.title": "ガーデン {label}",
     "garden.region": "4つのガーデン",
     "garden.clockwise": "時計回りのガーデン順",
-    "garden.rule": "4枚の連鎖は足し算 · 時計回りの連結は掛け算",
+    "garden.rule": "4枚の合計 × カード・ガーデンの最長連鎖",
     "hand.cardAria": "{name} {digit}、手札 {index}",
     "hand.region": "手札",
     "hand.title": "手札",
@@ -519,7 +519,7 @@ function shuffled(items, rng = Math.random) {
 
 
 const HOURLY_MODE = "hourly";
-const HOURLY_RULES_VERSION = "hourly-four-harvest-v2";
+const HOURLY_RULES_VERSION = "hourly-four-harvest-v3";
 const HOURLY_ASSET_VERSION = "seed-art-v1";
 const HOURLY_HAND_SIZE = 5;
 const HOURLY_DECK_SIZE = 40;
@@ -671,6 +671,34 @@ function circularDirection(from, to) {
   return 0;
 }
 
+function longestHourlyCardChain(cards) {
+  const digits = Array.from(cards ?? [], (card) => safeInt(card?.digit ?? card, -1))
+    .filter((digit) => digit >= 0 && digit <= 9);
+  if (!digits.length) return { length: 0, direction: 0, startIndex: -1, digits: [] };
+
+  let best = { length: 1, direction: 0, startIndex: 0, digits: [digits[0]] };
+  for (let startIndex = 0; startIndex < digits.length; startIndex += 1) {
+    let direction = 0;
+    let length = 1;
+    for (let index = startIndex + 1; index < digits.length; index += 1) {
+      const step = circularDirection(digits[index - 1], digits[index]);
+      if (!step) break;
+      if (!direction) direction = step;
+      if (step !== direction) break;
+      length += 1;
+    }
+    if (length > best.length) {
+      best = {
+        length,
+        direction: length > 1 ? direction : 0,
+        startIndex,
+        digits: digits.slice(startIndex, startIndex + length),
+      };
+    }
+  }
+  return best;
+}
+
 function gardenConnection(piles, triggerIndex, triggerDigit = null) {
   const order = clockwisePileIndices(triggerIndex);
   const firstPile = piles[triggerIndex] ?? [];
@@ -748,8 +776,10 @@ function previewHourlyPlacement(state, handIndex, pileIndex) {
   const nextPiles = piles.map((pile) => [...pile]);
   nextPiles[targetIndex].push(card);
   const chainSum = nextPiles[targetIndex].reduce((sum, item) => sum + Number(item.digit), 0);
+  const cardChain = longestHourlyCardChain(nextPiles[targetIndex]);
   const connection = gardenConnection(nextPiles, targetIndex, card.digit);
-  const points = chainSum * connection.length;
+  const multiplier = Math.max(cardChain.length, connection.length);
+  const points = chainSum * multiplier;
   return {
     ok: true,
     card: copy(card),
@@ -758,6 +788,8 @@ function previewHourlyPlacement(state, handIndex, pileIndex) {
     cardsUntilHarvest: 0,
     harvest: true,
     chainSum,
+    cardChain,
+    multiplier,
     points,
     connection,
   };
@@ -814,7 +846,9 @@ function playHourlyCard(state, handIndex, pileIndex) {
       pileIndex: preview.pileIndex,
       cards: copy(cards),
       chainSum: preview.chainSum,
+      cardChain: copy(preview.cardChain),
       connection: copy(preview.connection),
+      multiplier: preview.multiplier,
       points: preview.points,
     };
   }
@@ -835,7 +869,8 @@ function compactPile(cards) {
     count: pile.count + 1,
     sum: pile.sum + Number(digit),
     top: Number(digit),
-  }), { count: 0, sum: 0, top: -1 });
+    digits: `${pile.digits}${digit}`,
+  }), { count: 0, sum: 0, top: -1, digits: "" });
 }
 
 function compactConnection(piles, triggerIndex, digit) {
@@ -855,7 +890,7 @@ function compactConnection(piles, triggerIndex, digit) {
 }
 
 function compactKey(hand, queue, piles, redrawsLeft) {
-  return `${[...hand].sort((a, b) => a - b).join("")}|${queue}|${redrawsLeft}|${piles.map((pile) => `${pile.count},${pile.sum},${pile.top}`).join("/")}`;
+  return `${[...hand].sort((a, b) => a - b).join("")}|${queue}|${redrawsLeft}|${piles.map((pile) => pile.digits).join("/")}`;
 }
 
 function solverHeuristic(state) {
@@ -873,10 +908,17 @@ function solverPlayTransition(state, digit, handIndex, pileIndex) {
   const pile = piles[pileIndex];
   let gain = 0;
   if (pile.count === 3) {
-    gain = (pile.sum + digit) * compactConnection(piles, pileIndex, digit);
-    piles[pileIndex] = { count: 0, sum: 0, top: -1 };
+    const cardChainLength = longestHourlyCardChain(`${pile.digits}${digit}`).length;
+    const connectionLength = compactConnection(piles, pileIndex, digit);
+    gain = (pile.sum + digit) * Math.max(cardChainLength, connectionLength);
+    piles[pileIndex] = { count: 0, sum: 0, top: -1, digits: "" };
   } else {
-    piles[pileIndex] = { count: pile.count + 1, sum: pile.sum + digit, top: digit };
+    piles[pileIndex] = {
+      count: pile.count + 1,
+      sum: pile.sum + digit,
+      top: digit,
+      digits: `${pile.digits}${digit}`,
+    };
   }
 
   const hand = state.hand.filter((_, index) => index !== handIndex);
@@ -932,7 +974,7 @@ function materializeSolverPath(trail) {
 function solveHourlyHarvestMaximum(seed, options = {}) {
   const beamWidth = Math.max(250, safeInt(options.beamWidth, 6000));
   const deckDigits = createHourlyDeck(seed).map((card) => card.digit);
-  const emptyPile = () => ({ count: 0, sum: 0, top: -1 });
+  const emptyPile = () => ({ count: 0, sum: 0, top: -1, digits: "" });
   let beam = [{
     hand: deckDigits.slice(0, HOURLY_HAND_SIZE),
     queue: deckDigits.slice(HOURLY_HAND_SIZE).join(""),
@@ -1067,18 +1109,18 @@ function hourlyResultShareText(state, url = HOURLY_SHARE_URL, language = "ko") {
 }
 
 function hourlyRunStorageKey(seed) {
-  return `garden-stacks:hourly-v2:${seed}:run`;
+  return `garden-stacks:hourly-v3:${seed}:run`;
 }
 
 function hourlyBestStorageKey(seed) {
-  return `garden-stacks:hourly-v2:${seed}:best`;
+  return `garden-stacks:hourly-v3:${seed}:best`;
 }
 
 function hourlySolutionStorageKey(seed) {
-  return `garden-stacks:hourly-v2:${seed}:solution`;
+  return `garden-stacks:hourly-v3:${seed}:solution`;
 }
 
-const HOURLY_ACTIVE_SEED_KEY = "garden-stacks:hourly-v2:active-seed";
+const HOURLY_ACTIVE_SEED_KEY = "garden-stacks:hourly-v3:active-seed";
 
 
 
@@ -1617,14 +1659,11 @@ function previewLabel(preview) {
       remaining: preview.cardsUntilHarvest,
     });
   }
-  if (preview.connection.length > 1) {
-    return t("preview.connected", {
-      sum: preview.chainSum,
-      connection: preview.connection.length,
-      points: preview.points,
-    });
-  }
-  return t("preview.harvest", { sum: preview.chainSum, points: preview.points });
+  return t("preview.harvest", {
+    sum: preview.chainSum,
+    multiplier: preview.multiplier,
+    points: preview.points,
+  });
 }
 
 function cardDisplayName(card) {
@@ -1640,7 +1679,6 @@ function cardMarkup(card) {
 }
 
 function renderHeader() {
-  const best = loadBest(ui.state.seed);
   return `
     <header class="hourly-header">
       <div class="brand-lockup">
@@ -1654,12 +1692,6 @@ function renderHeader() {
           <span>${escapeHtml(t(ui.pendingSeed ? "timer.newGame" : "timer.nextGame"))}</span>
           <strong data-timer>${currentTimerText()}</strong>
         </div>
-      </div>
-      <div class="score-line">
-        <div><span>${escapeHtml(t("score.score"))}</span><strong>${ui.state.score}</strong></div>
-        <div><span>${escapeHtml(t("score.stars"))}</span><strong>${starsText(ui.state.stars)}</strong></div>
-        <div><span>${escapeHtml(t("score.harvests"))}</span><strong>${ui.state.harvests}</strong></div>
-        <div><span>${escapeHtml(t("score.best"))}</span><strong>${best.score}</strong></div>
       </div>
       <div class="star-targets" aria-label="${escapeHtml(t("score.targetsAria"))}">
         <span class="${ui.state.score >= ui.state.thresholds.one ? "is-earned" : ""}">★ ${ui.state.thresholds.one}</span>

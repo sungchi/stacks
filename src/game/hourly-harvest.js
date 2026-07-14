@@ -2,7 +2,7 @@ import { createRng, shuffleInPlace } from "./random.js";
 import { translateText } from "../i18n.js";
 
 export const HOURLY_MODE = "hourly";
-export const HOURLY_RULES_VERSION = "hourly-four-harvest-v2";
+export const HOURLY_RULES_VERSION = "hourly-four-harvest-v3";
 export const HOURLY_ASSET_VERSION = "seed-art-v1";
 export const HOURLY_HAND_SIZE = 5;
 export const HOURLY_DECK_SIZE = 40;
@@ -154,6 +154,34 @@ function circularDirection(from, to) {
   return 0;
 }
 
+export function longestHourlyCardChain(cards) {
+  const digits = Array.from(cards ?? [], (card) => safeInt(card?.digit ?? card, -1))
+    .filter((digit) => digit >= 0 && digit <= 9);
+  if (!digits.length) return { length: 0, direction: 0, startIndex: -1, digits: [] };
+
+  let best = { length: 1, direction: 0, startIndex: 0, digits: [digits[0]] };
+  for (let startIndex = 0; startIndex < digits.length; startIndex += 1) {
+    let direction = 0;
+    let length = 1;
+    for (let index = startIndex + 1; index < digits.length; index += 1) {
+      const step = circularDirection(digits[index - 1], digits[index]);
+      if (!step) break;
+      if (!direction) direction = step;
+      if (step !== direction) break;
+      length += 1;
+    }
+    if (length > best.length) {
+      best = {
+        length,
+        direction: length > 1 ? direction : 0,
+        startIndex,
+        digits: digits.slice(startIndex, startIndex + length),
+      };
+    }
+  }
+  return best;
+}
+
 export function gardenConnection(piles, triggerIndex, triggerDigit = null) {
   const order = clockwisePileIndices(triggerIndex);
   const firstPile = piles[triggerIndex] ?? [];
@@ -231,8 +259,10 @@ export function previewHourlyPlacement(state, handIndex, pileIndex) {
   const nextPiles = piles.map((pile) => [...pile]);
   nextPiles[targetIndex].push(card);
   const chainSum = nextPiles[targetIndex].reduce((sum, item) => sum + Number(item.digit), 0);
+  const cardChain = longestHourlyCardChain(nextPiles[targetIndex]);
   const connection = gardenConnection(nextPiles, targetIndex, card.digit);
-  const points = chainSum * connection.length;
+  const multiplier = Math.max(cardChain.length, connection.length);
+  const points = chainSum * multiplier;
   return {
     ok: true,
     card: copy(card),
@@ -241,6 +271,8 @@ export function previewHourlyPlacement(state, handIndex, pileIndex) {
     cardsUntilHarvest: 0,
     harvest: true,
     chainSum,
+    cardChain,
+    multiplier,
     points,
     connection,
   };
@@ -297,7 +329,9 @@ export function playHourlyCard(state, handIndex, pileIndex) {
       pileIndex: preview.pileIndex,
       cards: copy(cards),
       chainSum: preview.chainSum,
+      cardChain: copy(preview.cardChain),
       connection: copy(preview.connection),
+      multiplier: preview.multiplier,
       points: preview.points,
     };
   }
@@ -318,7 +352,8 @@ function compactPile(cards) {
     count: pile.count + 1,
     sum: pile.sum + Number(digit),
     top: Number(digit),
-  }), { count: 0, sum: 0, top: -1 });
+    digits: `${pile.digits}${digit}`,
+  }), { count: 0, sum: 0, top: -1, digits: "" });
 }
 
 function compactConnection(piles, triggerIndex, digit) {
@@ -338,7 +373,7 @@ function compactConnection(piles, triggerIndex, digit) {
 }
 
 function compactKey(hand, queue, piles, redrawsLeft) {
-  return `${[...hand].sort((a, b) => a - b).join("")}|${queue}|${redrawsLeft}|${piles.map((pile) => `${pile.count},${pile.sum},${pile.top}`).join("/")}`;
+  return `${[...hand].sort((a, b) => a - b).join("")}|${queue}|${redrawsLeft}|${piles.map((pile) => pile.digits).join("/")}`;
 }
 
 function solverHeuristic(state) {
@@ -356,10 +391,17 @@ function solverPlayTransition(state, digit, handIndex, pileIndex) {
   const pile = piles[pileIndex];
   let gain = 0;
   if (pile.count === 3) {
-    gain = (pile.sum + digit) * compactConnection(piles, pileIndex, digit);
-    piles[pileIndex] = { count: 0, sum: 0, top: -1 };
+    const cardChainLength = longestHourlyCardChain(`${pile.digits}${digit}`).length;
+    const connectionLength = compactConnection(piles, pileIndex, digit);
+    gain = (pile.sum + digit) * Math.max(cardChainLength, connectionLength);
+    piles[pileIndex] = { count: 0, sum: 0, top: -1, digits: "" };
   } else {
-    piles[pileIndex] = { count: pile.count + 1, sum: pile.sum + digit, top: digit };
+    piles[pileIndex] = {
+      count: pile.count + 1,
+      sum: pile.sum + digit,
+      top: digit,
+      digits: `${pile.digits}${digit}`,
+    };
   }
 
   const hand = state.hand.filter((_, index) => index !== handIndex);
@@ -415,7 +457,7 @@ function materializeSolverPath(trail) {
 export function solveHourlyHarvestMaximum(seed, options = {}) {
   const beamWidth = Math.max(250, safeInt(options.beamWidth, 6000));
   const deckDigits = createHourlyDeck(seed).map((card) => card.digit);
-  const emptyPile = () => ({ count: 0, sum: 0, top: -1 });
+  const emptyPile = () => ({ count: 0, sum: 0, top: -1, digits: "" });
   let beam = [{
     hand: deckDigits.slice(0, HOURLY_HAND_SIZE),
     queue: deckDigits.slice(HOURLY_HAND_SIZE).join(""),
@@ -550,15 +592,15 @@ export function hourlyResultShareText(state, url = HOURLY_SHARE_URL, language = 
 }
 
 export function hourlyRunStorageKey(seed) {
-  return `garden-stacks:hourly-v2:${seed}:run`;
+  return `garden-stacks:hourly-v3:${seed}:run`;
 }
 
 export function hourlyBestStorageKey(seed) {
-  return `garden-stacks:hourly-v2:${seed}:best`;
+  return `garden-stacks:hourly-v3:${seed}:best`;
 }
 
 export function hourlySolutionStorageKey(seed) {
-  return `garden-stacks:hourly-v2:${seed}:solution`;
+  return `garden-stacks:hourly-v3:${seed}:solution`;
 }
 
-export const HOURLY_ACTIVE_SEED_KEY = "garden-stacks:hourly-v2:active-seed";
+export const HOURLY_ACTIVE_SEED_KEY = "garden-stacks:hourly-v3:active-seed";

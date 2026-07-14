@@ -14,6 +14,7 @@ import {
   hourlyGardenLabel,
   hourlyResultShareText,
   kstHourSeed,
+  longestHourlyCardChain,
   newHourlyRun,
   playHourlyCard,
   previewHourlyPlacement,
@@ -107,12 +108,32 @@ test("clockwise connection starts at the played garden and fixes direction", () 
   assert.equal(gardenConnection(nextPiles, 0, 5).length, 2);
 });
 
-test("four cards always harvest by sum and clockwise gardens multiply it", () => {
+test("longest card chain follows play order, fixes direction, and allows 9-0", () => {
+  assert.deepEqual(longestHourlyCardChain([1, 2, 7, 8]), {
+    length: 2,
+    direction: 1,
+    startIndex: 0,
+    digits: [1, 2],
+  });
+  assert.deepEqual(longestHourlyCardChain([2, 2, 3, 4]), {
+    length: 3,
+    direction: 1,
+    startIndex: 1,
+    digits: [2, 3, 4],
+  });
+  assert.equal(longestHourlyCardChain([2, 2, 2, 2]).length, 1);
+  assert.equal(longestHourlyCardChain([1, 2, 1, 0]).length, 3);
+  assert.equal(longestHourlyCardChain([9, 0, 1, 2]).length, 4);
+});
+
+test("four-card sum uses the longer card chain or garden connection as multiplier", () => {
   const state = ruleState();
   const preview = previewHourlyPlacement(state, 0, 0);
   assert.equal(preview.harvest, true);
   assert.equal(preview.chainSum, 19);
+  assert.equal(preview.cardChain.length, 2);
   assert.equal(preview.connection.length, 3);
+  assert.equal(preview.multiplier, 3);
   assert.equal(preview.points, 57);
 
   const result = playHourlyCard(state, 0, 0);
@@ -123,6 +144,18 @@ test("four cards always harvest by sum and clockwise gardens multiply it", () =>
   assert.equal(state.piles[1][0].digit, 6);
   assert.equal(state.piles[3][0].digit, 7);
   assert.equal(state.phase, "result");
+});
+
+test("a four-card internal chain can beat a missing garden connection", () => {
+  const state = ruleState();
+  state.hand = [card(4, "played-4")];
+  state.piles = [[card(1, "a"), card(2, "b"), card(3, "c")], [], [], []];
+  const preview = previewHourlyPlacement(state, 0, 0);
+  assert.equal(preview.chainSum, 10);
+  assert.equal(preview.cardChain.length, 4);
+  assert.equal(preview.connection.length, 1);
+  assert.equal(preview.multiplier, 4);
+  assert.equal(preview.points, 40);
 });
 
 test("non-harvest placement remains legal in every garden", () => {

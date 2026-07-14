@@ -531,14 +531,11 @@ function previewLabel(preview) {
       remaining: preview.cardsUntilHarvest,
     });
   }
-  if (preview.connection.length > 1) {
-    return t("preview.connected", {
-      sum: preview.chainSum,
-      connection: preview.connection.length,
-      points: preview.points,
-    });
-  }
-  return t("preview.harvest", { sum: preview.chainSum, points: preview.points });
+  return t("preview.harvest", {
+    sum: preview.chainSum,
+    multiplier: preview.multiplier,
+    points: preview.points,
+  });
 }
 
 function cardDisplayName(card) {
@@ -554,7 +551,6 @@ function cardMarkup(card) {
 }
 
 function renderHeader() {
-  const best = loadBest(ui.state.seed);
   return `
     <header class="hourly-header">
       <div class="brand-lockup">
@@ -568,12 +564,6 @@ function renderHeader() {
           <span>${escapeHtml(t(ui.pendingSeed ? "timer.newGame" : "timer.nextGame"))}</span>
           <strong data-timer>${currentTimerText()}</strong>
         </div>
-      </div>
-      <div class="score-line">
-        <div><span>${escapeHtml(t("score.score"))}</span><strong>${ui.state.score}</strong></div>
-        <div><span>${escapeHtml(t("score.stars"))}</span><strong>${starsText(ui.state.stars)}</strong></div>
-        <div><span>${escapeHtml(t("score.harvests"))}</span><strong>${ui.state.harvests}</strong></div>
-        <div><span>${escapeHtml(t("score.best"))}</span><strong>${best.score}</strong></div>
       </div>
       <div class="star-targets" aria-label="${escapeHtml(t("score.targetsAria"))}">
         <span class="${ui.state.score >= ui.state.thresholds.one ? "is-earned" : ""}">★ ${ui.state.thresholds.one}</span>

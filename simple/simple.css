@@ -171,45 +171,6 @@ button:disabled {
   line-height: 1;
 }
 
-.score-line {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  border-block: 1px solid var(--line);
-}
-
-.score-line > div {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-  padding: 8px 7px;
-  border-right: 1px solid var(--line);
-}
-
-.score-line > div:last-child {
-  border-right: 0;
-}
-
-.score-line span {
-  color: var(--muted);
-  font-size: 9px;
-  font-weight: 900;
-}
-
-.score-line strong {
-  overflow: hidden;
-  font-size: 16px;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.1;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.score-line > div:nth-child(2) strong {
-  color: #8a6600;
-  font-size: 14px;
-}
-
 .star-targets {
   grid-column: 1 / -1;
   display: grid;
