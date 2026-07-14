@@ -1,0 +1,70 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+  CARD_NAMES,
+  SUPPORTED_LANGUAGES,
+  TRANSLATIONS,
+  detectLanguage,
+  normalizeLanguage,
+  translateCardName,
+  translateText,
+} from "../src/i18n.js";
+import {
+  HOURLY_ART_VARIANTS,
+  hourlyResultShareText,
+} from "../src/game/hourly-harvest.js";
+
+test("Korean, English, and Japanese expose the same UI translation keys", () => {
+  const expected = Object.keys(TRANSLATIONS.ko).sort();
+  assert.deepEqual(SUPPORTED_LANGUAGES, ["ko", "en", "ja"]);
+  for (const language of SUPPORTED_LANGUAGES) {
+    assert.deepEqual(Object.keys(TRANSLATIONS[language]).sort(), expected);
+    assert.ok(expected.every((key) => TRANSLATIONS[language][key].length > 0));
+  }
+});
+
+test("stored language wins, then browser languages, then Korean fallback", () => {
+  assert.equal(detectLanguage({ stored: "ja", languages: ["en-US"] }), "ja");
+  assert.equal(detectLanguage({ stored: "fr", languages: ["en-US", "ja-JP"] }), "en");
+  assert.equal(detectLanguage({ languages: ["fr-FR", "ja-JP"] }), "ja");
+  assert.equal(detectLanguage({ language: "ko-KR" }), "ko");
+  assert.equal(detectLanguage({ languages: ["fr-FR"] }), "ko");
+  assert.equal(normalizeLanguage("EN_us"), "en");
+  assert.equal(normalizeLanguage("zh-CN"), null);
+});
+
+test("text translation interpolates variables and falls back safely", () => {
+  assert.equal(translateText("en", "hand.used", { count: 12 }), "12/40 used");
+  assert.equal(translateText("ja-JP", "garden.title", { label: "C" }), "ガーデン C");
+  assert.equal(translateText("fr", "score.score"), "점수");
+});
+
+test("all 40 hourly card variants have names in all three languages", () => {
+  const variants = Object.values(HOURLY_ART_VARIANTS).flat();
+  assert.equal(variants.length, 40);
+  assert.equal(Object.keys(CARD_NAMES).length, 40);
+  for (const [slug, koreanName] of variants) {
+    assert.equal(translateCardName("ko", `0:${slug}`, "missing"), koreanName);
+    for (const language of SUPPORTED_LANGUAGES) {
+      assert.notEqual(translateCardName(language, `0:${slug}`, "missing"), "missing");
+    }
+  }
+});
+
+test("hourly share text follows the selected language", () => {
+  const state = {
+    seed: "2026071412",
+    perfect: false,
+    stars: 0,
+    score: 42,
+    maximumScore: 300,
+  };
+  assert.equal(
+    hourlyResultShareText(state, "https://example.com", "en"),
+    "Stacks #2026071412 In progress 42 pts / Max 300 pts https://example.com",
+  );
+  assert.equal(
+    hourlyResultShareText(state, "https://example.com", "ja"),
+    "スタックス #2026071412 挑戦中 42点 / 最高 300点 https://example.com",
+  );
+});

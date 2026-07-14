@@ -17,6 +17,16 @@ export function isPointerDragCancellation(eventType) {
   return eventType === "pointercancel" || eventType === "lostpointercapture";
 }
 
+export function selectionAfterPointerGesture(previousIndex, handIndex, options = {}) {
+  if (options.canceled) return previousIndex;
+  if (options.moved) return handIndex;
+  return previousIndex === handIndex ? null : handIndex;
+}
+
+export function canStartPointerCarry(pointerType, hasFineHover) {
+  return pointerType === "mouse" && hasFineHover === true;
+}
+
 export function dragGhostPosition(clientX, clientY, offsetX, offsetY) {
   return {
     x: Math.round(clientX - offsetX),

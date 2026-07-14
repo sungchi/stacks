@@ -1,6 +1,9 @@
-# Garden Stacks Code
+# Stacks (스택스)
 
 `garden-stacks-code`는 Garden Stacks 최신 프로토타입의 게임 시스템과 애셋을 참고해, `malitmot` 방식의 가벼운 정적 웹 앱으로 다시 구현하기 위한 작업 저장소다.
+
+- 공개 게임: <https://plan9.kr/stacks/>
+- GitHub 저장소: <https://github.com/sungchi/stacks>
 
 목표는 Garden Stacks의 불필요한 과거 히스토리를 옮기는 것이 아니라, 현재 구현에 필요한 규칙, UI 방향, 검수 기준, 런타임 애셋만 간결하게 정리하는 것이다.
 
@@ -56,3 +59,35 @@
 - `npm run open`: `index.html`을 연다.
 
 시간 정원 소스만 수정했으면 `npm run build:current` 또는 `npm run build:hourly`, 레거시까지 포함한 전체 검수에서는 `npm run build:offline`을 실행한다.
+
+## GitHub Pages 배포
+
+이 프로젝트는 빌드 산출물을 저장소에 포함하는 정적 웹 앱이므로 GitHub Pages의 `main` 브랜치 루트(`/`)를 직접 배포한다. 루트의 `.nojekyll`은 Jekyll 변환 없이 현재 파일 구조를 그대로 서비스하게 한다. 프로젝트 페이지의 `/stacks/` 하위 경로에서도 `index.html`의 상대 경로와 `simple/index.html`의 `<base href="../">`가 애셋 경로를 유지한다.
+
+최초 저장소와 Pages 생성:
+
+```bash
+gh repo create sungchi/stacks --public --source=. --remote=stacks
+git push -u stacks main
+gh api --method POST repos/sungchi/stacks/pages \
+  --input - <<'JSON'
+{"source":{"branch":"main","path":"/"}}
+JSON
+```
+
+이후 배포:
+
+```bash
+npm test
+npm run build:offline
+git add <변경한 소스와 생성된 번들>
+git commit -m "feat(game): 변경 내용"
+git push stacks main
+```
+
+푸시 후 GitHub의 `pages-build-deployment`가 완료되면 <https://plan9.kr/stacks/>에 반영된다. 이 계정은 GitHub Pages 기본 도메인 대신 `plan9.kr` 커스텀 도메인을 사용하므로 프로젝트 경로가 `/stacks/` 아래에 붙는다. 상태와 설정은 다음 명령으로 확인한다.
+
+```bash
+gh run list --repo sungchi/stacks --workflow pages-build-deployment --limit 5
+gh api repos/sungchi/stacks/pages
+```

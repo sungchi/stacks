@@ -16,6 +16,7 @@ const builds = [
     name: "hourly",
     inputs: [
       "src/performance.js",
+      "src/i18n.js",
       "src/game/random.js",
       "src/game/hourly-harvest.js",
       "src/ui/pointer-drag.js",

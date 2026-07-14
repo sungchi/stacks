@@ -20,7 +20,7 @@ bio_0018,data/species_codex/generated/pixel_art_assets/slices/bio_0018_common_se
 bio_0019,data/species_codex/generated/pixel_art_assets/slices/bio_0019_box_elder.png,pass,,222,208,data/species_codex/generated/pixel_art_assets/review_contact_sheets/batch_01.png
 bio_0020,data/species_codex/generated/pixel_art_assets/slices/bio_0020_great_mullein.png,pass,,177,226,data/species_codex/generated/pixel_art_assets/review_contact_sheets/batch_01.png
 bio_0021,data/species_codex/generated/pixel_art_assets/slices/bio_0021_common_ivy.png,pass,,201,215,data/species_codex/generated/pixel_art_assets/review_contact_sheets/batch_01.png
-bio_0022,data/species_codex/generated/pixel_art_assets/slices/bio_0022_bull_thistle.png,pass,,163,216,data/species_codex/generated/pixel_art_assets/review_contact_sheets/batch_01.png
+bio_0022,data/species_codex/generated/pixel_art_assets/slices/bio_0327_cornflower.png,pass,,173,211,data/species_codex/generated/pixel_art_assets/review_contact_sheets/batch_14.png
 bio_0023,data/species_codex/generated/pixel_art_assets/slices/bio_0023_common_milkweed.png,pass,,204,225,data/species_codex/generated/pixel_art_assets/review_contact_sheets/batch_01.png
 bio_0024,data/species_codex/generated/pixel_art_assets/slices/bio_0024_red_deadnettle.png,pass,,194,210,data/species_codex/generated/pixel_art_assets/review_contact_sheets/batch_01.png
 bio_0025,data/species_codex/generated/pixel_art_assets/slices/bio_0025_chicory.png,pass,,198,215,data/species_codex/generated/pixel_art_assets/review_contact_sheets/batch_01.png
@@ -245,7 +245,7 @@ bio_0243,data/species_codex/generated/pixel_art_assets/slices/bio_0243_scentless
 bio_0244,data/species_codex/generated/pixel_art_assets/slices/bio_0244_chinese_privet.png,pass,,173,194,data/species_codex/generated/pixel_art_assets/review_contact_sheets/batch_10.png
 bio_0245,data/species_codex/generated/pixel_art_assets/slices/bio_0245_common_bilberry.png,pass,,185,184,data/species_codex/generated/pixel_art_assets/review_contact_sheets/batch_10.png
 bio_0246,data/species_codex/generated/pixel_art_assets/slices/bio_0246_heavenly_bamboo.png,pass,,198,221,data/species_codex/generated/pixel_art_assets/review_contact_sheets/batch_10.png
-bio_0247,data/species_codex/generated/pixel_art_assets/slices/bio_0247_cuckooflower.png,pass,,194,226,data/species_codex/generated/pixel_art_assets/review_contact_sheets/batch_10.png
+bio_0247,data/species_codex/generated/pixel_art_assets/slices/bio_0247_cuckooflower.png,needs_replacement,user_reported_visual_issue,194,226,data/species_codex/generated/pixel_art_assets/review_contact_sheets/batch_10.png
 bio_0248,data/species_codex/generated/pixel_art_assets/slices/bio_0248_cowslip.png,pass,,201,222,data/species_codex/generated/pixel_art_assets/review_contact_sheets/batch_10.png
 bio_0249,data/species_codex/generated/pixel_art_assets/slices/bio_0249_common_star_of_bethlehem.png,pass,,210,219,data/species_codex/generated/pixel_art_assets/review_contact_sheets/batch_10.png
 bio_0250,data/species_codex/generated/pixel_art_assets/slices/bio_0250_large_leaved_lupine.png,pass,,214,251,data/species_codex/generated/pixel_art_assets/review_contact_sheets/batch_10.png
@@ -440,7 +440,7 @@ bio_0438,data/species_codex/generated/pixel_art_assets/slices/bio_0438_southern_
 bio_0439,data/species_codex/generated/pixel_art_assets/slices/bio_0439_blue_plumbago.png,pass,,189,205,data/species_codex/generated/pixel_art_assets/review_contact_sheets/batch_18.png
 bio_0440,data/species_codex/generated/pixel_art_assets/slices/bio_0440_coast_redwood.png,pass,,136,220,data/species_codex/generated/pixel_art_assets/review_contact_sheets/batch_18.png
 bio_0441,data/species_codex/generated/pixel_art_assets/slices/bio_0441_eastern_teaberry.png,pass,,188,190,data/species_codex/generated/pixel_art_assets/review_contact_sheets/batch_18.png
-bio_0442,data/species_codex/generated/pixel_art_assets/slices/bio_0442_milk_thistle.png,pass,,199,213,data/species_codex/generated/pixel_art_assets/review_contact_sheets/batch_18.png
+bio_0442,data/species_codex/generated/pixel_art_assets/slices/bio_0442_milk_thistle.png,needs_replacement,user_reported_visual_issue,199,213,data/species_codex/generated/pixel_art_assets/review_contact_sheets/batch_18.png
 bio_0443,data/species_codex/generated/pixel_art_assets/slices/bio_0443_indian_fig_opuntia.png,pass,,185,212,data/species_codex/generated/pixel_art_assets/review_contact_sheets/batch_18.png
 bio_0444,data/species_codex/generated/pixel_art_assets/slices/bio_0444_american_white_waterlily.png,pass,,206,173,data/species_codex/generated/pixel_art_assets/review_contact_sheets/batch_18.png
 bio_0445,data/species_codex/generated/pixel_art_assets/slices/bio_0445_white_leadtree.png,pass,,201,208,data/species_codex/generated/pixel_art_assets/review_contact_sheets/batch_18.png

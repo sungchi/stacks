@@ -1,10 +1,12 @@
 import {
   HOURLY_ACTIVE_SEED_KEY,
+  HOURLY_CLOCKWISE_ORDER,
   HOURLY_REDRAW_LIMIT,
   HOURLY_RULES_VERSION,
   canRedrawHourlyHand,
   formatDuration,
   hourlyBestStorageKey,
+  hourlyGardenLabel,
   hourlyResultShareText,
   hourlyRunStorageKey,
   hourlySolutionStorageKey,
@@ -24,10 +26,20 @@ import {
   installPerformanceTools,
 } from "./performance.js";
 import {
+  canStartPointerCarry,
   dragGhostPosition,
   exceedsPointerDragThreshold,
   isPointerDragCancellation,
+  selectionAfterPointerGesture,
 } from "./ui/pointer-drag.js";
+import {
+  LANGUAGE_STORAGE_KEY,
+  SUPPORTED_LANGUAGES,
+  detectLanguage,
+  normalizeLanguage,
+  translateCardName,
+  translateText,
+} from "./i18n.js";
 
 const app = document.querySelector("#app");
 const perfMonitor = createPerformanceMonitor("Stacks Hourly");
@@ -36,9 +48,10 @@ const SOLVER_VERSION = `${HOURLY_RULES_VERSION}:beam-${SOLVER_BEAM_WIDTH}`;
 const SNAP_MS = 150;
 const DEAL_CARD_MS = 360;
 const DEAL_STAGGER_MS = 70;
-const HARVEST_MS = 620;
+const HARVEST_MS = 1100;
 const LANDING_MS = 300;
 const SFX_SETTING_KEY = "garden-stacks:hourly:sfx";
+const HELP_SEEN_KEY = "garden-stacks:hourly:help-seen:v1";
 const FALLBACK_CARD_IMAGE = "public/assets/garden-stacks/generated/cards/card_locked_unknown.png";
 
 const ui = {
@@ -47,6 +60,7 @@ const ui = {
   selectedHandIndex: null,
   pendingSeed: "",
   helpOpen: false,
+  firstVisitHelp: false,
   resultOpen: false,
   toast: null,
   motion: null,
@@ -54,15 +68,21 @@ const ui = {
   landingPulse: null,
   harvestPulse: null,
   drag: null,
+  carry: null,
   rejectedHandIndex: null,
   suppressNextClick: false,
   pendingDealSound: false,
   sfxEnabled: readSfxSetting(),
+  language: readLanguageSetting(),
   loading: true,
 };
 
 const audio = {
   context: null,
+  fallbackPlayer: null,
+  fallbackPriming: false,
+  fallbackUnlocked: false,
+  wavCache: new Map(),
 };
 
 function readSfxSetting() {
@@ -79,6 +99,63 @@ function writeSfxSetting(enabled) {
   } catch {
     // Sound preference can remain tab-local when storage is unavailable.
   }
+}
+
+function readLanguageSetting() {
+  let stored = "";
+  try {
+    stored = localStorage.getItem(LANGUAGE_STORAGE_KEY) ?? "";
+  } catch {
+    // Browser language remains available when storage is unavailable.
+  }
+  return detectLanguage({
+    stored,
+    languages: navigator.languages ?? [],
+    language: navigator.language,
+  });
+}
+
+function writeLanguageSetting(language) {
+  try {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+  } catch {
+    // Language preference can remain tab-local when storage is unavailable.
+  }
+}
+
+function hasSeenHelp() {
+  try {
+    return localStorage.getItem(HELP_SEEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markHelpSeen() {
+  try {
+    localStorage.setItem(HELP_SEEN_KEY, "1");
+  } catch {
+    // First-visit help can reappear when storage is unavailable.
+  }
+}
+
+function t(key, variables) {
+  return translateText(ui.language, key, variables);
+}
+
+function setLanguage(language) {
+  const next = normalizeLanguage(language);
+  if (!next || next === ui.language) return;
+  ui.language = next;
+  writeLanguageSetting(next);
+  render();
+}
+
+function closeHelp() {
+  ui.helpOpen = false;
+  ui.firstVisitHelp = false;
+  markHelpSeen();
+  render();
 }
 
 function readJson(key) {
@@ -103,6 +180,110 @@ function midiFrequency(note) {
   return 440 * 2 ** ((note - 69) / 12);
 }
 
+function wavDataUri(tones, duration) {
+  const sampleRate = 11025;
+  const sampleCount = Math.max(1, Math.ceil(sampleRate * duration));
+  const bytes = new Uint8Array(44 + sampleCount * 2);
+  const view = new DataView(bytes.buffer);
+  const writeText = (offset, value) => {
+    for (let index = 0; index < value.length; index += 1) bytes[offset + index] = value.charCodeAt(index);
+  };
+  writeText(0, "RIFF");
+  view.setUint32(4, 36 + sampleCount * 2, true);
+  writeText(8, "WAVEfmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeText(36, "data");
+  view.setUint32(40, sampleCount * 2, true);
+
+  for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
+    const time = sampleIndex / sampleRate;
+    let sample = 0;
+    for (const tone of tones) {
+      const localTime = time - tone.delay;
+      if (localTime < 0 || localTime > tone.duration) continue;
+      const envelope = Math.sin(Math.PI * Math.min(1, localTime / 0.012)) * (1 - localTime / tone.duration);
+      sample += Math.sin(2 * Math.PI * midiFrequency(tone.note) * localTime) * envelope * tone.gain;
+    }
+    view.setInt16(44 + sampleIndex * 2, Math.round(Math.max(-1, Math.min(1, sample)) * 32767), true);
+  }
+
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 4096) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 4096));
+  }
+  return `data:audio/wav;base64,${btoa(binary)}`;
+}
+
+function fallbackSfxUri(name, detail = {}) {
+  const key = `${name}:${detail.harvest ? "harvest" : "normal"}:${detail.count ?? 0}`;
+  if (audio.wavCache.has(key)) return audio.wavCache.get(key);
+  let tones = [];
+  if (name === "deal") {
+    const count = Math.max(1, Math.min(5, Number(detail.count) || 1));
+    tones = [57, 60, 64, 67, 72].slice(0, count).map((note, index) => ({ note, delay: index * 0.045, duration: 0.08, gain: 0.18 }));
+  } else if (name === "place") {
+    tones = detail.harvest
+      ? [{ note: 55, delay: 0, duration: 0.08, gain: 0.22 }, { note: 72, delay: 0.04, duration: 0.13, gain: 0.17 }]
+      : [{ note: 62, delay: 0, duration: 0.07, gain: 0.22 }, { note: 69, delay: 0.035, duration: 0.11, gain: 0.17 }];
+  } else if (name === "reject") {
+    tones = [{ note: 45, delay: 0, duration: 0.12, gain: 0.2 }];
+  }
+  const duration = Math.max(0.04, ...tones.map((tone) => tone.delay + tone.duration + 0.025));
+  const uri = wavDataUri(tones, duration);
+  audio.wavCache.set(key, uri);
+  return uri;
+}
+
+function playFallbackSfx(name, detail = {}) {
+  if (!ui.sfxEnabled || typeof window.Audio !== "function") return;
+  const player = audio.fallbackPlayer ?? new window.Audio();
+  audio.fallbackPlayer = player;
+  player.pause();
+  player.src = fallbackSfxUri(name, detail);
+  player.currentTime = 0;
+  player.volume = 0.4;
+  const playback = player.play();
+  document.body.dataset.audioFallbackState = "playing";
+  if (playback?.catch) {
+    void playback.catch((error) => {
+      document.body.dataset.audioFallbackState = "blocked";
+      document.body.dataset.audioError = error?.name ?? "fallback_play_failed";
+    });
+  }
+}
+
+function unlockAudioFallback() {
+  if (audio.fallbackUnlocked || audio.fallbackPriming || typeof window.Audio !== "function") return;
+  const player = audio.fallbackPlayer ?? new window.Audio();
+  audio.fallbackPlayer = player;
+  audio.fallbackPriming = true;
+  player.src = wavDataUri([], 0.025);
+  player.volume = 0;
+  const playback = player.play();
+  if (!playback?.then) {
+    audio.fallbackPriming = false;
+    return;
+  }
+  void playback.then(() => {
+    player.pause();
+    player.currentTime = 0;
+    player.volume = 0.4;
+    audio.fallbackPriming = false;
+    audio.fallbackUnlocked = true;
+    document.body.dataset.audioFallbackState = "ready";
+  }).catch((error) => {
+    audio.fallbackPriming = false;
+    document.body.dataset.audioFallbackState = "blocked";
+    document.body.dataset.audioError = error?.name ?? "fallback_unlock_failed";
+  });
+}
+
 function audioContext() {
   if (!ui.sfxEnabled) return null;
   const AudioContextClass = window.AudioContext ?? window.webkitAudioContext;
@@ -112,6 +293,45 @@ function audioContext() {
     return audio.context;
   } catch {
     return null;
+  }
+}
+
+function audioSupportMode() {
+  return typeof (window.AudioContext ?? window.webkitAudioContext) === "function" ? "web-audio" : "unavailable";
+}
+
+function primeWebAudio(ctx) {
+  try {
+    const source = ctx.createBufferSource();
+    const gain = ctx.createGain();
+    source.buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
+    gain.gain.value = 0;
+    source.connect(gain).connect(ctx.destination);
+    source.start(0);
+  } catch {
+    // Some Web Audio implementations resume without requiring a silent source.
+  }
+}
+
+function unlockAudioContext() {
+  unlockAudioFallback();
+  const ctx = audioContext();
+  if (!ctx) {
+    document.body.dataset.audioState = "unavailable";
+    return;
+  }
+  document.body.dataset.audioState = ctx.state;
+  if (ctx.state === "suspended") {
+    primeWebAudio(ctx);
+    void ctx.resume()
+      .then(() => {
+        document.body.dataset.audioState = ctx.state;
+        delete document.body.dataset.audioError;
+      })
+      .catch((error) => {
+        document.body.dataset.audioState = ctx.state;
+        document.body.dataset.audioError = error?.name ?? "resume_failed";
+      });
   }
 }
 
@@ -132,22 +352,45 @@ function playMidiTone(ctx, note, options = {}) {
 
 function playSfx(name, detail = {}) {
   const ctx = audioContext();
-  if (!ctx) return;
+  if (!ctx) {
+    playFallbackSfx(name, detail);
+    return;
+  }
   const run = () => {
     if (name === "deal") {
       const count = Math.max(1, Math.min(5, Number(detail.count) || 1));
       [57, 60, 64, 67, 72].slice(0, count).forEach((note, index) => {
-        playMidiTone(ctx, note, { delay: index * 0.045, duration: 0.055, gain: 0.009, type: "square" });
+        playMidiTone(ctx, note, { delay: index * 0.045, duration: 0.055, gain: 0.018, type: "square" });
       });
     } else if (name === "place") {
-      playMidiTone(ctx, detail.harvest ? 55 : 62, { duration: 0.055, gain: 0.014 });
-      playMidiTone(ctx, detail.harvest ? 72 : 69, { delay: 0.035, duration: 0.09, gain: 0.011 });
+      playMidiTone(ctx, detail.harvest ? 55 : 62, { duration: 0.055, gain: 0.028 });
+      playMidiTone(ctx, detail.harvest ? 72 : 69, { delay: 0.035, duration: 0.09, gain: 0.022 });
     } else if (name === "reject") {
-      playMidiTone(ctx, 45, { duration: 0.08, gain: 0.012, type: "sawtooth" });
+      playMidiTone(ctx, 45, { duration: 0.08, gain: 0.024, type: "sawtooth" });
     }
   };
-  if (ctx.state === "suspended") void ctx.resume().then(run).catch(() => {});
-  else run();
+  if (ctx.state === "suspended") {
+    let finished = false;
+    const fallbackTimer = window.setTimeout(() => {
+      if (finished || ctx.state === "running") return;
+      finished = true;
+      playFallbackSfx(name, detail);
+    }, 80);
+    void ctx.resume().then(() => {
+      if (finished) return;
+      finished = true;
+      window.clearTimeout(fallbackTimer);
+      if (ctx.state === "running") run();
+      else playFallbackSfx(name, detail);
+    }).catch(() => {
+      if (finished) return;
+      finished = true;
+      window.clearTimeout(fallbackTimer);
+      playFallbackSfx(name, detail);
+    });
+  } else {
+    run();
+  }
 }
 
 function interactionLocked() {
@@ -190,7 +433,7 @@ function loadSolution(seed) {
   const solution = solveHourlyHarvestMaximum(seed, { beamWidth: SOLVER_BEAM_WIDTH });
   const replay = replayHourlySolution(seed, solution);
   stop({ exploredStates: solution.exploredStates, maximumScore: solution.maximumScore, verified: replay.ok });
-  if (!replay.ok) throw new Error("시간 게임 목표 경로를 검증하지 못했습니다.");
+  if (!replay.ok) throw new Error("hourly solver path verification failed");
   writeJson(hourlySolutionStorageKey(seed), solution);
   return solution;
 }
@@ -264,11 +507,15 @@ function starsText(count, empty = "☆") {
 function seedLabel(seed) {
   const text = String(seed);
   if (!/^\d{10}$/.test(text)) return `#${text}`;
-  return `${Number(text.slice(4, 6))}월 ${Number(text.slice(6, 8))}일 ${text.slice(8, 10)}시`;
+  return t("seed.label", {
+    month: Number(text.slice(4, 6)),
+    day: Number(text.slice(6, 8)),
+    hour: text.slice(8, 10),
+  });
 }
 
 function currentTimerText() {
-  return ui.pendingSeed ? "준비됨" : formatDuration(secondsUntilNextHour());
+  return ui.pendingSeed ? t("timer.ready") : formatDuration(secondsUntilNextHour());
 }
 
 function selectedPreviews() {
@@ -278,16 +525,31 @@ function selectedPreviews() {
 
 function previewLabel(preview) {
   if (!preview?.ok) return "";
-  if (!preview.harvest) return `${preview.countAfter}/4 · ${preview.cardsUntilHarvest}장 남음`;
-  if (preview.connection.length > 1) return `합 ${preview.chainSum} × 연결 ${preview.connection.length} = +${preview.points}`;
-  return `연쇄 합 ${preview.chainSum} · +${preview.points}`;
+  if (!preview.harvest) {
+    return t(preview.cardsUntilHarvest === 1 ? "preview.cardsLeft.one" : "preview.cardsLeft.many", {
+      count: preview.countAfter,
+      remaining: preview.cardsUntilHarvest,
+    });
+  }
+  if (preview.connection.length > 1) {
+    return t("preview.connected", {
+      sum: preview.chainSum,
+      connection: preview.connection.length,
+      points: preview.points,
+    });
+  }
+  return t("preview.harvest", { sum: preview.chainSum, points: preview.points });
+}
+
+function cardDisplayName(card) {
+  return translateCardName(ui.language, card.variantId, card.cardName);
 }
 
 function cardMarkup(card) {
   return `
     <span class="card-digit">${card.digit}</span>
     <img src="${escapeHtml(card.imagePath)}" alt="" draggable="false" />
-    <strong>${escapeHtml(card.cardName)}</strong>
+    <strong>${escapeHtml(cardDisplayName(card))}</strong>
   `;
 }
 
@@ -300,20 +562,20 @@ function renderHeader() {
         <span>${escapeHtml(seedLabel(ui.state.seed))}</span>
       </div>
       <div class="header-actions">
-        <button class="icon-button" type="button" data-action="help" aria-label="게임방법">?</button>
-        <button class="text-button" type="button" data-action="share">결과공유</button>
-        <div class="timer-box" aria-label="${ui.pendingSeed ? "새 게임 준비됨" : "다음 게임까지"}">
-          <span>${ui.pendingSeed ? "새 게임" : "다음 게임"}</span>
+        <button class="icon-button" type="button" data-action="help" aria-label="${escapeHtml(t("help.open"))}">?</button>
+        <button class="text-button" type="button" data-action="share">${escapeHtml(t("share.button"))}</button>
+        <div class="timer-box" aria-label="${escapeHtml(t(ui.pendingSeed ? "timer.readyAria" : "timer.nextAria"))}">
+          <span>${escapeHtml(t(ui.pendingSeed ? "timer.newGame" : "timer.nextGame"))}</span>
           <strong data-timer>${currentTimerText()}</strong>
         </div>
       </div>
       <div class="score-line">
-        <div><span>점수</span><strong>${ui.state.score}</strong></div>
-        <div><span>별</span><strong>${starsText(ui.state.stars)}</strong></div>
-        <div><span>수확</span><strong>${ui.state.harvests}</strong></div>
-        <div><span>최고</span><strong>${best.score}</strong></div>
+        <div><span>${escapeHtml(t("score.score"))}</span><strong>${ui.state.score}</strong></div>
+        <div><span>${escapeHtml(t("score.stars"))}</span><strong>${starsText(ui.state.stars)}</strong></div>
+        <div><span>${escapeHtml(t("score.harvests"))}</span><strong>${ui.state.harvests}</strong></div>
+        <div><span>${escapeHtml(t("score.best"))}</span><strong>${best.score}</strong></div>
       </div>
-      <div class="star-targets" aria-label="별 목표 점수">
+      <div class="star-targets" aria-label="${escapeHtml(t("score.targetsAria"))}">
         <span class="${ui.state.score >= ui.state.thresholds.one ? "is-earned" : ""}">★ ${ui.state.thresholds.one}</span>
         <span class="${ui.state.score >= ui.state.thresholds.two ? "is-earned" : ""}">★★ ${ui.state.thresholds.two}</span>
         <span class="${ui.state.score >= ui.state.thresholds.three ? "is-earned" : ""}">★★★ ${ui.state.thresholds.three}</span>
@@ -326,8 +588,8 @@ function renderPendingBanner() {
   if (!ui.pendingSeed) return "";
   return `
     <section class="new-game-banner" aria-live="polite">
-      <div><strong>새 게임이 준비됐어요.</strong><span>${escapeHtml(seedLabel(ui.pendingSeed))} 정원</span></div>
-      <button type="button" data-action="start-ready">시작</button>
+      <div><strong>${escapeHtml(t("banner.ready"))}</strong><span>${escapeHtml(t("banner.garden", { seed: seedLabel(ui.pendingSeed) }))}</span></div>
+      <button type="button" data-action="start-ready">${escapeHtml(t("common.start"))}</button>
     </section>
   `;
 }
@@ -345,22 +607,37 @@ function renderGarden(pile, pileIndex, preview) {
   }).join("");
   return `
     <button class="garden ${preview ? "is-target" : ""} ${preview?.harvest ? "will-harvest" : ""} ${isConnected ? "is-connected" : ""} ${isPulse ? "is-harvesting" : ""} ${isLanding ? "is-landing" : ""}" type="button" data-action="place-card" data-pile-index="${pileIndex}" ${ui.state.phase !== "play" || interactionLocked() ? "disabled" : ""}>
-      <span class="garden-head"><strong>정원 ${pileIndex + 1}</strong><small>${pile.length}/4</small></span>
+      <span class="garden-head"><strong>${escapeHtml(t("garden.title", { label: hourlyGardenLabel(pileIndex) }))}</strong><small>${pile.length}/4</small></span>
       <span class="garden-slots">${slots}</span>
       <span class="garden-preview">${escapeHtml(previewLabel(preview)) || "\u00a0"}</span>
     </button>
   `;
 }
 
+function renderHarvestBurst() {
+  if (!ui.harvestPulse) return "";
+  const pileIndex = ui.harvestPulse.pileIndex;
+  const x = pileIndex % 2 === 0 ? 25 : 75;
+  const y = pileIndex < 2 ? 25 : 75;
+  const style = `--burst-x:${x}%;--burst-y:${y}%;`;
+  return `
+    <span class="harvest-success-ring" style="${style}" aria-hidden="true"></span>
+    <span class="harvest-success-sparks" style="${style}" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+    <span class="harvest-flying-score" style="${style}" aria-hidden="true">+${ui.harvestPulse.points}</span>
+  `;
+}
+
 function renderBoard() {
   const previews = selectedPreviews();
+  const clockwiseLabels = HOURLY_CLOCKWISE_ORDER.map(hourlyGardenLabel);
   return `
-    <section class="board-section" aria-label="네 정원">
-      <div class="clockwise-label" aria-label="시계방향 정원 순서"><span>1</span><i>→</i><span>2</span><i>→</i><span>4</span><i>→</i><span>3</span></div>
-      <div class="garden-grid">
+    <section class="board-section" aria-label="${escapeHtml(t("garden.region"))}">
+      <div class="clockwise-label" aria-label="${escapeHtml(t("garden.clockwise"))}">${clockwiseLabels.map((label, index) => `<span>${label}</span>${index < clockwiseLabels.length - 1 ? "<i>→</i>" : ""}`).join("")}</div>
+      <div class="garden-grid ${ui.harvestPulse ? "is-success-pop" : ""}">
         ${ui.state.piles.map((pile, index) => renderGarden(pile, index, previews[index])).join("")}
+        ${renderHarvestBurst()}
       </div>
-      <p class="rule-line">네 장 연쇄는 합 · 시계방향 정원 연결은 곱</p>
+      <p class="rule-line">${escapeHtml(t("garden.rule"))}</p>
     </section>
   `;
 }
@@ -371,7 +648,7 @@ function renderHandCard(card, index) {
   const isSnapSource = ui.motion?.handIndex === index;
   const dealX = Math.round((dealIndex - 2) * -16);
   return `
-    <button class="hand-card ${ui.selectedHandIndex === index ? "is-selected" : ""} ${ui.rejectedHandIndex === index ? "is-rejected" : ""} ${isDeal ? "is-dealt" : ""} ${isSnapSource ? "is-snap-source" : ""}" type="button" data-action="select-card" data-hand-index="${index}" aria-pressed="${ui.selectedHandIndex === index}" aria-label="${escapeHtml(`${card.cardName} ${card.digit}, 손패 ${index + 1}`)}" style="--deal-delay:${Math.max(0, dealIndex) * DEAL_STAGGER_MS}ms;--deal-x:${dealX}px" ${ui.state.phase !== "play" || interactionLocked() ? "disabled" : ""}>
+    <button class="hand-card ${ui.selectedHandIndex === index ? "is-selected" : ""} ${ui.carry?.handIndex === index ? "is-carry-source" : ""} ${ui.rejectedHandIndex === index ? "is-rejected" : ""} ${isDeal ? "is-dealt" : ""} ${isSnapSource ? "is-snap-source" : ""}" type="button" data-action="select-card" data-hand-index="${index}" aria-pressed="${ui.selectedHandIndex === index}" aria-label="${escapeHtml(t("hand.cardAria", { name: cardDisplayName(card), digit: card.digit, index: index + 1 }))}" style="--deal-delay:${Math.max(0, dealIndex) * DEAL_STAGGER_MS}ms;--deal-x:${dealX}px" ${ui.state.phase !== "play" || interactionLocked() ? "disabled" : ""}>
       ${cardMarkup(card)}
     </button>
   `;
@@ -381,14 +658,14 @@ function renderHand() {
   const remaining = ui.state.deck.length + ui.state.hand.length;
   const canRedraw = canRedrawHourlyHand(ui.state) && !interactionLocked();
   return `
-    <section class="hand-section" aria-label="손패">
-      <div class="hand-head"><div><strong>손패</strong><span>카드를 정원으로 옮기세요</span></div><div><span>남은 카드</span><strong>${remaining}</strong></div></div>
+    <section class="hand-section" aria-label="${escapeHtml(t("hand.region"))}">
+      <div class="hand-head"><div><strong>${escapeHtml(t("hand.title"))}</strong><span>${escapeHtml(t("hand.instruction"))}</span></div><div><span>${escapeHtml(t("hand.remaining"))}</span><strong>${remaining}</strong></div></div>
       <div class="hand-row">
         ${ui.state.hand.map(renderHandCard).join("")}
       </div>
       <div class="run-actions">
-        <button class="primary-action redraw-action" type="button" data-action="redraw" ${canRedraw ? "" : "disabled"}><span>카드 새로받기</span><strong>${ui.state.redrawsLeft}</strong><small>/${HOURLY_REDRAW_LIMIT}</small></button>
-        <span>${ui.state.cardsPlayed}/40 사용</span>
+        <button class="redraw-action" type="button" data-action="redraw" ${canRedraw ? "" : "disabled"}><span>${escapeHtml(t("hand.redraw"))}</span><strong>${ui.state.redrawsLeft}</strong><small>/${HOURLY_REDRAW_LIMIT}</small></button>
+        <span class="cards-used">${escapeHtml(t("hand.used", { count: ui.state.cardsPlayed }))}</span>
       </div>
     </section>
   `;
@@ -406,22 +683,32 @@ function renderMotion() {
 
 function renderHelp() {
   if (!ui.helpOpen) return "";
+  const languageOptions = SUPPORTED_LANGUAGES.map((language) => `
+    <label class="language-option">
+      <input type="radio" name="game-language" value="${language}" data-action="set-language" ${ui.language === language ? "checked" : ""} />
+      <span>${escapeHtml(t(`language.${language}`))}</span>
+    </label>
+  `).join("");
   return `
     <div class="overlay" data-action="close-help">
       <section class="dialog help-dialog" role="dialog" aria-modal="true" aria-labelledby="help-title">
-        <header><h2 id="help-title">게임방법</h2><button type="button" data-action="close-help" aria-label="닫기">×</button></header>
+        <header><h2 id="help-title">${escapeHtml(t("help.title"))}</h2><button type="button" data-action="close-help" aria-label="${escapeHtml(t("help.close"))}">×</button></header>
         <ol>
-          <li>손패 카드 한 장을 원하는 정원으로 옮깁니다.</li>
-          <li>정원에 네 장이 쌓이면 네 숫자를 더해 수확합니다.</li>
-          <li>놓은 정원부터 시계방향 숫자가 이어지면 연결 수만큼 곱합니다.</li>
-          <li>카드 새로받기는 손패를 덱 뒤로 보내며 한 게임에 세 번 쓸 수 있습니다.</li>
-          <li>40장을 모두 사용한 점수로 별을 받습니다.</li>
+          <li>${escapeHtml(t("help.rule1"))}</li>
+          <li>${escapeHtml(t("help.rule2"))}</li>
+          <li>${escapeHtml(t("help.rule3"))}</li>
+          <li>${escapeHtml(t("help.rule4"))}</li>
+          <li>${escapeHtml(t("help.rule5"))}</li>
         </ol>
-        <p><strong>예:</strong> 네 장 합 19 × 정원 연결 3 = 57점</p>
-        <label class="sound-setting"><span>효과음</span><input type="checkbox" data-action="toggle-sound" ${ui.sfxEnabled ? "checked" : ""} /><i aria-hidden="true"></i></label>
+        <p><strong>${escapeHtml(t("help.exampleLabel"))}</strong> ${escapeHtml(t("help.example"))}</p>
+        <fieldset class="language-setting">
+          <legend>${escapeHtml(t("help.language"))}</legend>
+          <div>${languageOptions}</div>
+        </fieldset>
+        <label class="sound-setting"><span>${escapeHtml(t("help.sound"))}</span><input type="checkbox" data-action="toggle-sound" ${ui.sfxEnabled ? "checked" : ""} /><i aria-hidden="true"></i></label>
         <div class="help-actions">
-          <button type="button" data-action="retry">현재 게임 다시하기</button>
-          <button class="primary-action" type="button" data-action="close-help">계속하기</button>
+          ${ui.firstVisitHelp ? "" : `<button type="button" data-action="retry">${escapeHtml(t("help.retry"))}</button>`}
+          <button class="primary-action" type="button" data-action="close-help">${escapeHtml(t("help.continue"))}</button>
         </div>
       </section>
     </div>
@@ -436,12 +723,12 @@ function renderResult() {
       <section class="dialog result-dialog" role="dialog" aria-modal="true" aria-labelledby="result-title">
         <span class="result-seed">#${ui.state.seed}</span>
         <h2 id="result-title">${ui.state.perfect ? "PERFECT" : starsText(ui.state.stars)}</h2>
-        <strong class="result-score">${ui.state.score}점</strong>
-        <p>이번 시간 최고 ${best.score}</p>
+        <strong class="result-score">${escapeHtml(t("result.points", { score: ui.state.score }))}</strong>
+        <p>${escapeHtml(t("result.best", { score: best.score }))}</p>
         <div class="result-actions">
-          <button type="button" data-action="share">결과공유</button>
-          <button type="button" data-action="help">게임방법</button>
-          ${ui.pendingSeed ? '<button type="button" data-action="start-ready">새 게임 시작</button>' : ""}
+          <button type="button" data-action="share">${escapeHtml(t("share.button"))}</button>
+          <button type="button" data-action="help">${escapeHtml(t("help.open"))}</button>
+          ${ui.pendingSeed ? `<button type="button" data-action="start-ready">${escapeHtml(t("result.startNew"))}</button>` : ""}
         </div>
       </section>
     </div>
@@ -452,9 +739,20 @@ function renderToast() {
   return ui.toast ? `<div class="toast" role="status">${escapeHtml(ui.toast.message)}</div>` : "";
 }
 
+function applyDocumentLanguage() {
+  document.documentElement.lang = ui.language;
+  document.title = t("document.title");
+  document.querySelector('meta[name="description"]')?.setAttribute("content", t("document.description"));
+}
+
+function loadingMarkup() {
+  return `<main class="hourly-loading" aria-busy="true" aria-live="polite"><strong>${escapeHtml(t("loading.title"))}</strong><span>${escapeHtml(t("loading.detail"))}</span></main>`;
+}
+
 function render() {
   if (ui.loading || !ui.state) return;
   const stop = perfMonitor.start("render", { seed: ui.state.seed, phase: ui.state.phase });
+  applyDocumentLanguage();
   app.innerHTML = `
     <main class="hourly-shell ${viewClass()}">
       ${renderHeader()}
@@ -468,6 +766,9 @@ function render() {
     </main>
   `;
   document.body.dataset.mode = "hourly";
+  document.body.dataset.language = ui.language;
+  document.body.dataset.audioMode = audioSupportMode();
+  document.body.dataset.audioFallback = typeof window.Audio === "function" ? "html-audio" : "unavailable";
   stop({ nodeCount: app.getElementsByTagName("*").length });
 }
 
@@ -484,6 +785,7 @@ function showToast(message) {
 
 function selectCard(index) {
   if (interactionLocked() || ui.state.phase !== "play" || !ui.state.hand[index]) return;
+  clearPointerCarry();
   ui.selectedHandIndex = ui.selectedHandIndex === index ? null : index;
   render();
 }
@@ -497,7 +799,7 @@ function finishPlacement(handIndex, pileIndex) {
   ui.motion = null;
   ui.selectedHandIndex = null;
   if (!result.ok) {
-    showToast("카드를 놓지 못했습니다.");
+    showToast(t("toast.cannotPlace"));
     return;
   }
   ui.landingPulse = { pileIndex, cardId: result.card.id };
@@ -509,15 +811,26 @@ function finishPlacement(handIndex, pileIndex) {
     document.querySelector(`[data-pile-index="${pileIndex}"] .garden-card.is-landing-card`)?.classList.remove("is-landing-card");
   }, LANDING_MS);
   if (result.harvest) {
-    ui.harvestPulse = result.harvest;
+    const harvestId = `${Date.now()}_${result.card.id}`;
+    ui.harvestPulse = { ...result.harvest, id: harvestId };
     window.setTimeout(() => {
+      if (ui.harvestPulse?.id !== harvestId) return;
       ui.harvestPulse = null;
       render();
     }, HARVEST_MS);
   }
   if (ui.state.phase === "result") {
     recordResult();
-    ui.resultOpen = true;
+    if (result.harvest) {
+      const completedAt = ui.state.completedAt;
+      window.setTimeout(() => {
+        if (ui.state.phase !== "result" || ui.state.completedAt !== completedAt) return;
+        ui.resultOpen = true;
+        render();
+      }, HARVEST_MS);
+    } else {
+      ui.resultOpen = true;
+    }
   }
   saveRun();
   render();
@@ -543,6 +856,14 @@ function placeCard(handIndex, pileIndex, sourceRect = null) {
   ui.selectedHandIndex = null;
   render();
   window.setTimeout(() => finishPlacement(handIndex, pileIndex), SNAP_MS);
+}
+
+function placeSelectedCard(pileIndex) {
+  if (ui.selectedHandIndex == null) return;
+  const handIndex = ui.selectedHandIndex;
+  const source = rectSnapshot(ui.carry?.ghost?.getBoundingClientRect());
+  clearPointerCarry();
+  placeCard(handIndex, pileIndex, source);
 }
 
 function startDealMotion(cards, options = {}) {
@@ -575,7 +896,7 @@ function redrawCurrentHand() {
   if (interactionLocked() || !canRedrawHourlyHand(ui.state)) return;
   const result = perfMonitor.measure("game.redraw", () => redrawHourlyHand(ui.state));
   if (!result.ok) {
-    showToast("지금은 카드를 새로 받을 수 없습니다.");
+    showToast(t("toast.redrawUnavailable"));
     return;
   }
   ui.selectedHandIndex = null;
@@ -603,7 +924,8 @@ function startSeed(seed) {
   ui.selectedHandIndex = null;
   ui.motion = null;
   ui.deal = null;
-  app.innerHTML = '<main class="hourly-loading"><strong>새 정원을 준비하는 중</strong><span>최대 점수를 계산하고 있어요.</span></main>';
+  applyDocumentLanguage();
+  app.innerHTML = loadingMarkup();
   window.setTimeout(() => {
     ui.solution = loadSolution(seed);
     ui.state = newHourlyRun(seed, { solution: ui.solution });
@@ -645,7 +967,7 @@ async function copyShareText(text) {
 
 async function shareResult() {
   const url = `${location.origin}${location.pathname}`;
-  const text = hourlyResultShareText(ui.state, url);
+  const text = hourlyResultShareText(ui.state, url, ui.language);
   if (shouldUseNativeShare()) {
     try {
       await navigator.share({ text });
@@ -656,22 +978,25 @@ async function shareResult() {
   }
   try {
     await copyShareText(text);
-    showToast("결과를 클립보드에 복사했어요.");
+    showToast(t("toast.copied"));
   } catch {
-    showToast("공유 문구를 복사하지 못했습니다.");
+    showToast(t("toast.copyFailed"));
   }
 }
 
 function beginDrag(event, cardButton) {
   if (event.button !== 0 || ui.drag || interactionLocked() || ui.state.phase !== "play") return;
+  clearPointerCarry();
   const stop = perfMonitor.start("drag.start", { pointerType: event.pointerType || "mouse" });
   const handIndex = Number(cardButton.dataset.handIndex);
   const rect = cardButton.getBoundingClientRect();
+  const previousSelectedHandIndex = ui.selectedHandIndex;
   ui.selectedHandIndex = handIndex;
   ui.drag = {
     pointerId: event.pointerId,
     pointerType: event.pointerType || "mouse",
     handIndex,
+    previousSelectedHandIndex,
     sourceRect: rectSnapshot(rect),
     startX: event.clientX,
     startY: event.clientY,
@@ -684,7 +1009,6 @@ function beginDrag(event, cardButton) {
     overPileIndex: null,
     frameId: null,
   };
-  document.body.classList.add("is-card-dragging");
   if (event.pointerId != null) app.setPointerCapture?.(event.pointerId);
   window.addEventListener("pointermove", moveDrag, { passive: false });
   window.addEventListener("pointerup", endDrag, { passive: false });
@@ -730,17 +1054,18 @@ function scheduleDragFrame(drag) {
   drag.frameId = window.requestAnimationFrame(updateDragFrame);
 }
 
-function ensureDragGhost(drag) {
-  if (drag.ghost) return;
-  const source = document.querySelector(`[data-hand-index="${drag.handIndex}"]`);
+function ensureDragGhost(session, extraClass = "") {
+  if (session.ghost) return;
+  const source = document.querySelector(`[data-hand-index="${session.handIndex}"]`);
   const ghost = source?.cloneNode(true);
   if (!ghost) return;
-  ghost.className = "drag-ghost";
+  source.classList.add("is-drag-source");
+  ghost.className = `drag-ghost ${extraClass}`;
   ghost.setAttribute("aria-hidden", "true");
   ghost.tabIndex = -1;
-  ghost.style.setProperty("--drag-width", `${Math.round(drag.sourceRect.width)}px`);
+  ghost.style.setProperty("--drag-width", `${Math.round(session.sourceRect.width)}px`);
   document.body.append(ghost);
-  drag.ghost = ghost;
+  session.ghost = ghost;
 }
 
 function moveDrag(event) {
@@ -752,6 +1077,7 @@ function moveDrag(event) {
   const dy = event.clientY - drag.startY;
   if (!drag.moved && exceedsPointerDragThreshold(drag.pointerType, dx, dy)) {
     drag.moved = true;
+    document.body.classList.add("is-card-dragging");
     ensureDragGhost(drag);
   }
   if (drag.moved) scheduleDragFrame(drag);
@@ -775,10 +1101,74 @@ function clearDragSession(drag) {
   window.removeEventListener("pointerup", endDrag);
   window.removeEventListener("pointercancel", endDrag);
   drag.ghost?.remove();
+  document.querySelector(`[data-hand-index="${drag.handIndex}"]`)?.classList.remove("is-drag-source");
   clearDragTarget();
   if (drag.pointerId != null && app.hasPointerCapture?.(drag.pointerId)) {
     app.releasePointerCapture?.(drag.pointerId);
   }
+}
+
+function hasFineHoverPointer() {
+  return matchMedia("(hover: hover) and (pointer: fine)").matches;
+}
+
+function updatePointerCarryFrame() {
+  const carry = ui.carry;
+  if (!carry) return;
+  carry.frameId = null;
+  perfMonitor.measure("drag.move", () => {
+    const position = dragGhostPosition(carry.x, carry.y, carry.offsetX, carry.offsetY);
+    carry.ghost?.style.setProperty("--drag-x", `${position.x}px`);
+    carry.ghost?.style.setProperty("--drag-y", `${position.y}px`);
+    updateDragTarget(carry, gardenFromPoint(carry.x, carry.y));
+  }, { handIndex: carry.handIndex, pointerType: carry.pointerType, mode: "click-carry" });
+}
+
+function movePointerCarry(event) {
+  const carry = ui.carry;
+  if (!carry || event.pointerType === "touch") return;
+  carry.x = event.clientX;
+  carry.y = event.clientY;
+  if (carry.frameId == null) carry.frameId = window.requestAnimationFrame(updatePointerCarryFrame);
+}
+
+function clearPointerCarry() {
+  const carry = ui.carry;
+  if (!carry) return;
+  ui.carry = null;
+  document.body.classList.remove("is-card-carrying");
+  if (carry.frameId != null) window.cancelAnimationFrame(carry.frameId);
+  window.removeEventListener("pointermove", movePointerCarry);
+  carry.ghost?.remove();
+  document.querySelector(`[data-hand-index="${carry.handIndex}"]`)?.classList.remove("is-drag-source", "is-carry-source");
+  clearDragTarget();
+}
+
+function cancelPointerCarry(renderView = true) {
+  if (!ui.carry) return;
+  clearPointerCarry();
+  ui.selectedHandIndex = null;
+  if (renderView) render();
+}
+
+function startPointerCarry(drag, event) {
+  ui.carry = {
+    handIndex: drag.handIndex,
+    pointerType: drag.pointerType,
+    sourceRect: drag.sourceRect,
+    x: event.clientX,
+    y: event.clientY,
+    offsetX: drag.offsetX,
+    offsetY: drag.offsetY,
+    ghost: null,
+    overPileIndex: null,
+    frameId: null,
+  };
+  document.body.classList.add("is-card-carrying");
+  render();
+  ensureDragGhost(ui.carry, "is-click-carry");
+  window.addEventListener("pointermove", movePointerCarry, { passive: true });
+  ui.carry.frameId = window.requestAnimationFrame(updatePointerCarryFrame);
 }
 
 function endDrag(event) {
@@ -800,6 +1190,8 @@ function endDrag(event) {
   clearDragSession(drag);
   event.preventDefault();
   if (canceled) {
+    ui.selectedHandIndex = selectionAfterPointerGesture(drag.previousSelectedHandIndex, drag.handIndex, { canceled: true });
+    render();
     stop({ canceled: true, placed: false });
     return;
   }
@@ -813,25 +1205,31 @@ function endDrag(event) {
     return;
   }
   if (drag.moved) {
+    ui.selectedHandIndex = selectionAfterPointerGesture(drag.previousSelectedHandIndex, drag.handIndex, { moved: true });
     rejectDraggedCard(drag.handIndex);
     stop({ canceled: false, placed: false });
-    showToast("정원 위에 카드를 놓으세요.");
+    showToast(t("toast.dropOnGarden"));
   }
   else {
     stop({ canceled: false, placed: false });
-    ui.selectedHandIndex = drag.handIndex;
-    render();
+    ui.selectedHandIndex = selectionAfterPointerGesture(drag.previousSelectedHandIndex, drag.handIndex);
+    if (ui.selectedHandIndex === drag.handIndex && canStartPointerCarry(drag.pointerType, hasFineHoverPointer())) {
+      startPointerCarry(drag, event);
+    } else {
+      render();
+    }
   }
 }
 
 function handleAction(action, button) {
   if (action === "select-card") selectCard(Number(button.dataset.handIndex));
-  else if (action === "place-card" && ui.selectedHandIndex != null) placeCard(ui.selectedHandIndex, Number(button.dataset.pileIndex));
+  else if (action === "place-card" && ui.selectedHandIndex != null) placeSelectedCard(Number(button.dataset.pileIndex));
   else if (action === "redraw") redrawCurrentHand();
   else if (action === "retry") retryCurrent();
   else if (action === "start-ready") startSeed(ui.pendingSeed || kstHourSeed());
-  else if (action === "help") { ui.helpOpen = true; render(); }
-  else if (action === "close-help") { ui.helpOpen = false; render(); }
+  else if (action === "help") { ui.firstVisitHelp = false; ui.helpOpen = true; render(); }
+  else if (action === "close-help") closeHelp();
+  else if (action === "set-language") setLanguage(button.value);
   else if (action === "toggle-sound") {
     ui.sfxEnabled = button.checked;
     writeSfxSetting(ui.sfxEnabled);
@@ -849,18 +1247,28 @@ app.addEventListener("click", (event) => {
   }
   if (ui.drag) return;
   const button = event.target.closest("[data-action]");
-  if (!button || button.disabled) return;
+  if (!button || button.disabled) {
+    cancelPointerCarry();
+    return;
+  }
   if (button.classList.contains("overlay") && event.target !== button) return;
+  if (ui.carry && !["place-card", "select-card"].includes(button.dataset.action)) {
+    cancelPointerCarry();
+  }
   handleAction(button.dataset.action, button);
 });
 
+app.addEventListener("click", unlockAudioContext, true);
+
 app.addEventListener("pointerdown", (event) => {
+  unlockAudioContext();
   playPendingDealSound();
   const card = event.target.closest(".hand-card[data-hand-index]");
   if (card) beginDrag(event, card);
 });
 
 app.addEventListener("lostpointercapture", endDrag);
+window.addEventListener("pointerup", unlockAudioContext, true);
 
 app.addEventListener("error", (event) => {
   const image = event.target;
@@ -870,18 +1278,22 @@ app.addEventListener("error", (event) => {
 }, true);
 
 window.addEventListener("keydown", (event) => {
+  unlockAudioContext();
   playPendingDealSound();
   if (interactionLocked() || event.target instanceof HTMLInputElement) return;
   const key = event.key.toLowerCase();
   if (key >= "1" && key <= "5") selectCard(Number(key) - 1);
   else if (["q", "w", "e", "r"].includes(key) && ui.selectedHandIndex != null) {
-    placeCard(ui.selectedHandIndex, { q: 0, w: 1, e: 2, r: 3 }[key]);
+    placeSelectedCard({ q: 0, w: 1, e: 2, r: 3 }[key]);
   } else if (key === "escape") {
+    clearPointerCarry();
     ui.selectedHandIndex = null;
-    ui.helpOpen = false;
-    render();
+    if (ui.helpOpen) closeHelp();
+    else render();
   }
 });
+
+window.addEventListener("blur", () => cancelPointerCarry());
 
 function updateClock() {
   const currentSeed = kstHourSeed();
@@ -896,8 +1308,12 @@ function updateClock() {
 
 function bootstrap() {
   try {
+    applyDocumentLanguage();
+    app.innerHTML = loadingMarkup();
     restoreOrCreateRun();
     ui.loading = false;
+    ui.firstVisitHelp = !hasSeenHelp();
+    ui.helpOpen = ui.firstVisitHelp;
     if (ui.state.cardsPlayed === 0 && ui.state.redrawsUsed === 0) {
       startDealMotion(ui.state.hand, { sound: navigator.userActivation?.hasBeenActive === true });
     }
@@ -905,7 +1321,9 @@ function bootstrap() {
     window.setInterval(updateClock, 1000);
   } catch (error) {
     ui.loading = false;
-    app.innerHTML = `<main class="hourly-error"><strong>게임을 준비하지 못했습니다.</strong><span>${escapeHtml(error.message)}</span><button type="button" onclick="location.reload()">새로고침</button></main>`;
+    console.error(error);
+    applyDocumentLanguage();
+    app.innerHTML = `<main class="hourly-error"><strong>${escapeHtml(t("error.title"))}</strong><button type="button" onclick="location.reload()">${escapeHtml(t("error.reload"))}</button></main>`;
   }
 }
 

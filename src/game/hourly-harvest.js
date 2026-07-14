@@ -1,4 +1,5 @@
 import { createRng, shuffleInPlace } from "./random.js";
+import { translateText } from "../i18n.js";
 
 export const HOURLY_MODE = "hourly";
 export const HOURLY_RULES_VERSION = "hourly-four-harvest-v2";
@@ -9,6 +10,7 @@ export const HOURLY_PILE_COUNT = 4;
 export const HOURLY_HARVEST_SIZE = 4;
 export const HOURLY_REDRAW_LIMIT = 3;
 export const HOURLY_CLOCKWISE_ORDER = [0, 1, 3, 2];
+export const HOURLY_GARDEN_LABELS = Object.freeze(["A", "B", "D", "C"]);
 export const HOURLY_SHARE_URL = "https://plan9.kr/stacks";
 
 const CARDS = "public/assets/garden-stacks/generated/cards";
@@ -84,6 +86,10 @@ function copy(value) {
 function safeInt(value, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) ? Math.floor(number) : fallback;
+}
+
+export function hourlyGardenLabel(pileIndex) {
+  return HOURLY_GARDEN_LABELS[safeInt(pileIndex, -1)] ?? "?";
 }
 
 export function kstHourSeed(date = new Date()) {
@@ -530,9 +536,17 @@ export function replayHourlySolution(seed, solution) {
   };
 }
 
-export function hourlyResultShareText(state, url = HOURLY_SHARE_URL) {
-  const result = state.perfect ? "PERFECT" : "★".repeat(state.stars) || "도전중";
-  return `스택스 #${state.seed} ${result} ${state.score}점 / 최대 ${state.maximumScore}점 ${url}`;
+export function hourlyResultShareText(state, url = HOURLY_SHARE_URL, language = "ko") {
+  const result = state.perfect
+    ? "PERFECT"
+    : "★".repeat(state.stars) || translateText(language, "share.statusInProgress");
+  return translateText(language, "share.result", {
+    seed: state.seed,
+    result,
+    score: state.score,
+    maximum: state.maximumScore,
+    url,
+  });
 }
 
 export function hourlyRunStorageKey(seed) {

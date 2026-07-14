@@ -5,11 +5,13 @@ import fs from "node:fs";
 import {
   HOURLY_CLOCKWISE_ORDER,
   HOURLY_ART_VARIANTS,
+  HOURLY_GARDEN_LABELS,
   HOURLY_REDRAW_LIMIT,
   canRedrawHourlyHand,
   createHourlyDeck,
   formatDuration,
   gardenConnection,
+  hourlyGardenLabel,
   hourlyResultShareText,
   kstHourSeed,
   newHourlyRun,
@@ -24,6 +26,12 @@ import {
   starsForScore,
   thresholdsForMaximum,
 } from "../src/game/hourly-harvest.js";
+
+test("garden labels read A B / D C and clockwise as A B C D", () => {
+  assert.deepEqual(HOURLY_GARDEN_LABELS, ["A", "B", "D", "C"]);
+  assert.deepEqual(HOURLY_CLOCKWISE_ORDER.map(hourlyGardenLabel), ["A", "B", "C", "D"]);
+  assert.equal(hourlyGardenLabel(99), "?");
+});
 
 function card(digit, id = `card-${digit}`) {
   return { id, digit, variantId: `v-${digit}`, cardName: `카드 ${digit}`, imagePath: `/card-${digit}.png` };
