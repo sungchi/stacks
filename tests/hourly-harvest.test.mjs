@@ -4,17 +4,19 @@ import fs from "node:fs";
 
 import {
   HOURLY_CLOCKWISE_ORDER,
+  HOURLY_COMBO_TYPE_COUNT,
+  HOURLY_COMBO_TYPE_SIZE,
+  HOURLY_COMBO_TYPES,
   HOURLY_GARDEN_LABELS,
   HOURLY_REDRAW_LIMIT,
-  HOURLY_SAME_SPECIES_MULTIPLIER,
-  HOURLY_SPECIES_COPIES,
-  HOURLY_SPECIES_PER_DECK,
+  HOURLY_SAME_TYPE_MULTIPLIER,
   HOURLY_SPECIES_POOL,
   canRedrawHourlyHand,
   createHourlyDeck,
   formatDuration,
   gardenConnection,
   hourlyGardenLabel,
+  hourlyDeckOverview,
   hourlyResultShareText,
   kstHourSeed,
   longestHourlyCardChain,
@@ -24,7 +26,7 @@ import {
   redrawHourlyHand,
   replayHourlySolution,
   restoreHourlyRun,
-  sameSpeciesHarvest,
+  sameTypeHarvest,
   secondsUntilNextHour,
   snapshotHourlyRun,
   solveHourlyHarvestMaximum,
@@ -38,12 +40,13 @@ test("garden labels read A B / D C and clockwise as A B C D", () => {
   assert.equal(hourlyGardenLabel(99), "?");
 });
 
-function card(digit, id = `card-${digit}`, speciesId = `species-${id}`) {
+function card(digit, id = `card-${digit}`, comboTypeId = `type-${id}`, speciesId = `species-${id}`) {
   return {
     id,
     digit,
+    comboTypeId,
+    comboTypeIndex: 0,
     speciesId,
-    speciesIndex: 0,
     category: "flora",
     variantId: `${digit}:${speciesId}`,
     cardName: speciesId,
@@ -79,7 +82,7 @@ test("KST hourly seed and countdown match the malitmot-style boundary", () => {
   assert.equal(formatDuration(8), "00:08");
 });
 
-test("hourly deck deterministically balances ten species across forty digit cards", () => {
+test("hourly deck has forty unique organisms grouped into five eight-card life groups", () => {
   const first = createHourlyDeck("2026071308");
   const repeated = createHourlyDeck("2026071308");
   const nextHour = createHourlyDeck("2026071309");
@@ -91,25 +94,48 @@ test("hourly deck deterministically balances ten species across forty digit card
     first.map((item) => item.variantId),
     nextHour.map((item) => item.variantId),
   );
-  assert.equal(new Set(first.map((item) => item.speciesId)).size, HOURLY_SPECIES_PER_DECK);
-  assert.equal(first.filter((item) => item.category === "flora").length, 20);
-  assert.equal(first.filter((item) => item.category === "fauna").length, 20);
+  assert.equal(new Set(first.map((item) => item.speciesId)).size, 40);
+  assert.equal(new Set(first.map((item) => item.imagePath)).size, 40);
+  assert.equal(new Set(first.map((item) => item.comboTypeId)).size, HOURLY_COMBO_TYPE_COUNT);
+  assert.equal(first.filter((item) => item.category === "flora").length, 16);
+  assert.equal(first.filter((item) => item.category === "fauna").length, 24);
   assert.equal(first.every((item) => ["flora", "fauna"].includes(item.category)), true);
   for (let digit = 0; digit <= 9; digit += 1) {
     assert.equal(first.filter((item) => item.digit === digit).length, 4);
   }
-  for (const speciesId of new Set(first.map((item) => item.speciesId))) {
-    const speciesCards = first.filter((item) => item.speciesId === speciesId);
-    assert.equal(speciesCards.length, HOURLY_SPECIES_COPIES);
-    assert.equal(new Set(speciesCards.map((item) => item.digit)).size, HOURLY_SPECIES_COPIES);
+  for (const comboTypeId of new Set(first.map((item) => item.comboTypeId))) {
+    const typeCards = first.filter((item) => item.comboTypeId === comboTypeId);
+    assert.equal(typeCards.length, HOURLY_COMBO_TYPE_SIZE);
+    assert.equal(new Set(typeCards.map((item) => item.digit)).size, HOURLY_COMBO_TYPE_SIZE);
+    assert.equal(new Set(typeCards.map((item) => item.speciesId)).size, HOURLY_COMBO_TYPE_SIZE);
   }
 });
 
 test("all hourly species candidates exist in runtime assets", () => {
-  assert.equal(HOURLY_SPECIES_POOL.length, 28);
+  assert.equal(HOURLY_COMBO_TYPES.length, HOURLY_COMBO_TYPE_COUNT);
+  assert.equal(HOURLY_SPECIES_POOL.length, 40);
   for (const species of HOURLY_SPECIES_POOL) {
     assert.equal(fs.existsSync(species.imagePath), true, `${species.cardName}: ${species.imagePath}`);
   }
+});
+
+test("deck overview keeps all cards, greys played cards, and supports both sort modes", () => {
+  const solution = { maximumScore: 300, thresholds: thresholdsForMaximum(300), solverVersion: "test", verified: true };
+  const state = newHourlyRun("2026071416", { solution });
+  const firstCardId = state.hand[0].id;
+  const digitSorted = hourlyDeckOverview(state, "digit");
+  assert.equal(digitSorted.length, 40);
+  assert.equal(digitSorted.every((card) => card.used === false), true);
+  assert.equal(digitSorted.every((card, index) => index === 0 || card.digit >= digitSorted[index - 1].digit), true);
+
+  playHourlyCard(state, 0, 0);
+  const afterPlay = hourlyDeckOverview(state, "type");
+  assert.equal(afterPlay.filter((card) => card.used).length, 1);
+  assert.equal(afterPlay.find((card) => card.id === firstCardId).used, true);
+  const typeOrder = new Map(HOURLY_COMBO_TYPES.map((comboType, index) => [comboType.comboTypeId, index]));
+  assert.equal(afterPlay.every((card, index) => (
+    index === 0 || typeOrder.get(card.comboTypeId) >= typeOrder.get(afterPlay[index - 1].comboTypeId)
+  )), true);
 });
 
 test("clockwise connection starts at the played garden and fixes direction", () => {
@@ -179,20 +205,24 @@ test("a four-card internal chain can beat a missing garden connection", () => {
   assert.equal(preview.points, 40);
 });
 
-test("four cards of the exact same species use a non-stacking five-times multiplier", () => {
+test("four different organisms of the same combo type use a non-stacking five-times multiplier", () => {
   const state = ruleState();
-  state.hand = [card(4, "played-4", "dandelion")];
+  state.hand = [card(4, "played-4", "flower", "oxeye-daisy")];
   state.piles = [
-    [card(1, "a", "dandelion"), card(2, "b", "dandelion"), card(3, "c", "dandelion")],
+    [
+      card(1, "a", "flower", "dandelion"),
+      card(2, "b", "flower", "sunflower"),
+      card(3, "c", "flower", "yarrow"),
+    ],
     [card(5, "d")],
     [card(7, "e")],
     [card(6, "f")],
   ];
   const preview = previewHourlyPlacement(state, 0, 0);
-  assert.deepEqual(preview.speciesMatch, {
+  assert.deepEqual(preview.typeMatch, {
     matched: true,
-    speciesId: "dandelion",
-    multiplier: HOURLY_SAME_SPECIES_MULTIPLIER,
+    comboTypeId: "flower",
+    multiplier: HOURLY_SAME_TYPE_MULTIPLIER,
   });
   assert.equal(preview.cardChain.length, 4);
   assert.equal(preview.connection.length, 4);
@@ -200,26 +230,26 @@ test("four cards of the exact same species use a non-stacking five-times multipl
   assert.equal(preview.points, 50);
 
   const result = playHourlyCard(state, 0, 0);
-  assert.equal(result.harvest.speciesMatch.matched, true);
+  assert.equal(result.harvest.typeMatch.matched, true);
   assert.equal(state.score, 50);
 });
 
-test("three matching species are not enough and a fourth different species keeps the normal multiplier", () => {
-  assert.equal(sameSpeciesHarvest([
-    card(1, "a", "dandelion"),
-    card(2, "b", "dandelion"),
-    card(3, "c", "dandelion"),
+test("three matching types are not enough and a fourth different type keeps the normal multiplier", () => {
+  assert.equal(sameTypeHarvest([
+    card(1, "a", "flower", "dandelion"),
+    card(2, "b", "flower", "sunflower"),
+    card(3, "c", "flower", "yarrow"),
   ]).matched, false);
 
   const state = ruleState();
-  state.hand = [card(4, "played-4", "sunflower")];
+  state.hand = [card(4, "played-4", "insect", "small-white")];
   state.piles = [[
-    card(1, "a", "dandelion"),
-    card(2, "b", "dandelion"),
-    card(3, "c", "dandelion"),
+    card(1, "a", "flower", "dandelion"),
+    card(2, "b", "flower", "sunflower"),
+    card(3, "c", "flower", "yarrow"),
   ], [], [], []];
   const preview = previewHourlyPlacement(state, 0, 0);
-  assert.equal(preview.speciesMatch.matched, false);
+  assert.equal(preview.typeMatch.matched, false);
   assert.equal(preview.multiplier, 4);
   assert.equal(preview.points, 40);
 });
@@ -231,6 +261,21 @@ test("non-harvest placement remains legal in every garden", () => {
   assert.equal(preview.ok, true);
   assert.equal(preview.harvest, false);
   assert.equal(preview.cardsUntilHarvest, 3);
+});
+
+test("playing a card reports the replacement card drawn into the hand", () => {
+  const solution = { maximumScore: 300, thresholds: thresholdsForMaximum(300), solverVersion: "test", verified: true };
+  const state = newHourlyRun("2026071417", { solution });
+  const expectedDrawnCard = state.deck[0];
+  const playedCard = state.hand[0];
+
+  const result = playHourlyCard(state, 0, 0);
+
+  assert.equal(result.ok, true);
+  assert.equal(result.card.id, playedCard.id);
+  assert.equal(result.drawnCard.id, expectedDrawnCard.id);
+  assert.equal(state.hand.length, 5);
+  assert.equal(state.hand.at(-1).id, expectedDrawnCard.id);
 });
 
 test("hourly hand can be redrawn three times without discarding cards", () => {
@@ -280,6 +325,7 @@ test("hourly snapshot restore and share text preserve the challenge result", () 
   assert.equal(restored.seed, run.seed);
   assert.equal(restored.hand[0].variantId, run.hand[0].variantId);
   assert.equal(restored.hand[0].speciesId, run.hand[0].speciesId);
+  assert.equal(restored.hand[0].comboTypeId, run.hand[0].comboTypeId);
   assert.equal(restored.redrawsLeft, 2);
   assert.equal(restored.redrawsUsed, 1);
   assert.match(hourlyResultShareText(restored, "https://example.com"), /^스택스 #2026071311 도전중 0점 \/ 최대 \d+점 https:\/\/example\.com$/);

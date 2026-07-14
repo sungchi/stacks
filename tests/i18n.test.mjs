@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  CARD_NAMES,
   SUPPORTED_LANGUAGES,
   TRANSLATIONS,
   detectLanguage,
@@ -10,6 +9,7 @@ import {
   translateText,
 } from "../src/i18n.js";
 import {
+  HOURLY_COMBO_TYPES,
   HOURLY_SPECIES_POOL,
   hourlyResultShareText,
 } from "../src/game/hourly-harvest.js";
@@ -40,12 +40,16 @@ test("text translation interpolates variables and falls back safely", () => {
 });
 
 test("all hourly species candidates have names in all three languages", () => {
-  assert.equal(HOURLY_SPECIES_POOL.length, 28);
-  assert.equal(Object.keys(CARD_NAMES).length, 40);
+  assert.equal(HOURLY_SPECIES_POOL.length, 40);
   for (const { speciesId, cardName } of HOURLY_SPECIES_POOL) {
     assert.equal(translateCardName("ko", `0:${speciesId}`, "missing"), cardName);
     for (const language of SUPPORTED_LANGUAGES) {
       assert.notEqual(translateCardName(language, `0:${speciesId}`, "missing"), "missing");
+    }
+  }
+  for (const { comboTypeId } of HOURLY_COMBO_TYPES) {
+    for (const language of SUPPORTED_LANGUAGES) {
+      assert.notEqual(translateText(language, `comboType.${comboTypeId}`), `comboType.${comboTypeId}`);
     }
   }
 });

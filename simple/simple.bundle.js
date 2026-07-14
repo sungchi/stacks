@@ -210,7 +210,7 @@ const LANGUAGE_STORAGE_KEY = "garden-stacks:language:v1";
 const TRANSLATIONS = {
   ko: {
     "document.title": "Stacks (스택스) - 매시간 숫자 정원",
-    "document.description": "매시간 같은 동식물 숫자 덱으로 연쇄와 같은 종 네 장 수확을 만드는 모바일 카드 게임.",
+    "document.description": "매시간 같은 숫자 덱으로 연쇄와 같은 생물군 네 장 수확을 만드는 모바일 카드 게임.",
     "loading.title": "새 정원을 준비하는 중",
     "loading.detail": "최대 점수를 계산하고 있어요.",
     "error.title": "게임을 준비하지 못했습니다.",
@@ -222,11 +222,11 @@ const TRANSLATIONS = {
     "help.rule1": "손패 카드 한 장을 원하는 정원으로 옮깁니다.",
     "help.rule2": "정원에 네 장이 쌓이면 숫자를 더하고, 놓인 순서에서 가장 긴 ±1 카드 연쇄를 찾습니다.",
     "help.rule3": "카드 연쇄와 놓은 정원부터의 시계방향 정원 연결 중 더 긴 길이를 ×1~×4 배수로 씁니다.",
-    "help.rule4": "정확히 같은 동식물 종 네 장을 함께 수확하면 ×5입니다. 배수는 겹치지 않고 가장 높은 하나만 씁니다.",
+    "help.rule4": "꽃·나무·양서류·새·곤충 중 같은 생물군 네 장을 함께 수확하면 ×5입니다. 배수는 겹치지 않고 가장 높은 하나만 씁니다.",
     "help.rule5": "카드 새로받기는 손패를 덱 뒤로 보내며 한 게임에 세 번 쓸 수 있습니다.",
     "help.rule6": "40장을 모두 사용한 점수로 별을 받습니다.",
     "help.exampleLabel": "예:",
-    "help.example": "민들레 네 장의 합 19 × 같은 종 5 = 95점",
+    "help.example": "서로 다른 꽃 네 장의 합 19 × 같은 생물군 5 = 95점",
     "help.sound": "효과음",
     "help.language": "언어",
     "help.retry": "현재 게임 다시하기",
@@ -247,25 +247,34 @@ const TRANSLATIONS = {
     "score.harvests": "수확",
     "score.best": "최고",
     "score.targetsAria": "현재 점수와 별 목표 점수",
-    "banner.ready": "새 게임이 준비됐어요.",
-    "banner.garden": "{seed} 정원",
-    "common.start": "시작",
+    "newGame.confirmTitle": "새 게임을 시작할까요?",
+    "newGame.confirmBody": "{seed} 게임으로 이동합니다. 현재 게임은 저장됩니다.",
+    "newGame.cancel": "취소",
+    "newGame.confirm": "새 게임 시작",
     "preview.pending": "+0 · {count}/4 · 수확까지 {remaining}장",
     "preview.connected": "합 {sum} × 연결 {connection} = +{points}",
     "preview.harvest": "합 {sum} × 최장 {multiplier} = +{points}",
-    "preview.sameSpecies": "합 {sum} × 같은 종 5 = +{points}",
+    "preview.sameType": "합 {sum} × 같은 생물군 5 = +{points}",
     "garden.title": "정원 {label}",
     "garden.region": "네 정원",
-    "garden.rule": "네 장 합 × 최고 배수 · 같은 종 네 장은 ×5",
-    "harvest.sameSpecies": "같은 종 ×5",
+    "garden.rule": "네 장 합 × 최고 배수 · 같은 생물군 네 장은 ×5",
+    "harvest.sameType": "같은 생물군 ×5",
     "harvest.aria": "수확 합 {sum} × 최고 배수 {multiplier}, {points}점 획득",
-    "hand.cardAria": "{name} {digit}, 손패 {index}",
+    "hand.cardAria": "{type} 생물군, {species} {digit}, 손패 {index}",
     "hand.region": "손패",
     "hand.title": "손패",
     "hand.instruction": "카드를 정원으로 옮기세요",
     "hand.remaining": "남은 카드",
     "hand.redraw": "카드 새로받기",
     "hand.used": "{count}/40 사용",
+    "deck.close": "닫기",
+    "deck.sortLabel": "카드 정렬",
+    "deck.sortDigit": "숫자순",
+    "deck.sortType": "종류순",
+    "deck.usedLegend": "사용한 카드",
+    "deck.listAria": "전체 카드 목록",
+    "deck.cardUsed": "{type} {name} {digit}, 사용함",
+    "deck.cardRemaining": "{type} {name} {digit}, 남음",
     "result.points": "{score}점",
     "result.best": "이번 시간 최고 {score}",
     "result.startNew": "새 게임 시작",
@@ -274,10 +283,15 @@ const TRANSLATIONS = {
     "toast.copied": "결과를 클립보드에 복사했어요.",
     "toast.copyFailed": "공유 문구를 복사하지 못했습니다.",
     "toast.dropOnGarden": "정원 위에 카드를 놓으세요.",
+    "comboType.flower": "꽃",
+    "comboType.tree": "나무",
+    "comboType.amphibian": "양서류",
+    "comboType.bird": "새",
+    "comboType.insect": "곤충",
   },
   en: {
     "document.title": "Stacks - Hourly Number Garden",
-    "document.description": "A mobile card game where everyone plays the same hourly wildlife deck, building chains and four-of-a-species harvests.",
+    "document.description": "A mobile card game where everyone plays the same hourly deck, building chains and four-of-a-type harvests.",
     "loading.title": "Preparing a new garden",
     "loading.detail": "Calculating the target scores.",
     "error.title": "The game could not be prepared.",
@@ -289,11 +303,11 @@ const TRANSLATIONS = {
     "help.rule1": "Move one card from your hand to any garden.",
     "help.rule2": "When a garden reaches four cards, add them and find the longest ±1 card chain in play order.",
     "help.rule3": "Use the longer of that card chain and the clockwise garden link as the ×1–×4 multiplier.",
-    "help.rule4": "Harvest four cards of the exact same species for ×5. Multipliers do not stack; only the highest one counts.",
+    "help.rule4": "Harvest four cards from the same life group (flower, tree, amphibian, bird, or insect) for ×5. Multipliers do not stack; only the highest one counts.",
     "help.rule5": "Redraw sends your hand to the back of the deck and can be used three times per game.",
     "help.rule6": "Use all 40 cards to earn stars from your final score.",
     "help.exampleLabel": "Example:",
-    "help.example": "Four dandelions: sum 19 × same species 5 = 95 points",
+    "help.example": "Four different flowers: sum 19 × same group 5 = 95 points",
     "help.sound": "Sound effects",
     "help.language": "Language",
     "help.retry": "Restart this game",
@@ -314,25 +328,34 @@ const TRANSLATIONS = {
     "score.harvests": "Harvests",
     "score.best": "Best",
     "score.targetsAria": "Current score and star targets",
-    "banner.ready": "A new game is ready.",
-    "banner.garden": "{seed} garden",
-    "common.start": "Start",
+    "newGame.confirmTitle": "Start the new game?",
+    "newGame.confirmBody": "Move to the {seed} game. Your current game will stay saved.",
+    "newGame.cancel": "Cancel",
+    "newGame.confirm": "Start new game",
     "preview.pending": "+0 · {count}/4 · {remaining} to harvest",
     "preview.connected": "Sum {sum} × Link {connection} = +{points}",
     "preview.harvest": "Sum {sum} × Longest {multiplier} = +{points}",
-    "preview.sameSpecies": "Sum {sum} × Same species 5 = +{points}",
+    "preview.sameType": "Sum {sum} × Same group 5 = +{points}",
     "garden.title": "Garden {label}",
     "garden.region": "Four gardens",
-    "garden.rule": "Four-card sum × best multiplier · same species ×5",
-    "harvest.sameSpecies": "Same species ×5",
+    "garden.rule": "Four-card sum × best multiplier · same group ×5",
+    "harvest.sameType": "Same group ×5",
     "harvest.aria": "Harvest sum {sum} × best multiplier {multiplier}, {points} points earned",
-    "hand.cardAria": "{name} {digit}, hand card {index}",
+    "hand.cardAria": "{type} group, {species} {digit}, hand card {index}",
     "hand.region": "Hand",
     "hand.title": "Hand",
     "hand.instruction": "Move a card to a garden",
     "hand.remaining": "Cards left",
     "hand.redraw": "Redraw hand",
     "hand.used": "{count}/40 used",
+    "deck.close": "Close",
+    "deck.sortLabel": "Card sorting",
+    "deck.sortDigit": "By number",
+    "deck.sortType": "By group",
+    "deck.usedLegend": "Used cards",
+    "deck.listAria": "All cards",
+    "deck.cardUsed": "{type} {name} {digit}, used",
+    "deck.cardRemaining": "{type} {name} {digit}, remaining",
     "result.points": "{score} pts",
     "result.best": "Best this hour {score}",
     "result.startNew": "Start new game",
@@ -341,10 +364,15 @@ const TRANSLATIONS = {
     "toast.copied": "Result copied to the clipboard.",
     "toast.copyFailed": "The share text could not be copied.",
     "toast.dropOnGarden": "Drop the card on a garden.",
+    "comboType.flower": "Flower",
+    "comboType.tree": "Tree",
+    "comboType.amphibian": "Amphibian",
+    "comboType.bird": "Bird",
+    "comboType.insect": "Insect",
   },
   ja: {
     "document.title": "Stacks（スタックス）- 毎時の数字ガーデン",
-    "document.description": "毎時同じ動植物の数字デッキで、連鎖と同種4枚の収穫を作るモバイルカードゲーム。",
+    "document.description": "毎時同じ数字デッキで、連鎖と同じ生物グループ4枚の収穫を作るモバイルカードゲーム。",
     "loading.title": "新しいガーデンを準備中",
     "loading.detail": "目標スコアを計算しています。",
     "error.title": "ゲームを準備できませんでした。",
@@ -356,11 +384,11 @@ const TRANSLATIONS = {
     "help.rule1": "手札から1枚を選び、好きなガーデンへ移動します。",
     "help.rule2": "ガーデンに4枚たまると数字を足し、置いた順で最長の±1カード連鎖を探します。",
     "help.rule3": "カード連鎖と置いたガーデンから時計回りの連結を比べ、長い方を×1〜×4の倍率にします。",
-    "help.rule4": "まったく同じ動植物の種を4枚収穫すると×5です。倍率は重ならず、最も高い1つだけを使います。",
+    "help.rule4": "花・木・両生類・鳥・昆虫のうち同じ生物グループを4枚収穫すると×5です。倍率は重ならず、最も高い1つだけを使います。",
     "help.rule5": "手札交換は手札をデッキの後ろへ送り、1ゲームに3回使えます。",
     "help.rule6": "40枚をすべて使ったスコアで星を獲得します。",
     "help.exampleLabel": "例：",
-    "help.example": "タンポポ4枚：合計19 × 同じ種5 = 95点",
+    "help.example": "異なる花4枚：合計19 × 同じグループ5 = 95点",
     "help.sound": "効果音",
     "help.language": "言語",
     "help.retry": "このゲームをやり直す",
@@ -381,25 +409,34 @@ const TRANSLATIONS = {
     "score.harvests": "収穫",
     "score.best": "ベスト",
     "score.targetsAria": "現在のスコアと星の目標",
-    "banner.ready": "新しいゲームを遊べます。",
-    "banner.garden": "{seed}のガーデン",
-    "common.start": "スタート",
+    "newGame.confirmTitle": "新しいゲームを始めますか？",
+    "newGame.confirmBody": "{seed}のゲームへ移動します。現在のゲームは保存されます。",
+    "newGame.cancel": "キャンセル",
+    "newGame.confirm": "新しいゲームを開始",
     "preview.pending": "+0点 · {count}/4 · 収穫まで{remaining}枚",
     "preview.connected": "合計 {sum} × 連結 {connection} = +{points}",
     "preview.harvest": "合計 {sum} × 最長 {multiplier} = +{points}",
-    "preview.sameSpecies": "合計 {sum} × 同じ種5 = +{points}",
+    "preview.sameType": "合計 {sum} × 同じグループ5 = +{points}",
     "garden.title": "ガーデン {label}",
     "garden.region": "4つのガーデン",
-    "garden.rule": "4枚の合計 × 最高倍率・同じ種4枚は×5",
-    "harvest.sameSpecies": "同じ種 ×5",
+    "garden.rule": "4枚の合計 × 最高倍率・同じグループ4枚は×5",
+    "harvest.sameType": "同じグループ ×5",
     "harvest.aria": "収穫の合計 {sum} × 最高倍率 {multiplier}、{points}点獲得",
-    "hand.cardAria": "{name} {digit}、手札 {index}",
+    "hand.cardAria": "{type}グループ、{species} {digit}、手札 {index}",
     "hand.region": "手札",
     "hand.title": "手札",
     "hand.instruction": "カードをガーデンへ移動してください",
     "hand.remaining": "残りカード",
     "hand.redraw": "手札を交換",
     "hand.used": "{count}/40 使用",
+    "deck.close": "閉じる",
+    "deck.sortLabel": "カードの並び順",
+    "deck.sortDigit": "数字順",
+    "deck.sortType": "種類順",
+    "deck.usedLegend": "使用済みカード",
+    "deck.listAria": "全カード一覧",
+    "deck.cardUsed": "{type} {name} {digit}、使用済み",
+    "deck.cardRemaining": "{type} {name} {digit}、残り",
     "result.points": "{score}点",
     "result.best": "今時間のベスト {score}",
     "result.startNew": "新しいゲームを始める",
@@ -408,6 +445,11 @@ const TRANSLATIONS = {
     "toast.copied": "結果をクリップボードにコピーしました。",
     "toast.copyFailed": "共有テキストをコピーできませんでした。",
     "toast.dropOnGarden": "カードをガーデンの上に置いてください。",
+    "comboType.flower": "花",
+    "comboType.tree": "木",
+    "comboType.amphibian": "両生類",
+    "comboType.bird": "鳥",
+    "comboType.insect": "昆虫",
   },
 };
 
@@ -433,8 +475,13 @@ const CARD_NAMES = {
   puddle: { ko: "빗물받기", en: "Rain Collection", ja: "雨水集め" },
   conservation: { ko: "정원돌봄", en: "Garden Care", ja: "庭の手入れ" },
   maple: { ko: "단풍나무", en: "Japanese Maple", ja: "モミジ" },
+  "box-elder": { ko: "네군도단풍", en: "Box Elder", ja: "ネグンドカエデ" },
+  "red-maple": { ko: "붉은단풍나무", en: "Red Maple", ja: "アメリカハナノキ" },
+  "norway-maple": { ko: "노르웨이단풍", en: "Norway Maple", ja: "ノルウェーカエデ" },
   oak: { ko: "상수리나무", en: "Sawtooth Oak", ja: "クヌギ" },
+  "northern-red-oak": { ko: "루브라참나무", en: "Northern Red Oak", ja: "アカガシワ" },
   "white-oak": { ko: "흰참나무", en: "White Oak", ja: "ホワイトオーク" },
+  "english-oak": { ko: "유럽참나무", en: "English Oak", ja: "ヨーロッパナラ" },
   birch: { ko: "자작나무", en: "Silver Birch", ja: "シラカバ" },
   "small-white": { ko: "배추흰나비", en: "Small White", ja: "モンシロチョウ" },
   monarch: { ko: "제왕나비", en: "Monarch", ja: "オオカバマダラ" },
@@ -448,10 +495,26 @@ const CARD_NAMES = {
   cattail: { ko: "부들", en: "Cattail", ja: "ガマ" },
   waterlily: { ko: "수련", en: "Water Lily", ja: "スイレン" },
   watercress: { ko: "물냉이", en: "Watercress", ja: "クレソン" },
+  "field-horsetail": { ko: "쇠뜨기", en: "Field Horsetail", ja: "スギナ" },
+  "great-horsetail": { ko: "큰속새", en: "Great Horsetail", ja: "オオトクサ" },
+  "rough-horsetail": { ko: "속새", en: "Rough Horsetail", ja: "トクサ" },
+  "wood-horsetail": { ko: "능수쇠뜨기", en: "Wood Horsetail", ja: "モリトクサ" },
   mallard: { ko: "청둥오리", en: "Mallard", ja: "マガモ" },
+  "canada-goose": { ko: "캐나다기러기", en: "Canada Goose", ja: "カナダガン" },
+  "great-blue-heron": { ko: "큰푸른왜가리", en: "Great Blue Heron", ja: "オオアオサギ" },
+  "green-winged-teal": { ko: "쇠오리", en: "Green-winged Teal", ja: "コガモ" },
   sparrow: { ko: "참새", en: "House Sparrow", ja: "イエスズメ" },
   robin: { ko: "울새", en: "American Robin", ja: "コマツグミ" },
   cardinal: { ko: "홍관조", en: "Northern Cardinal", ja: "ショウジョウコウカンチョウ" },
+  "house-finch": { ko: "집양진이", en: "House Finch", ja: "メキシコマシコ" },
+  "green-frog": { ko: "초록개구리", en: "Green Frog", ja: "グリーンフロッグ" },
+  bullfrog: { ko: "황소개구리", en: "American Bullfrog", ja: "ウシガエル" },
+  "wood-frog": { ko: "숲개구리", en: "Wood Frog", ja: "ウッドフロッグ" },
+  "leopard-frog": { ko: "북방표범개구리", en: "Northern Leopard Frog", ja: "ヒョウガエル" },
+  "american-toad": { ko: "미국두꺼비", en: "American Toad", ja: "アメリカヒキガエル" },
+  "red-backed-salamander": { ko: "붉은등도롱뇽", en: "Red-backed Salamander", ja: "セアカサンショウウオ" },
+  "european-toad": { ko: "유럽두꺼비", en: "European Toad", ja: "ヨーロッパヒキガエル" },
+  "eastern-newt": { ko: "동부영원", en: "Eastern Newt", ja: "イースタンニュート" },
 };
 
 function normalizeLanguage(value) {
@@ -525,52 +588,102 @@ function shuffled(items, rng = Math.random) {
 
 
 const HOURLY_MODE = "hourly";
-const HOURLY_RULES_VERSION = "hourly-four-harvest-v4";
-const HOURLY_ASSET_VERSION = "seed-species-v2";
+const HOURLY_RULES_VERSION = "hourly-four-harvest-v6";
+const HOURLY_ASSET_VERSION = "broad-life-groups-v1";
 const HOURLY_HAND_SIZE = 5;
 const HOURLY_DECK_SIZE = 40;
 const HOURLY_PILE_COUNT = 4;
 const HOURLY_HARVEST_SIZE = 4;
 const HOURLY_REDRAW_LIMIT = 3;
-const HOURLY_SPECIES_PER_DECK = 10;
-const HOURLY_SPECIES_COPIES = 4;
-const HOURLY_SAME_SPECIES_MULTIPLIER = 5;
+const HOURLY_COMBO_TYPE_COUNT = 5;
+const HOURLY_COMBO_TYPE_SIZE = 8;
+const HOURLY_SAME_TYPE_MULTIPLIER = 5;
 const HOURLY_CLOCKWISE_ORDER = [0, 1, 3, 2];
 const HOURLY_GARDEN_LABELS = Object.freeze(["A", "B", "D", "C"]);
 const HOURLY_SHARE_URL = "https://plan9.kr/stacks";
 
 const SPECIES = "public/assets/garden-stacks/generated/species";
 
-const HOURLY_SPECIES_POOL = Object.freeze([
-  { speciesId: "dandelion", category: "flora", cardName: "민들레", imagePath: `${SPECIES}/bio_0001_dandelion.png` },
-  { speciesId: "white-clover", category: "flora", cardName: "흰토끼풀", imagePath: `${SPECIES}/bio_0002_white_clover.png` },
-  { speciesId: "yarrow", category: "flora", cardName: "서양톱풀", imagePath: `${SPECIES}/bio_0011_common_yarrow.png` },
-  { speciesId: "red-clover", category: "flora", cardName: "붉은토끼풀", imagePath: `${SPECIES}/bio_0012_red_clover.png` },
-  { speciesId: "sunflower", category: "flora", cardName: "해바라기", imagePath: `${SPECIES}/bio_0003_common_sunflower.png` },
-  { speciesId: "hydrangea", category: "flora", cardName: "수국", imagePath: `${SPECIES}/bio_0004_bigleaf_hydrangea.png` },
-  { speciesId: "lawn-daisy", category: "flora", cardName: "잔디데이지", imagePath: `${SPECIES}/bio_0030_lawn_daisy.png` },
-  { speciesId: "oxeye-daisy", category: "flora", cardName: "큰데이지", imagePath: `${SPECIES}/bio_0039_oxeye_daisy.png` },
-  { speciesId: "maple", category: "flora", cardName: "단풍나무", imagePath: `${SPECIES}/bio_0005_japanese_maple.png` },
-  { speciesId: "oak", category: "flora", cardName: "상수리나무", imagePath: `${SPECIES}/bio_0006_sawtooth_oak.png` },
-  { speciesId: "white-oak", category: "flora", cardName: "흰참나무", imagePath: `${SPECIES}/bio_0133_white_oak.png` },
-  { speciesId: "birch", category: "flora", cardName: "자작나무", imagePath: `${SPECIES}/bio_0162_silver_birch.png` },
-  { speciesId: "reed", category: "flora", cardName: "갈대", imagePath: `${SPECIES}/bio_0007_common_reed.png` },
-  { speciesId: "cattail", category: "flora", cardName: "부들", imagePath: `${SPECIES}/bio_0156_broadleaf_cattail.png` },
-  { speciesId: "waterlily", category: "flora", cardName: "수련", imagePath: `${SPECIES}/bio_0444_american_white_waterlily.png` },
-  { speciesId: "watercress", category: "flora", cardName: "물냉이", imagePath: `${SPECIES}/bio_0586_watercress.png` },
-  { speciesId: "honey-bee", category: "fauna", cardName: "꿀벌", imagePath: `${SPECIES}/bio_0008_western_honey_bee.png` },
-  { speciesId: "bumble-bee", category: "fauna", cardName: "뒤영벌", imagePath: `${SPECIES}/bio_0657_common_eastern_bumble_bee.png` },
-  { speciesId: "carpenter-bee", category: "fauna", cardName: "목수벌", imagePath: `${SPECIES}/bio_0669_eastern_carpenter_bee.png` },
-  { speciesId: "lady-beetle", category: "fauna", cardName: "무당벌레", imagePath: `${SPECIES}/bio_0658_seven_spotted_lady_beetle.png` },
-  { speciesId: "small-white", category: "fauna", cardName: "배추흰나비", imagePath: `${SPECIES}/bio_0009_small_white.png` },
-  { speciesId: "monarch", category: "fauna", cardName: "제왕나비", imagePath: `${SPECIES}/bio_0656_monarch.png` },
-  { speciesId: "red-admiral", category: "fauna", cardName: "붉은줄나비", imagePath: `${SPECIES}/bio_0659_red_admiral.png` },
-  { speciesId: "swallowtail", category: "fauna", cardName: "호랑나비", imagePath: `${SPECIES}/bio_0662_eastern_tiger_swallowtail.png` },
-  { speciesId: "mallard", category: "fauna", cardName: "청둥오리", imagePath: `${SPECIES}/bio_0793_mallard.png` },
-  { speciesId: "sparrow", category: "fauna", cardName: "참새", imagePath: `${SPECIES}/bio_0794_house_sparrow.png` },
-  { speciesId: "robin", category: "fauna", cardName: "울새", imagePath: `${SPECIES}/bio_0796_american_robin.png` },
-  { speciesId: "cardinal", category: "fauna", cardName: "홍관조", imagePath: `${SPECIES}/bio_0799_northern_cardinal.png` },
+const HOURLY_COMBO_TYPES = Object.freeze([
+  {
+    comboTypeId: "flower",
+    category: "flora",
+    variants: [
+      { speciesId: "dandelion", cardName: "민들레", imagePath: `${SPECIES}/bio_0001_dandelion.png` },
+      { speciesId: "white-clover", cardName: "흰토끼풀", imagePath: `${SPECIES}/bio_0002_white_clover.png` },
+      { speciesId: "sunflower", cardName: "해바라기", imagePath: `${SPECIES}/bio_0003_common_sunflower.png` },
+      { speciesId: "hydrangea", cardName: "수국", imagePath: `${SPECIES}/bio_0004_bigleaf_hydrangea.png` },
+      { speciesId: "yarrow", cardName: "서양톱풀", imagePath: `${SPECIES}/bio_0011_common_yarrow.png` },
+      { speciesId: "red-clover", cardName: "붉은토끼풀", imagePath: `${SPECIES}/bio_0012_red_clover.png` },
+      { speciesId: "lawn-daisy", cardName: "잔디데이지", imagePath: `${SPECIES}/bio_0030_lawn_daisy.png` },
+      { speciesId: "oxeye-daisy", cardName: "큰데이지", imagePath: `${SPECIES}/bio_0039_oxeye_daisy.png` },
+    ],
+  },
+  {
+    comboTypeId: "tree",
+    category: "flora",
+    variants: [
+      { speciesId: "maple", cardName: "단풍나무", imagePath: `${SPECIES}/bio_0005_japanese_maple.png` },
+      { speciesId: "box-elder", cardName: "네군도단풍", imagePath: `${SPECIES}/bio_0019_box_elder.png` },
+      { speciesId: "red-maple", cardName: "붉은단풍나무", imagePath: `${SPECIES}/bio_0028_red_maple.png` },
+      { speciesId: "norway-maple", cardName: "노르웨이단풍", imagePath: `${SPECIES}/bio_0037_norway_maple.png` },
+      { speciesId: "oak", cardName: "상수리나무", imagePath: `${SPECIES}/bio_0006_sawtooth_oak.png` },
+      { speciesId: "northern-red-oak", cardName: "루브라참나무", imagePath: `${SPECIES}/bio_0057_northern_red_oak.png` },
+      { speciesId: "white-oak", cardName: "흰참나무", imagePath: `${SPECIES}/bio_0133_white_oak.png` },
+      { speciesId: "english-oak", cardName: "유럽참나무", imagePath: `${SPECIES}/bio_0077_english_oak.png` },
+    ],
+  },
+  {
+    comboTypeId: "amphibian",
+    category: "fauna",
+    variants: [
+      { speciesId: "green-frog", cardName: "초록개구리", imagePath: `${SPECIES}/bio_0954_green_frog.png` },
+      { speciesId: "bullfrog", cardName: "황소개구리", imagePath: `${SPECIES}/bio_0955_american_bullfrog.png` },
+      { speciesId: "wood-frog", cardName: "숲개구리", imagePath: `${SPECIES}/bio_0960_wood_frog.png` },
+      { speciesId: "leopard-frog", cardName: "북방표범개구리", imagePath: `${SPECIES}/bio_0962_northern_leopard_frog.png` },
+      { speciesId: "american-toad", cardName: "미국두꺼비", imagePath: `${SPECIES}/bio_0953_american_toad.png` },
+      { speciesId: "red-backed-salamander", cardName: "붉은등도롱뇽", imagePath: `${SPECIES}/bio_0956_eastern_red_backed_salamander.png` },
+      { speciesId: "european-toad", cardName: "유럽두꺼비", imagePath: `${SPECIES}/bio_0957_european_toad.png` },
+      { speciesId: "eastern-newt", cardName: "동부영원", imagePath: `${SPECIES}/bio_0963_eastern_newt.png` },
+    ],
+  },
+  {
+    comboTypeId: "bird",
+    category: "fauna",
+    variants: [
+      { speciesId: "mallard", cardName: "청둥오리", imagePath: `${SPECIES}/bio_0793_mallard.png` },
+      { speciesId: "canada-goose", cardName: "캐나다기러기", imagePath: `${SPECIES}/bio_0795_canada_goose.png` },
+      { speciesId: "great-blue-heron", cardName: "큰푸른왜가리", imagePath: `${SPECIES}/bio_0797_great_blue_heron.png` },
+      { speciesId: "green-winged-teal", cardName: "쇠오리", imagePath: `${SPECIES}/bio_0868_green_winged_teal.png` },
+      { speciesId: "sparrow", cardName: "참새", imagePath: `${SPECIES}/bio_0794_house_sparrow.png` },
+      { speciesId: "robin", cardName: "울새", imagePath: `${SPECIES}/bio_0796_american_robin.png` },
+      { speciesId: "cardinal", cardName: "홍관조", imagePath: `${SPECIES}/bio_0799_northern_cardinal.png` },
+      { speciesId: "house-finch", cardName: "집양진이", imagePath: `${SPECIES}/bio_0801_house_finch.png` },
+    ],
+  },
+  {
+    comboTypeId: "insect",
+    category: "fauna",
+    variants: [
+      { speciesId: "honey-bee", cardName: "꿀벌", imagePath: `${SPECIES}/bio_0008_western_honey_bee.png` },
+      { speciesId: "bumble-bee", cardName: "뒤영벌", imagePath: `${SPECIES}/bio_0657_common_eastern_bumble_bee.png` },
+      { speciesId: "carpenter-bee", cardName: "목수벌", imagePath: `${SPECIES}/bio_0669_eastern_carpenter_bee.png` },
+      { speciesId: "lady-beetle", cardName: "무당벌레", imagePath: `${SPECIES}/bio_0658_seven_spotted_lady_beetle.png` },
+      { speciesId: "small-white", cardName: "배추흰나비", imagePath: `${SPECIES}/bio_0009_small_white.png` },
+      { speciesId: "monarch", cardName: "제왕나비", imagePath: `${SPECIES}/bio_0656_monarch.png` },
+      { speciesId: "red-admiral", cardName: "붉은줄나비", imagePath: `${SPECIES}/bio_0659_red_admiral.png` },
+      { speciesId: "swallowtail", cardName: "호랑나비", imagePath: `${SPECIES}/bio_0662_eastern_tiger_swallowtail.png` },
+    ],
+  },
 ]);
+
+const HOURLY_SPECIES_POOL = Object.freeze(HOURLY_COMBO_TYPES.flatMap((comboType) => (
+  comboType.variants.map((species) => ({
+    ...species,
+    comboTypeId: comboType.comboTypeId,
+    category: comboType.category,
+  }))
+)));
 
 // Kept as an export alias for callers that used the earlier art-list name.
 const HOURLY_ART_VARIANTS = HOURLY_SPECIES_POOL;
@@ -610,37 +723,40 @@ function formatDuration(totalSeconds) {
 }
 
 function createHourlyDeck(seed) {
-  const selected = ["flora", "fauna"].flatMap((category) => {
-    const candidates = HOURLY_SPECIES_POOL.filter((species) => species.category === category);
-    return shuffleInPlace(
-      [...candidates],
-      createRng(`${seed}:${HOURLY_RULES_VERSION}:${HOURLY_ASSET_VERSION}:${category}`),
-    ).slice(0, HOURLY_SPECIES_PER_DECK / 2);
-  });
-  shuffleInPlace(selected, createRng(`${seed}:${HOURLY_RULES_VERSION}:${HOURLY_ASSET_VERSION}:species-order`));
+  const selectedTypes = shuffleInPlace(
+    [...HOURLY_COMBO_TYPES],
+    createRng(`${seed}:${HOURLY_RULES_VERSION}:${HOURLY_ASSET_VERSION}:type-order`),
+  );
 
   const digitOrder = shuffleInPlace(
     Array.from({ length: 10 }, (_, digit) => digit),
     createRng(`${seed}:${HOURLY_RULES_VERSION}:${HOURLY_ASSET_VERSION}:digit-order`),
   );
-  const offsets = shuffleInPlace(
-    Array.from({ length: 10 }, (_, offset) => offset),
-    createRng(`${seed}:${HOURLY_RULES_VERSION}:${HOURLY_ASSET_VERSION}:species-offsets`),
-  ).slice(0, HOURLY_SPECIES_COPIES);
+  const omittedDigits = shuffleInPlace(
+    [...digitOrder],
+    createRng(`${seed}:${HOURLY_RULES_VERSION}:${HOURLY_ASSET_VERSION}:omitted-digits`),
+  );
   const occurrences = Array(10).fill(0);
   const cards = [];
-  selected.forEach((species, speciesIndex) => {
-    offsets.forEach((offset) => {
-      const digit = digitOrder[(speciesIndex + offset) % digitOrder.length];
+  selectedTypes.forEach((comboType, comboTypeIndex) => {
+    const variants = shuffleInPlace(
+      [...comboType.variants],
+      createRng(`${seed}:${HOURLY_RULES_VERSION}:${HOURLY_ASSET_VERSION}:${comboType.comboTypeId}`),
+    );
+    const omitted = new Set(omittedDigits.slice(comboTypeIndex * 2, comboTypeIndex * 2 + 2));
+    const typeDigits = digitOrder.filter((digit) => !omitted.has(digit));
+    typeDigits.forEach((digit, variantIndex) => {
       const occurrence = occurrences[digit];
+      const species = variants[variantIndex];
       occurrences[digit] += 1;
       cards.push({
         id: `${seed}:${digit}:${occurrence}`,
         digit,
         occurrence,
-        speciesIndex,
+        comboTypeIndex,
+        comboTypeId: comboType.comboTypeId,
         speciesId: species.speciesId,
-        category: species.category,
+        category: comboType.category,
         variantId: `${digit}:${species.speciesId}`,
         cardName: species.cardName,
         imagePath: species.imagePath,
@@ -648,6 +764,25 @@ function createHourlyDeck(seed) {
     });
   });
   return shuffleInPlace(cards, createRng(`${seed}:${HOURLY_RULES_VERSION}:deck`));
+}
+
+function hourlyDeckOverview(state, sortMode = "digit") {
+  if (!state?.seed) return [];
+  const remainingIds = new Set(
+    [...(state.hand ?? []), ...(state.deck ?? [])].map((card) => String(card.id)),
+  );
+  const typeOrder = new Map(HOURLY_COMBO_TYPES.map((comboType, index) => [comboType.comboTypeId, index]));
+  const cards = createHourlyDeck(state.seed).map((card) => ({
+    ...card,
+    used: !remainingIds.has(String(card.id)),
+  }));
+  const byDigit = (a, b) => a.digit - b.digit
+    || (typeOrder.get(a.comboTypeId) ?? 99) - (typeOrder.get(b.comboTypeId) ?? 99)
+    || a.speciesId.localeCompare(b.speciesId);
+  const byType = (a, b) => (typeOrder.get(a.comboTypeId) ?? 99) - (typeOrder.get(b.comboTypeId) ?? 99)
+    || a.digit - b.digit
+    || a.speciesId.localeCompare(b.speciesId);
+  return cards.sort(sortMode === "type" ? byType : byDigit);
 }
 
 function clockwisePileIndices(startIndex) {
@@ -692,16 +827,16 @@ function longestHourlyCardChain(cards) {
   return best;
 }
 
-function sameSpeciesHarvest(cards) {
-  const speciesIds = Array.from(cards ?? [], (card) => String(card?.speciesId ?? ""));
-  const speciesId = speciesIds[0] ?? "";
-  const matched = speciesIds.length === HOURLY_HARVEST_SIZE
-    && Boolean(speciesId)
-    && speciesIds.every((candidate) => candidate === speciesId);
+function sameTypeHarvest(cards) {
+  const comboTypeIds = Array.from(cards ?? [], (card) => String(card?.comboTypeId ?? ""));
+  const comboTypeId = comboTypeIds[0] ?? "";
+  const matched = comboTypeIds.length === HOURLY_HARVEST_SIZE
+    && Boolean(comboTypeId)
+    && comboTypeIds.every((candidate) => candidate === comboTypeId);
   return {
     matched,
-    speciesId: matched ? speciesId : null,
-    multiplier: matched ? HOURLY_SAME_SPECIES_MULTIPLIER : 1,
+    comboTypeId: matched ? comboTypeId : null,
+    multiplier: matched ? HOURLY_SAME_TYPE_MULTIPLIER : 1,
   };
 }
 
@@ -784,8 +919,8 @@ function previewHourlyPlacement(state, handIndex, pileIndex) {
   const chainSum = nextPiles[targetIndex].reduce((sum, item) => sum + Number(item.digit), 0);
   const cardChain = longestHourlyCardChain(nextPiles[targetIndex]);
   const connection = gardenConnection(nextPiles, targetIndex, card.digit);
-  const speciesMatch = sameSpeciesHarvest(nextPiles[targetIndex]);
-  const multiplier = Math.max(cardChain.length, connection.length, speciesMatch.multiplier);
+  const typeMatch = sameTypeHarvest(nextPiles[targetIndex]);
+  const multiplier = Math.max(cardChain.length, connection.length, typeMatch.multiplier);
   const points = chainSum * multiplier;
   return {
     ok: true,
@@ -796,7 +931,7 @@ function previewHourlyPlacement(state, handIndex, pileIndex) {
     harvest: true,
     chainSum,
     cardChain,
-    speciesMatch,
+    typeMatch,
     multiplier,
     points,
     connection,
@@ -856,12 +991,13 @@ function playHourlyCard(state, handIndex, pileIndex) {
       chainSum: preview.chainSum,
       cardChain: copy(preview.cardChain),
       connection: copy(preview.connection),
-      speciesMatch: copy(preview.speciesMatch),
+      typeMatch: copy(preview.typeMatch),
       multiplier: preview.multiplier,
       points: preview.points,
     };
   }
 
+  const drawnCard = state.deck.length ? copy(state.deck[0]) : null;
   refillHourlyHand(state);
   state.stars = starsForScore(state.score, state.thresholds);
   state.perfect = state.score >= state.maximumScore;
@@ -870,19 +1006,19 @@ function playHourlyCard(state, handIndex, pileIndex) {
     state.phase = "result";
     state.completedAt = Date.now();
   }
-  return { ok: true, card: copy(card), preview: copy(preview), harvest: copy(state.lastHarvest), state };
+  return { ok: true, card: copy(card), drawnCard, preview: copy(preview), harvest: copy(state.lastHarvest), state };
 }
 
 function solverCardToken(card) {
-  return Number(card.digit) * HOURLY_SPECIES_PER_DECK + Number(card.speciesIndex);
+  return Number(card.digit) * HOURLY_COMBO_TYPE_COUNT + Number(card.comboTypeIndex);
 }
 
 function solverTokenDigit(token) {
-  return Math.floor(Number(token) / HOURLY_SPECIES_PER_DECK);
+  return Math.floor(Number(token) / HOURLY_COMBO_TYPE_COUNT);
 }
 
-function solverTokenSpecies(token) {
-  return Number(token) % HOURLY_SPECIES_PER_DECK;
+function solverTokenType(token) {
+  return Number(token) % HOURLY_COMBO_TYPE_COUNT;
 }
 
 function encodeSolverToken(token) {
@@ -919,9 +1055,9 @@ function solverHeuristic(state) {
   for (const pile of state.piles) {
     occupancy += pile.count;
     if (pile.count === 3) {
-      const sameSpeciesReady = pile.species.length === 3
-        && [...pile.species].every((species) => species === pile.species[0]);
-      ready += pile.sum * 2 + Math.max(0, pile.top) + (sameSpeciesReady ? 50 : 0);
+      const sameTypeReady = pile.types.length === 3
+        && [...pile.types].every((comboType) => comboType === pile.types[0]);
+      ready += pile.sum * 2 + Math.max(0, pile.top) + (sameTypeReady ? 50 : 0);
     }
   }
   return state.score * 1000 + ready * 10 - occupancy + state.redrawsLeft;
@@ -929,29 +1065,29 @@ function solverHeuristic(state) {
 
 function solverPlayTransition(state, token, handIndex, pileIndex) {
   const digit = solverTokenDigit(token);
-  const speciesIndex = solverTokenSpecies(token);
+  const comboTypeIndex = solverTokenType(token);
   const piles = state.piles.map((pile) => ({ ...pile }));
   const pile = piles[pileIndex];
   let gain = 0;
   if (pile.count === 3) {
     const cardChainLength = longestHourlyCardChain(`${pile.digits}${digit}`).length;
     const connectionLength = compactConnection(piles, pileIndex, digit);
-    const sameSpecies = pile.species.length === 3
-      && [...pile.species].every((species) => Number(species) === speciesIndex);
+    const sameType = pile.types.length === 3
+      && [...pile.types].every((comboType) => Number(comboType) === comboTypeIndex);
     const multiplier = Math.max(
       cardChainLength,
       connectionLength,
-      sameSpecies ? HOURLY_SAME_SPECIES_MULTIPLIER : 1,
+      sameType ? HOURLY_SAME_TYPE_MULTIPLIER : 1,
     );
     gain = (pile.sum + digit) * multiplier;
-    piles[pileIndex] = { count: 0, sum: 0, top: -1, digits: "", species: "", tokens: "" };
+    piles[pileIndex] = { count: 0, sum: 0, top: -1, digits: "", types: "", tokens: "" };
   } else {
     piles[pileIndex] = {
       count: pile.count + 1,
       sum: pile.sum + digit,
       top: digit,
       digits: `${pile.digits}${digit}`,
-      species: `${pile.species}${speciesIndex}`,
+      types: `${pile.types}${comboTypeIndex}`,
       tokens: `${pile.tokens}${encodeSolverToken(token)}`,
     };
   }
@@ -968,7 +1104,7 @@ function solverPlayTransition(state, token, handIndex, pileIndex) {
     piles,
     score: state.score + gain,
     redrawsLeft: state.redrawsLeft,
-    trail: { action: { type: "play", digit, speciesIndex, pileIndex }, previous: state.trail },
+    trail: { action: { type: "play", digit, comboTypeIndex, pileIndex }, previous: state.trail },
   };
 }
 
@@ -1009,7 +1145,7 @@ function materializeSolverPath(trail) {
 function solveHourlyHarvestMaximum(seed, options = {}) {
   const beamWidth = Math.max(250, safeInt(options.beamWidth, 6000));
   const deckTokens = createHourlyDeck(seed).map(solverCardToken);
-  const emptyPile = () => ({ count: 0, sum: 0, top: -1, digits: "", species: "", tokens: "" });
+  const emptyPile = () => ({ count: 0, sum: 0, top: -1, digits: "", types: "", tokens: "" });
   let beam = [{
     hand: deckTokens.slice(0, HOURLY_HAND_SIZE),
     queue: deckTokens.slice(HOURLY_HAND_SIZE).map(encodeSolverToken).join(""),
@@ -1119,7 +1255,7 @@ function replayHourlySolution(seed, solution) {
     }
     if (action.type && action.type !== "play") return { ok: false, reason: "unknown_solution_action", state: run };
     const handIndex = run.hand.findIndex((card) => (
-      card.digit === action.digit && card.speciesIndex === action.speciesIndex
+      card.digit === action.digit && card.comboTypeIndex === action.comboTypeIndex
     ));
     if (handIndex < 0) return { ok: false, reason: "missing_solution_card", state: run };
     const result = playHourlyCard(run, handIndex, action.pileIndex);
@@ -1146,18 +1282,18 @@ function hourlyResultShareText(state, url = HOURLY_SHARE_URL, language = "ko") {
 }
 
 function hourlyRunStorageKey(seed) {
-  return `garden-stacks:hourly-v4:${seed}:run`;
+  return `garden-stacks:hourly-v6:${seed}:run`;
 }
 
 function hourlyBestStorageKey(seed) {
-  return `garden-stacks:hourly-v4:${seed}:best`;
+  return `garden-stacks:hourly-v6:${seed}:best`;
 }
 
 function hourlySolutionStorageKey(seed) {
-  return `garden-stacks:hourly-v4:${seed}:solution`;
+  return `garden-stacks:hourly-v6:${seed}:solution`;
 }
 
-const HOURLY_ACTIVE_SEED_KEY = "garden-stacks:hourly-v4:active-seed";
+const HOURLY_ACTIVE_SEED_KEY = "garden-stacks:hourly-v6:active-seed";
 
 
 
@@ -1200,9 +1336,9 @@ function createHourlyHarvestFeedback(harvest, options = {}) {
       winner: connectionMultiplier === multiplier,
     };
   });
-  const species = harvest?.speciesMatch?.matched === true ? {
+  const comboType = harvest?.typeMatch?.matched === true ? {
     multiplier: 5,
-    speciesId: String(harvest.speciesMatch.speciesId ?? ""),
+    comboTypeId: String(harvest.typeMatch.comboTypeId ?? ""),
     delayMs: reducedMotion ? 0 : HARVEST_MULTIPLIER_START_MS,
     winner: multiplier === 5,
   } : null;
@@ -1212,7 +1348,7 @@ function createHourlyHarvestFeedback(harvest, options = {}) {
     additions,
     cardChain,
     connectionEvents,
-    species,
+    comboType,
     final: {
       multiplier,
       points: Math.max(0, safeInt(harvest?.points)),
@@ -1232,7 +1368,7 @@ function createHourlyHarvestTonePlan(feedback) {
   }));
   const multiplierDelays = new Set([
     feedback?.cardChain?.delayMs,
-    feedback?.species?.delayMs,
+    feedback?.comboType?.delayMs,
     ...(feedback?.connectionEvents ?? []).map((event) => event.delayMs),
   ].filter(Number.isFinite));
   [...multiplierDelays].sort((a, b) => a - b).forEach((delayMs, index) => {
@@ -1307,9 +1443,10 @@ const SOLVER_VERSION = `${HOURLY_RULES_VERSION}:beam-${SOLVER_BEAM_WIDTH}`;
 const SNAP_MS = 150;
 const DEAL_CARD_MS = 360;
 const DEAL_STAGGER_MS = 70;
+const DEAL_AFTER_PLAY_DELAY_MS = 120;
 const LANDING_MS = 300;
 const SFX_SETTING_KEY = "garden-stacks:hourly:sfx";
-const HELP_SEEN_KEY = "garden-stacks:hourly:help-seen:v2";
+const HELP_SEEN_KEY = "garden-stacks:hourly:help-seen:v4";
 const FALLBACK_CARD_IMAGE = "public/assets/garden-stacks/generated/cards/card_locked_unknown.png";
 
 const ui = {
@@ -1317,9 +1454,12 @@ const ui = {
   solution: null,
   selectedHandIndex: null,
   pendingSeed: "",
+  newGameConfirmOpen: false,
   helpOpen: false,
   firstVisitHelp: false,
   resultOpen: false,
+  remainingOpen: false,
+  cardListSort: "digit",
   toast: null,
   motion: null,
   deal: null,
@@ -1342,6 +1482,9 @@ const audio = {
   fallbackUnlocked: false,
   wavCache: new Map(),
 };
+
+const WEB_AUDIO_GAIN_SCALE = 2;
+const FALLBACK_AUDIO_VOLUME = 0.65;
 
 function readSfxSetting() {
   try {
@@ -1480,7 +1623,7 @@ function wavDataUri(tones, duration) {
 
 function fallbackSfxUri(name, detail = {}) {
   const feedback = detail.feedback;
-  const key = `${name}:${detail.count ?? 0}:${feedback?.cardChain?.multiplier ?? 1}:${feedback?.connectionEvents?.length ?? 0}:${feedback?.species ? 5 : 1}`;
+  const key = `${name}:${detail.count ?? 0}:${feedback?.cardChain?.multiplier ?? 1}:${feedback?.connectionEvents?.length ?? 0}:${feedback?.comboType ? 5 : 1}`;
   if (audio.wavCache.has(key)) return audio.wavCache.get(key);
   let tones = [];
   if (name === "deal") {
@@ -1506,7 +1649,7 @@ function playFallbackSfx(name, detail = {}) {
   player.pause();
   player.src = fallbackSfxUri(name, detail);
   player.currentTime = 0;
-  player.volume = 0.4;
+  player.volume = FALLBACK_AUDIO_VOLUME;
   const playback = player.play();
   document.body.dataset.audioFallbackState = "playing";
   if (playback?.catch) {
@@ -1532,7 +1675,7 @@ function unlockAudioFallback() {
   void playback.then(() => {
     player.pause();
     player.currentTime = 0;
-    player.volume = 0.4;
+    player.volume = FALLBACK_AUDIO_VOLUME;
     audio.fallbackPriming = false;
     audio.fallbackUnlocked = true;
     document.body.dataset.audioFallbackState = "ready";
@@ -1619,22 +1762,22 @@ function playSfx(name, detail = {}) {
     if (name === "deal") {
       const count = Math.max(1, Math.min(5, Number(detail.count) || 1));
       [57, 60, 64, 67, 72].slice(0, count).forEach((note, index) => {
-        playMidiTone(ctx, note, { delay: index * 0.045, duration: 0.055, gain: 0.018, type: "square" });
+        playMidiTone(ctx, note, { delay: index * 0.045, duration: 0.055, gain: 0.018 * WEB_AUDIO_GAIN_SCALE, type: "square" });
       });
     } else if (name === "harvest") {
       createHourlyHarvestTonePlan(detail.feedback).forEach((tone) => {
         playMidiTone(ctx, tone.note, {
           delay: tone.delay,
           duration: tone.duration,
-          gain: tone.gain * 0.13,
+          gain: tone.gain * 0.13 * WEB_AUDIO_GAIN_SCALE,
           type: "triangle",
         });
       });
     } else if (name === "place") {
-      playMidiTone(ctx, 62, { duration: 0.055, gain: 0.028 });
-      playMidiTone(ctx, 69, { delay: 0.035, duration: 0.09, gain: 0.022 });
+      playMidiTone(ctx, 62, { duration: 0.055, gain: 0.028 * WEB_AUDIO_GAIN_SCALE });
+      playMidiTone(ctx, 69, { delay: 0.035, duration: 0.09, gain: 0.022 * WEB_AUDIO_GAIN_SCALE });
     } else if (name === "reject") {
-      playMidiTone(ctx, 45, { duration: 0.08, gain: 0.024, type: "sawtooth" });
+      playMidiTone(ctx, 45, { duration: 0.08, gain: 0.024 * WEB_AUDIO_GAIN_SCALE, type: "sawtooth" });
     }
   };
   if (ctx.state === "suspended") {
@@ -1799,7 +1942,7 @@ function previewLabel(preview) {
       remaining: preview.cardsUntilHarvest,
     });
   }
-  return t(preview.speciesMatch?.matched ? "preview.sameSpecies" : "preview.harvest", {
+  return t(preview.typeMatch?.matched ? "preview.sameType" : "preview.harvest", {
     sum: preview.chainSum,
     multiplier: preview.multiplier,
     points: preview.points,
@@ -1810,16 +1953,24 @@ function cardDisplayName(card) {
   return translateCardName(ui.language, card.variantId, card.cardName);
 }
 
+function comboTypeDisplayName(card) {
+  return t(`comboType.${card.comboTypeId}`);
+}
+
 function cardMarkup(card) {
   return `
     <span class="card-digit">${card.digit}</span>
-    <img src="${escapeHtml(card.imagePath)}" alt="" draggable="false" />
+    <span class="card-type">${escapeHtml(comboTypeDisplayName(card))}</span>
+    <img src="${escapeHtml(card.imagePath)}" alt="${escapeHtml(cardDisplayName(card))}" draggable="false" />
     <strong>${escapeHtml(cardDisplayName(card))}</strong>
   `;
 }
 
 function renderHeader() {
   const visibleScore = Math.max(0, ui.state.score - (ui.harvestPulse?.points ?? 0));
+  const timerBox = ui.pendingSeed
+    ? `<button class="timer-box is-ready" type="button" data-action="confirm-ready" aria-label="${escapeHtml(t("timer.readyAria"))}"><span>${escapeHtml(t("timer.newGame"))}</span><strong data-timer>${escapeHtml(currentTimerText())}</strong></button>`
+    : `<div class="timer-box" aria-label="${escapeHtml(t("timer.nextAria"))}"><span>${escapeHtml(t("timer.nextGame"))}</span><strong data-timer>${escapeHtml(currentTimerText())}</strong></div>`;
   return `
     <header class="hourly-header">
       <div class="brand-lockup">
@@ -1829,10 +1980,7 @@ function renderHeader() {
       <div class="header-actions">
         <button class="icon-button" type="button" data-action="help" aria-label="${escapeHtml(t("help.open"))}">?</button>
         <button class="text-button" type="button" data-action="share">${escapeHtml(t("share.button"))}</button>
-        <div class="timer-box" aria-label="${escapeHtml(t(ui.pendingSeed ? "timer.readyAria" : "timer.nextAria"))}">
-          <span>${escapeHtml(t(ui.pendingSeed ? "timer.newGame" : "timer.nextGame"))}</span>
-          <strong data-timer>${currentTimerText()}</strong>
-        </div>
+        ${timerBox}
       </div>
       <div class="star-targets" aria-label="${escapeHtml(t("score.targetsAria"))}">
         <span class="current-score">${escapeHtml(t("score.score"))} <strong>${visibleScore}</strong></span>
@@ -1841,16 +1989,6 @@ function renderHeader() {
         <span class="${visibleScore >= ui.state.thresholds.three ? "is-earned" : ""}">★★★ ${ui.state.thresholds.three}</span>
       </div>
     </header>
-  `;
-}
-
-function renderPendingBanner() {
-  if (!ui.pendingSeed) return "";
-  return `
-    <section class="new-game-banner" aria-live="polite">
-      <div><strong>${escapeHtml(t("banner.ready"))}</strong><span>${escapeHtml(t("banner.garden", { seed: seedLabel(ui.pendingSeed) }))}</span></div>
-      <button type="button" data-action="start-ready">${escapeHtml(t("common.start"))}</button>
-    </section>
   `;
 }
 
@@ -1872,8 +2010,8 @@ function renderGarden(pile, pileIndex, preview) {
       ? `<span class="garden-card ${isLandingCard ? "is-landing-card" : ""} ${resolution ? "is-harvest-ghost" : ""} ${connection ? "has-board-multiplier" : ""}" style="--slot:${index}">${cardMarkup(card)}${addition ? `<span class="harvest-addition" style="--effect-delay:${addition.delayMs}ms" aria-hidden="true">+${addition.digit}</span>` : ""}${connection ? `<span class="board-chain-multiplier ${connection.winner ? "is-winner" : ""}" style="--effect-delay:${connection.delayMs}ms" aria-hidden="true">×${connection.multiplier}</span>` : ""}</span>`
       : `<span class="garden-slot" aria-hidden="true">${index + 1}</span>`;
   }).join("");
-  const centerMultiplier = resolution?.feedback?.species
-    ? `<span class="pile-chain-multiplier is-species ${resolution.feedback.species.winner ? "is-winner" : ""}" style="--effect-delay:${resolution.feedback.species.delayMs}ms" aria-hidden="true">${escapeHtml(t("harvest.sameSpecies"))}</span>`
+  const centerMultiplier = resolution?.feedback?.comboType
+    ? `<span class="pile-chain-multiplier is-type ${resolution.feedback.comboType.winner ? "is-winner" : ""}" style="--effect-delay:${resolution.feedback.comboType.delayMs}ms" aria-hidden="true">${escapeHtml(t("harvest.sameType"))}</span>`
     : resolution?.feedback?.cardChain
       ? `<span class="pile-chain-multiplier ${resolution.feedback.cardChain.winner ? "is-winner" : ""}" style="--effect-delay:${resolution.feedback.cardChain.delayMs}ms" aria-hidden="true">×${resolution.feedback.cardChain.multiplier}</span>`
       : "";
@@ -1922,8 +2060,9 @@ function renderHandCard(card, index) {
   const isDeal = dealIndex >= 0;
   const isSnapSource = ui.motion?.handIndex === index;
   const dealX = Math.round((dealIndex - 2) * -16);
+  const dealDelay = Math.max(0, ui.deal?.delayMs ?? 0) + Math.max(0, dealIndex) * DEAL_STAGGER_MS;
   return `
-    <button class="hand-card ${ui.selectedHandIndex === index ? "is-selected" : ""} ${ui.carry?.handIndex === index ? "is-carry-source" : ""} ${ui.rejectedHandIndex === index ? "is-rejected" : ""} ${isDeal ? "is-dealt" : ""} ${isSnapSource ? "is-snap-source" : ""}" type="button" data-action="select-card" data-hand-index="${index}" aria-pressed="${ui.selectedHandIndex === index}" aria-label="${escapeHtml(t("hand.cardAria", { name: cardDisplayName(card), digit: card.digit, index: index + 1 }))}" style="--deal-delay:${Math.max(0, dealIndex) * DEAL_STAGGER_MS}ms;--deal-x:${dealX}px" ${ui.state.phase !== "play" || interactionLocked() ? "disabled" : ""}>
+    <button class="hand-card ${ui.selectedHandIndex === index ? "is-selected" : ""} ${ui.carry?.handIndex === index ? "is-carry-source" : ""} ${ui.rejectedHandIndex === index ? "is-rejected" : ""} ${isDeal ? "is-dealt" : ""} ${isSnapSource ? "is-snap-source" : ""}" type="button" data-action="select-card" data-hand-index="${index}" aria-pressed="${ui.selectedHandIndex === index}" aria-label="${escapeHtml(t("hand.cardAria", { type: comboTypeDisplayName(card), species: cardDisplayName(card), digit: card.digit, index: index + 1 }))}" style="--deal-delay:${dealDelay}ms;--deal-x:${dealX}px" ${ui.state.phase !== "play" || interactionLocked() ? "disabled" : ""}>
       ${cardMarkup(card)}
     </button>
   `;
@@ -1934,7 +2073,7 @@ function renderHand() {
   const canRedraw = canRedrawHourlyHand(ui.state) && !interactionLocked();
   return `
     <section class="hand-section" aria-label="${escapeHtml(t("hand.region"))}">
-      <div class="hand-head"><div><strong>${escapeHtml(t("hand.title"))}</strong><span>${escapeHtml(t("hand.instruction"))}</span></div><div><span>${escapeHtml(t("hand.remaining"))}</span><strong>${remaining}</strong></div></div>
+      <div class="hand-head"><div><strong>${escapeHtml(t("hand.title"))}</strong><span>${escapeHtml(t("hand.instruction"))}</span></div><button class="remaining-toggle" type="button" data-action="open-remaining" aria-haspopup="dialog"><span>${escapeHtml(t("hand.remaining"))}</span><strong>${remaining}</strong><small>/40</small></button></div>
       <div class="hand-row">
         ${ui.state.hand.map(renderHandCard).join("")}
       </div>
@@ -1943,6 +2082,35 @@ function renderHand() {
         <span class="cards-used">${escapeHtml(t("hand.used", { count: ui.state.cardsPlayed }))}</span>
       </div>
     </section>
+  `;
+}
+
+function renderRemainingCards() {
+  if (!ui.remainingOpen) return "";
+  const remaining = ui.state.deck.length + ui.state.hand.length;
+  const cards = hourlyDeckOverview(ui.state, ui.cardListSort);
+  const items = cards.map((card) => `
+    <li class="remaining-card ${card.used ? "is-used" : ""}" aria-label="${escapeHtml(t(card.used ? "deck.cardUsed" : "deck.cardRemaining", { name: cardDisplayName(card), digit: card.digit, type: comboTypeDisplayName(card) }))}">
+      ${cardMarkup(card)}
+    </li>
+  `).join("");
+  return `
+    <div class="overlay" data-action="close-remaining">
+      <section class="dialog remaining-dialog" role="dialog" aria-modal="true" aria-labelledby="remaining-title">
+        <header>
+          <div><h2 id="remaining-title">${escapeHtml(t("hand.remaining"))}</h2><span>${remaining}/40</span></div>
+          <button type="button" data-action="close-remaining" aria-label="${escapeHtml(t("deck.close"))}">×</button>
+        </header>
+        <div class="remaining-toolbar">
+          <div class="sort-control" role="group" aria-label="${escapeHtml(t("deck.sortLabel"))}">
+            <button type="button" data-action="sort-remaining" data-sort-mode="digit" aria-pressed="${ui.cardListSort === "digit"}">${escapeHtml(t("deck.sortDigit"))}</button>
+            <button type="button" data-action="sort-remaining" data-sort-mode="type" aria-pressed="${ui.cardListSort === "type"}">${escapeHtml(t("deck.sortType"))}</button>
+          </div>
+          <span class="used-legend"><i aria-hidden="true"></i>${escapeHtml(t("deck.usedLegend"))}</span>
+        </div>
+        <ol class="remaining-grid" aria-label="${escapeHtml(t("deck.listAria"))}">${items}</ol>
+      </section>
+    </div>
   `;
 }
 
@@ -2004,7 +2172,23 @@ function renderResult() {
         <div class="result-actions">
           <button type="button" data-action="share">${escapeHtml(t("share.button"))}</button>
           <button type="button" data-action="help">${escapeHtml(t("help.open"))}</button>
-          ${ui.pendingSeed ? `<button type="button" data-action="start-ready">${escapeHtml(t("result.startNew"))}</button>` : ""}
+          ${ui.pendingSeed ? `<button type="button" data-action="confirm-ready">${escapeHtml(t("result.startNew"))}</button>` : ""}
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function renderNewGameConfirm() {
+  if (!ui.newGameConfirmOpen || !ui.pendingSeed) return "";
+  return `
+    <div class="overlay" data-action="cancel-ready">
+      <section class="dialog confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="new-game-confirm-title">
+        <h2 id="new-game-confirm-title">${escapeHtml(t("newGame.confirmTitle"))}</h2>
+        <p>${escapeHtml(t("newGame.confirmBody", { seed: seedLabel(ui.pendingSeed) }))}</p>
+        <div>
+          <button type="button" data-action="cancel-ready">${escapeHtml(t("newGame.cancel"))}</button>
+          <button class="primary-action" type="button" data-action="start-ready">${escapeHtml(t("newGame.confirm"))}</button>
         </div>
       </section>
     </div>
@@ -2030,13 +2214,14 @@ function render() {
   const stop = perfMonitor.start("render", { seed: ui.state.seed, phase: ui.state.phase });
   applyDocumentLanguage();
   app.innerHTML = `
-    <main class="hourly-shell ${viewClass()}">
+    <main class="hourly-shell ${viewClass()} ${ui.deal ? "is-dealing" : ""}">
       ${renderHeader()}
-      ${renderPendingBanner()}
       ${renderBoard()}
       ${renderHand()}
+      ${renderRemainingCards()}
       ${renderResult()}
       ${renderHelp()}
+      ${renderNewGameConfirm()}
       ${renderToast()}
       ${renderMotion()}
     </main>
@@ -2084,6 +2269,7 @@ function finishPlacement(handIndex, pileIndex) {
     ? createHourlyHarvestFeedback(result.harvest, { reducedMotion: matchMedia("(prefers-reduced-motion: reduce)").matches })
     : null;
   playSfx(result.harvest ? "harvest" : "place", { feedback: standardFeedback });
+  startDealMotion(result.drawnCard ? [result.drawnCard] : [], { delayMs: DEAL_AFTER_PLAY_DELAY_MS });
   window.setTimeout(() => {
     if (ui.landingPulse?.cardId !== result.card.id) return;
     ui.landingPulse = null;
@@ -2148,16 +2334,26 @@ function placeSelectedCard(pileIndex) {
 
 function startDealMotion(cards, options = {}) {
   const cardIds = cards.map((card) => card.id);
+  const delayMs = Math.max(0, Number(options.delayMs) || 0);
   ui.pendingDealSound = options.sound === false && cardIds.length > 0;
-  if (options.sound !== false) playSfx("deal", { count: cardIds.length });
   if (!cardIds.length || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (options.sound !== false && cardIds.length) playSfx("deal", { count: cardIds.length });
     ui.deal = null;
     ui.pendingDealSound = false;
     return;
   }
   const id = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
-  ui.deal = { id, cardIds };
-  const duration = DEAL_CARD_MS + Math.max(0, cardIds.length - 1) * DEAL_STAGGER_MS;
+  ui.deal = { id, cardIds, delayMs };
+  if (options.sound !== false) {
+    if (delayMs > 0) {
+      window.setTimeout(() => {
+        if (ui.deal?.id === id) playSfx("deal", { count: cardIds.length });
+      }, delayMs);
+    } else {
+      playSfx("deal", { count: cardIds.length });
+    }
+  }
+  const duration = delayMs + DEAL_CARD_MS + Math.max(0, cardIds.length - 1) * DEAL_STAGGER_MS;
   window.setTimeout(() => {
     if (ui.deal?.id !== id) return;
     ui.deal = null;
@@ -2188,6 +2384,8 @@ function redrawCurrentHand() {
 function retryCurrent() {
   ui.resultOpen = false;
   ui.helpOpen = false;
+  ui.remainingOpen = false;
+  ui.newGameConfirmOpen = false;
   ui.selectedHandIndex = null;
   ui.motion = null;
   ui.deal = null;
@@ -2201,6 +2399,8 @@ function startSeed(seed) {
   ui.loading = true;
   ui.resultOpen = false;
   ui.helpOpen = false;
+  ui.remainingOpen = false;
+  ui.newGameConfirmOpen = false;
   ui.selectedHandIndex = null;
   ui.motion = null;
   ui.deal = null;
@@ -2505,7 +2705,15 @@ function handleAction(action, button) {
   if (action === "select-card") selectCard(Number(button.dataset.handIndex));
   else if (action === "place-card" && ui.selectedHandIndex != null) placeSelectedCard(Number(button.dataset.pileIndex));
   else if (action === "redraw") redrawCurrentHand();
+  else if (action === "open-remaining") { ui.remainingOpen = true; render(); }
+  else if (action === "close-remaining") { ui.remainingOpen = false; render(); }
+  else if (action === "sort-remaining") {
+    ui.cardListSort = button.dataset.sortMode === "type" ? "type" : "digit";
+    render();
+  }
   else if (action === "retry") retryCurrent();
+  else if (action === "confirm-ready" && ui.pendingSeed) { ui.newGameConfirmOpen = true; render(); }
+  else if (action === "cancel-ready") { ui.newGameConfirmOpen = false; render(); }
   else if (action === "start-ready") startSeed(ui.pendingSeed || kstHourSeed());
   else if (action === "help") { ui.firstVisitHelp = false; ui.helpOpen = true; render(); }
   else if (action === "close-help") closeHelp();
@@ -2568,7 +2776,9 @@ window.addEventListener("keydown", (event) => {
   } else if (key === "escape") {
     clearPointerCarry();
     ui.selectedHandIndex = null;
-    if (ui.helpOpen) closeHelp();
+    if (ui.newGameConfirmOpen) { ui.newGameConfirmOpen = false; render(); }
+    else if (ui.remainingOpen) { ui.remainingOpen = false; render(); }
+    else if (ui.helpOpen) closeHelp();
     else render();
   }
 });

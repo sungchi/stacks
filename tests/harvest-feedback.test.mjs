@@ -13,7 +13,7 @@ function harvest(overrides = {}) {
     cards: [0, 9, 5, 3].map((digit, index) => ({ id: `card-${index}`, digit })),
     cardChain: { length: 2 },
     connection: { pileIndices: [0, 1, 3, 2] },
-    speciesMatch: { matched: false, speciesId: null },
+    typeMatch: { matched: false, comboTypeId: null },
     multiplier: 4,
     points: 68,
     ...overrides,
@@ -39,18 +39,18 @@ test("harvest feedback reveals four additions every 300ms and cumulative garden 
   assert.equal(feedback.durationMs, HARVEST_FEEDBACK_DURATION_MS);
 });
 
-test("same-species feedback wins at five without stacking other multipliers", () => {
+test("same-type feedback wins at five without stacking other multipliers", () => {
   const feedback = createHourlyHarvestFeedback(harvest({
     cardChain: { length: 4 },
-    speciesMatch: { matched: true, speciesId: "lawn-daisy" },
+    typeMatch: { matched: true, comboTypeId: "flower" },
     multiplier: 5,
     points: 85,
   }));
   assert.equal(feedback.cardChain.winner, false);
   assert.equal(feedback.connectionEvents.at(-1).winner, false);
-  assert.deepEqual(feedback.species, {
+  assert.deepEqual(feedback.comboType, {
     multiplier: 5,
-    speciesId: "lawn-daisy",
+    comboTypeId: "flower",
     delayMs: 1050,
     winner: true,
   });

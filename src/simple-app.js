@@ -4,6 +4,7 @@ import {
   HOURLY_RULES_VERSION,
   canRedrawHourlyHand,
   formatDuration,
+  hourlyDeckOverview,
   hourlyBestStorageKey,
   hourlyGardenLabel,
   hourlyResultShareText,
@@ -51,9 +52,10 @@ const SOLVER_VERSION = `${HOURLY_RULES_VERSION}:beam-${SOLVER_BEAM_WIDTH}`;
 const SNAP_MS = 150;
 const DEAL_CARD_MS = 360;
 const DEAL_STAGGER_MS = 70;
+const DEAL_AFTER_PLAY_DELAY_MS = 120;
 const LANDING_MS = 300;
 const SFX_SETTING_KEY = "garden-stacks:hourly:sfx";
-const HELP_SEEN_KEY = "garden-stacks:hourly:help-seen:v2";
+const HELP_SEEN_KEY = "garden-stacks:hourly:help-seen:v4";
 const FALLBACK_CARD_IMAGE = "public/assets/garden-stacks/generated/cards/card_locked_unknown.png";
 
 const ui = {
@@ -61,9 +63,12 @@ const ui = {
   solution: null,
   selectedHandIndex: null,
   pendingSeed: "",
+  newGameConfirmOpen: false,
   helpOpen: false,
   firstVisitHelp: false,
   resultOpen: false,
+  remainingOpen: false,
+  cardListSort: "digit",
   toast: null,
   motion: null,
   deal: null,
@@ -86,6 +91,9 @@ const audio = {
   fallbackUnlocked: false,
   wavCache: new Map(),
 };
+
+const WEB_AUDIO_GAIN_SCALE = 2;
+const FALLBACK_AUDIO_VOLUME = 0.65;
 
 function readSfxSetting() {
   try {
@@ -224,7 +232,7 @@ function wavDataUri(tones, duration) {
 
 function fallbackSfxUri(name, detail = {}) {
   const feedback = detail.feedback;
-  const key = `${name}:${detail.count ?? 0}:${feedback?.cardChain?.multiplier ?? 1}:${feedback?.connectionEvents?.length ?? 0}:${feedback?.species ? 5 : 1}`;
+  const key = `${name}:${detail.count ?? 0}:${feedback?.cardChain?.multiplier ?? 1}:${feedback?.connectionEvents?.length ?? 0}:${feedback?.comboType ? 5 : 1}`;
   if (audio.wavCache.has(key)) return audio.wavCache.get(key);
   let tones = [];
   if (name === "deal") {
@@ -250,7 +258,7 @@ function playFallbackSfx(name, detail = {}) {
   player.pause();
   player.src = fallbackSfxUri(name, detail);
   player.currentTime = 0;
-  player.volume = 0.4;
+  player.volume = FALLBACK_AUDIO_VOLUME;
   const playback = player.play();
   document.body.dataset.audioFallbackState = "playing";
   if (playback?.catch) {
@@ -276,7 +284,7 @@ function unlockAudioFallback() {
   void playback.then(() => {
     player.pause();
     player.currentTime = 0;
-    player.volume = 0.4;
+    player.volume = FALLBACK_AUDIO_VOLUME;
     audio.fallbackPriming = false;
     audio.fallbackUnlocked = true;
     document.body.dataset.audioFallbackState = "ready";
@@ -363,22 +371,22 @@ function playSfx(name, detail = {}) {
     if (name === "deal") {
       const count = Math.max(1, Math.min(5, Number(detail.count) || 1));
       [57, 60, 64, 67, 72].slice(0, count).forEach((note, index) => {
-        playMidiTone(ctx, note, { delay: index * 0.045, duration: 0.055, gain: 0.018, type: "square" });
+        playMidiTone(ctx, note, { delay: index * 0.045, duration: 0.055, gain: 0.018 * WEB_AUDIO_GAIN_SCALE, type: "square" });
       });
     } else if (name === "harvest") {
       createHourlyHarvestTonePlan(detail.feedback).forEach((tone) => {
         playMidiTone(ctx, tone.note, {
           delay: tone.delay,
           duration: tone.duration,
-          gain: tone.gain * 0.13,
+          gain: tone.gain * 0.13 * WEB_AUDIO_GAIN_SCALE,
           type: "triangle",
         });
       });
     } else if (name === "place") {
-      playMidiTone(ctx, 62, { duration: 0.055, gain: 0.028 });
-      playMidiTone(ctx, 69, { delay: 0.035, duration: 0.09, gain: 0.022 });
+      playMidiTone(ctx, 62, { duration: 0.055, gain: 0.028 * WEB_AUDIO_GAIN_SCALE });
+      playMidiTone(ctx, 69, { delay: 0.035, duration: 0.09, gain: 0.022 * WEB_AUDIO_GAIN_SCALE });
     } else if (name === "reject") {
-      playMidiTone(ctx, 45, { duration: 0.08, gain: 0.024, type: "sawtooth" });
+      playMidiTone(ctx, 45, { duration: 0.08, gain: 0.024 * WEB_AUDIO_GAIN_SCALE, type: "sawtooth" });
     }
   };
   if (ctx.state === "suspended") {
@@ -543,7 +551,7 @@ function previewLabel(preview) {
       remaining: preview.cardsUntilHarvest,
     });
   }
-  return t(preview.speciesMatch?.matched ? "preview.sameSpecies" : "preview.harvest", {
+  return t(preview.typeMatch?.matched ? "preview.sameType" : "preview.harvest", {
     sum: preview.chainSum,
     multiplier: preview.multiplier,
     points: preview.points,
@@ -554,16 +562,24 @@ function cardDisplayName(card) {
   return translateCardName(ui.language, card.variantId, card.cardName);
 }
 
+function comboTypeDisplayName(card) {
+  return t(`comboType.${card.comboTypeId}`);
+}
+
 function cardMarkup(card) {
   return `
     <span class="card-digit">${card.digit}</span>
-    <img src="${escapeHtml(card.imagePath)}" alt="" draggable="false" />
+    <span class="card-type">${escapeHtml(comboTypeDisplayName(card))}</span>
+    <img src="${escapeHtml(card.imagePath)}" alt="${escapeHtml(cardDisplayName(card))}" draggable="false" />
     <strong>${escapeHtml(cardDisplayName(card))}</strong>
   `;
 }
 
 function renderHeader() {
   const visibleScore = Math.max(0, ui.state.score - (ui.harvestPulse?.points ?? 0));
+  const timerBox = ui.pendingSeed
+    ? `<button class="timer-box is-ready" type="button" data-action="confirm-ready" aria-label="${escapeHtml(t("timer.readyAria"))}"><span>${escapeHtml(t("timer.newGame"))}</span><strong data-timer>${escapeHtml(currentTimerText())}</strong></button>`
+    : `<div class="timer-box" aria-label="${escapeHtml(t("timer.nextAria"))}"><span>${escapeHtml(t("timer.nextGame"))}</span><strong data-timer>${escapeHtml(currentTimerText())}</strong></div>`;
   return `
     <header class="hourly-header">
       <div class="brand-lockup">
@@ -573,10 +589,7 @@ function renderHeader() {
       <div class="header-actions">
         <button class="icon-button" type="button" data-action="help" aria-label="${escapeHtml(t("help.open"))}">?</button>
         <button class="text-button" type="button" data-action="share">${escapeHtml(t("share.button"))}</button>
-        <div class="timer-box" aria-label="${escapeHtml(t(ui.pendingSeed ? "timer.readyAria" : "timer.nextAria"))}">
-          <span>${escapeHtml(t(ui.pendingSeed ? "timer.newGame" : "timer.nextGame"))}</span>
-          <strong data-timer>${currentTimerText()}</strong>
-        </div>
+        ${timerBox}
       </div>
       <div class="star-targets" aria-label="${escapeHtml(t("score.targetsAria"))}">
         <span class="current-score">${escapeHtml(t("score.score"))} <strong>${visibleScore}</strong></span>
@@ -585,16 +598,6 @@ function renderHeader() {
         <span class="${visibleScore >= ui.state.thresholds.three ? "is-earned" : ""}">★★★ ${ui.state.thresholds.three}</span>
       </div>
     </header>
-  `;
-}
-
-function renderPendingBanner() {
-  if (!ui.pendingSeed) return "";
-  return `
-    <section class="new-game-banner" aria-live="polite">
-      <div><strong>${escapeHtml(t("banner.ready"))}</strong><span>${escapeHtml(t("banner.garden", { seed: seedLabel(ui.pendingSeed) }))}</span></div>
-      <button type="button" data-action="start-ready">${escapeHtml(t("common.start"))}</button>
-    </section>
   `;
 }
 
@@ -616,8 +619,8 @@ function renderGarden(pile, pileIndex, preview) {
       ? `<span class="garden-card ${isLandingCard ? "is-landing-card" : ""} ${resolution ? "is-harvest-ghost" : ""} ${connection ? "has-board-multiplier" : ""}" style="--slot:${index}">${cardMarkup(card)}${addition ? `<span class="harvest-addition" style="--effect-delay:${addition.delayMs}ms" aria-hidden="true">+${addition.digit}</span>` : ""}${connection ? `<span class="board-chain-multiplier ${connection.winner ? "is-winner" : ""}" style="--effect-delay:${connection.delayMs}ms" aria-hidden="true">×${connection.multiplier}</span>` : ""}</span>`
       : `<span class="garden-slot" aria-hidden="true">${index + 1}</span>`;
   }).join("");
-  const centerMultiplier = resolution?.feedback?.species
-    ? `<span class="pile-chain-multiplier is-species ${resolution.feedback.species.winner ? "is-winner" : ""}" style="--effect-delay:${resolution.feedback.species.delayMs}ms" aria-hidden="true">${escapeHtml(t("harvest.sameSpecies"))}</span>`
+  const centerMultiplier = resolution?.feedback?.comboType
+    ? `<span class="pile-chain-multiplier is-type ${resolution.feedback.comboType.winner ? "is-winner" : ""}" style="--effect-delay:${resolution.feedback.comboType.delayMs}ms" aria-hidden="true">${escapeHtml(t("harvest.sameType"))}</span>`
     : resolution?.feedback?.cardChain
       ? `<span class="pile-chain-multiplier ${resolution.feedback.cardChain.winner ? "is-winner" : ""}" style="--effect-delay:${resolution.feedback.cardChain.delayMs}ms" aria-hidden="true">×${resolution.feedback.cardChain.multiplier}</span>`
       : "";
@@ -666,8 +669,9 @@ function renderHandCard(card, index) {
   const isDeal = dealIndex >= 0;
   const isSnapSource = ui.motion?.handIndex === index;
   const dealX = Math.round((dealIndex - 2) * -16);
+  const dealDelay = Math.max(0, ui.deal?.delayMs ?? 0) + Math.max(0, dealIndex) * DEAL_STAGGER_MS;
   return `
-    <button class="hand-card ${ui.selectedHandIndex === index ? "is-selected" : ""} ${ui.carry?.handIndex === index ? "is-carry-source" : ""} ${ui.rejectedHandIndex === index ? "is-rejected" : ""} ${isDeal ? "is-dealt" : ""} ${isSnapSource ? "is-snap-source" : ""}" type="button" data-action="select-card" data-hand-index="${index}" aria-pressed="${ui.selectedHandIndex === index}" aria-label="${escapeHtml(t("hand.cardAria", { name: cardDisplayName(card), digit: card.digit, index: index + 1 }))}" style="--deal-delay:${Math.max(0, dealIndex) * DEAL_STAGGER_MS}ms;--deal-x:${dealX}px" ${ui.state.phase !== "play" || interactionLocked() ? "disabled" : ""}>
+    <button class="hand-card ${ui.selectedHandIndex === index ? "is-selected" : ""} ${ui.carry?.handIndex === index ? "is-carry-source" : ""} ${ui.rejectedHandIndex === index ? "is-rejected" : ""} ${isDeal ? "is-dealt" : ""} ${isSnapSource ? "is-snap-source" : ""}" type="button" data-action="select-card" data-hand-index="${index}" aria-pressed="${ui.selectedHandIndex === index}" aria-label="${escapeHtml(t("hand.cardAria", { type: comboTypeDisplayName(card), species: cardDisplayName(card), digit: card.digit, index: index + 1 }))}" style="--deal-delay:${dealDelay}ms;--deal-x:${dealX}px" ${ui.state.phase !== "play" || interactionLocked() ? "disabled" : ""}>
       ${cardMarkup(card)}
     </button>
   `;
@@ -678,7 +682,7 @@ function renderHand() {
   const canRedraw = canRedrawHourlyHand(ui.state) && !interactionLocked();
   return `
     <section class="hand-section" aria-label="${escapeHtml(t("hand.region"))}">
-      <div class="hand-head"><div><strong>${escapeHtml(t("hand.title"))}</strong><span>${escapeHtml(t("hand.instruction"))}</span></div><div><span>${escapeHtml(t("hand.remaining"))}</span><strong>${remaining}</strong></div></div>
+      <div class="hand-head"><div><strong>${escapeHtml(t("hand.title"))}</strong><span>${escapeHtml(t("hand.instruction"))}</span></div><button class="remaining-toggle" type="button" data-action="open-remaining" aria-haspopup="dialog"><span>${escapeHtml(t("hand.remaining"))}</span><strong>${remaining}</strong><small>/40</small></button></div>
       <div class="hand-row">
         ${ui.state.hand.map(renderHandCard).join("")}
       </div>
@@ -687,6 +691,35 @@ function renderHand() {
         <span class="cards-used">${escapeHtml(t("hand.used", { count: ui.state.cardsPlayed }))}</span>
       </div>
     </section>
+  `;
+}
+
+function renderRemainingCards() {
+  if (!ui.remainingOpen) return "";
+  const remaining = ui.state.deck.length + ui.state.hand.length;
+  const cards = hourlyDeckOverview(ui.state, ui.cardListSort);
+  const items = cards.map((card) => `
+    <li class="remaining-card ${card.used ? "is-used" : ""}" aria-label="${escapeHtml(t(card.used ? "deck.cardUsed" : "deck.cardRemaining", { name: cardDisplayName(card), digit: card.digit, type: comboTypeDisplayName(card) }))}">
+      ${cardMarkup(card)}
+    </li>
+  `).join("");
+  return `
+    <div class="overlay" data-action="close-remaining">
+      <section class="dialog remaining-dialog" role="dialog" aria-modal="true" aria-labelledby="remaining-title">
+        <header>
+          <div><h2 id="remaining-title">${escapeHtml(t("hand.remaining"))}</h2><span>${remaining}/40</span></div>
+          <button type="button" data-action="close-remaining" aria-label="${escapeHtml(t("deck.close"))}">×</button>
+        </header>
+        <div class="remaining-toolbar">
+          <div class="sort-control" role="group" aria-label="${escapeHtml(t("deck.sortLabel"))}">
+            <button type="button" data-action="sort-remaining" data-sort-mode="digit" aria-pressed="${ui.cardListSort === "digit"}">${escapeHtml(t("deck.sortDigit"))}</button>
+            <button type="button" data-action="sort-remaining" data-sort-mode="type" aria-pressed="${ui.cardListSort === "type"}">${escapeHtml(t("deck.sortType"))}</button>
+          </div>
+          <span class="used-legend"><i aria-hidden="true"></i>${escapeHtml(t("deck.usedLegend"))}</span>
+        </div>
+        <ol class="remaining-grid" aria-label="${escapeHtml(t("deck.listAria"))}">${items}</ol>
+      </section>
+    </div>
   `;
 }
 
@@ -748,7 +781,23 @@ function renderResult() {
         <div class="result-actions">
           <button type="button" data-action="share">${escapeHtml(t("share.button"))}</button>
           <button type="button" data-action="help">${escapeHtml(t("help.open"))}</button>
-          ${ui.pendingSeed ? `<button type="button" data-action="start-ready">${escapeHtml(t("result.startNew"))}</button>` : ""}
+          ${ui.pendingSeed ? `<button type="button" data-action="confirm-ready">${escapeHtml(t("result.startNew"))}</button>` : ""}
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function renderNewGameConfirm() {
+  if (!ui.newGameConfirmOpen || !ui.pendingSeed) return "";
+  return `
+    <div class="overlay" data-action="cancel-ready">
+      <section class="dialog confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="new-game-confirm-title">
+        <h2 id="new-game-confirm-title">${escapeHtml(t("newGame.confirmTitle"))}</h2>
+        <p>${escapeHtml(t("newGame.confirmBody", { seed: seedLabel(ui.pendingSeed) }))}</p>
+        <div>
+          <button type="button" data-action="cancel-ready">${escapeHtml(t("newGame.cancel"))}</button>
+          <button class="primary-action" type="button" data-action="start-ready">${escapeHtml(t("newGame.confirm"))}</button>
         </div>
       </section>
     </div>
@@ -774,13 +823,14 @@ function render() {
   const stop = perfMonitor.start("render", { seed: ui.state.seed, phase: ui.state.phase });
   applyDocumentLanguage();
   app.innerHTML = `
-    <main class="hourly-shell ${viewClass()}">
+    <main class="hourly-shell ${viewClass()} ${ui.deal ? "is-dealing" : ""}">
       ${renderHeader()}
-      ${renderPendingBanner()}
       ${renderBoard()}
       ${renderHand()}
+      ${renderRemainingCards()}
       ${renderResult()}
       ${renderHelp()}
+      ${renderNewGameConfirm()}
       ${renderToast()}
       ${renderMotion()}
     </main>
@@ -828,6 +878,7 @@ function finishPlacement(handIndex, pileIndex) {
     ? createHourlyHarvestFeedback(result.harvest, { reducedMotion: matchMedia("(prefers-reduced-motion: reduce)").matches })
     : null;
   playSfx(result.harvest ? "harvest" : "place", { feedback: standardFeedback });
+  startDealMotion(result.drawnCard ? [result.drawnCard] : [], { delayMs: DEAL_AFTER_PLAY_DELAY_MS });
   window.setTimeout(() => {
     if (ui.landingPulse?.cardId !== result.card.id) return;
     ui.landingPulse = null;
@@ -892,16 +943,26 @@ function placeSelectedCard(pileIndex) {
 
 function startDealMotion(cards, options = {}) {
   const cardIds = cards.map((card) => card.id);
+  const delayMs = Math.max(0, Number(options.delayMs) || 0);
   ui.pendingDealSound = options.sound === false && cardIds.length > 0;
-  if (options.sound !== false) playSfx("deal", { count: cardIds.length });
   if (!cardIds.length || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (options.sound !== false && cardIds.length) playSfx("deal", { count: cardIds.length });
     ui.deal = null;
     ui.pendingDealSound = false;
     return;
   }
   const id = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
-  ui.deal = { id, cardIds };
-  const duration = DEAL_CARD_MS + Math.max(0, cardIds.length - 1) * DEAL_STAGGER_MS;
+  ui.deal = { id, cardIds, delayMs };
+  if (options.sound !== false) {
+    if (delayMs > 0) {
+      window.setTimeout(() => {
+        if (ui.deal?.id === id) playSfx("deal", { count: cardIds.length });
+      }, delayMs);
+    } else {
+      playSfx("deal", { count: cardIds.length });
+    }
+  }
+  const duration = delayMs + DEAL_CARD_MS + Math.max(0, cardIds.length - 1) * DEAL_STAGGER_MS;
   window.setTimeout(() => {
     if (ui.deal?.id !== id) return;
     ui.deal = null;
@@ -932,6 +993,8 @@ function redrawCurrentHand() {
 function retryCurrent() {
   ui.resultOpen = false;
   ui.helpOpen = false;
+  ui.remainingOpen = false;
+  ui.newGameConfirmOpen = false;
   ui.selectedHandIndex = null;
   ui.motion = null;
   ui.deal = null;
@@ -945,6 +1008,8 @@ function startSeed(seed) {
   ui.loading = true;
   ui.resultOpen = false;
   ui.helpOpen = false;
+  ui.remainingOpen = false;
+  ui.newGameConfirmOpen = false;
   ui.selectedHandIndex = null;
   ui.motion = null;
   ui.deal = null;
@@ -1249,7 +1314,15 @@ function handleAction(action, button) {
   if (action === "select-card") selectCard(Number(button.dataset.handIndex));
   else if (action === "place-card" && ui.selectedHandIndex != null) placeSelectedCard(Number(button.dataset.pileIndex));
   else if (action === "redraw") redrawCurrentHand();
+  else if (action === "open-remaining") { ui.remainingOpen = true; render(); }
+  else if (action === "close-remaining") { ui.remainingOpen = false; render(); }
+  else if (action === "sort-remaining") {
+    ui.cardListSort = button.dataset.sortMode === "type" ? "type" : "digit";
+    render();
+  }
   else if (action === "retry") retryCurrent();
+  else if (action === "confirm-ready" && ui.pendingSeed) { ui.newGameConfirmOpen = true; render(); }
+  else if (action === "cancel-ready") { ui.newGameConfirmOpen = false; render(); }
   else if (action === "start-ready") startSeed(ui.pendingSeed || kstHourSeed());
   else if (action === "help") { ui.firstVisitHelp = false; ui.helpOpen = true; render(); }
   else if (action === "close-help") closeHelp();
@@ -1312,7 +1385,9 @@ window.addEventListener("keydown", (event) => {
   } else if (key === "escape") {
     clearPointerCarry();
     ui.selectedHandIndex = null;
-    if (ui.helpOpen) closeHelp();
+    if (ui.newGameConfirmOpen) { ui.newGameConfirmOpen = false; render(); }
+    else if (ui.remainingOpen) { ui.remainingOpen = false; render(); }
+    else if (ui.helpOpen) closeHelp();
     else render();
   }
 });

@@ -36,9 +36,9 @@ export function createHourlyHarvestFeedback(harvest, options = {}) {
       winner: connectionMultiplier === multiplier,
     };
   });
-  const species = harvest?.speciesMatch?.matched === true ? {
+  const comboType = harvest?.typeMatch?.matched === true ? {
     multiplier: 5,
-    speciesId: String(harvest.speciesMatch.speciesId ?? ""),
+    comboTypeId: String(harvest.typeMatch.comboTypeId ?? ""),
     delayMs: reducedMotion ? 0 : HARVEST_MULTIPLIER_START_MS,
     winner: multiplier === 5,
   } : null;
@@ -48,7 +48,7 @@ export function createHourlyHarvestFeedback(harvest, options = {}) {
     additions,
     cardChain,
     connectionEvents,
-    species,
+    comboType,
     final: {
       multiplier,
       points: Math.max(0, safeInt(harvest?.points)),
@@ -68,7 +68,7 @@ export function createHourlyHarvestTonePlan(feedback) {
   }));
   const multiplierDelays = new Set([
     feedback?.cardChain?.delayMs,
-    feedback?.species?.delayMs,
+    feedback?.comboType?.delayMs,
     ...(feedback?.connectionEvents ?? []).map((event) => event.delayMs),
   ].filter(Number.isFinite));
   [...multiplierDelays].sort((a, b) => a - b).forEach((delayMs, index) => {

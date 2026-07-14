@@ -2,52 +2,102 @@ import { createRng, shuffleInPlace } from "./random.js";
 import { translateText } from "../i18n.js";
 
 export const HOURLY_MODE = "hourly";
-export const HOURLY_RULES_VERSION = "hourly-four-harvest-v4";
-export const HOURLY_ASSET_VERSION = "seed-species-v2";
+export const HOURLY_RULES_VERSION = "hourly-four-harvest-v6";
+export const HOURLY_ASSET_VERSION = "broad-life-groups-v1";
 export const HOURLY_HAND_SIZE = 5;
 export const HOURLY_DECK_SIZE = 40;
 export const HOURLY_PILE_COUNT = 4;
 export const HOURLY_HARVEST_SIZE = 4;
 export const HOURLY_REDRAW_LIMIT = 3;
-export const HOURLY_SPECIES_PER_DECK = 10;
-export const HOURLY_SPECIES_COPIES = 4;
-export const HOURLY_SAME_SPECIES_MULTIPLIER = 5;
+export const HOURLY_COMBO_TYPE_COUNT = 5;
+export const HOURLY_COMBO_TYPE_SIZE = 8;
+export const HOURLY_SAME_TYPE_MULTIPLIER = 5;
 export const HOURLY_CLOCKWISE_ORDER = [0, 1, 3, 2];
 export const HOURLY_GARDEN_LABELS = Object.freeze(["A", "B", "D", "C"]);
 export const HOURLY_SHARE_URL = "https://plan9.kr/stacks";
 
 const SPECIES = "public/assets/garden-stacks/generated/species";
 
-export const HOURLY_SPECIES_POOL = Object.freeze([
-  { speciesId: "dandelion", category: "flora", cardName: "민들레", imagePath: `${SPECIES}/bio_0001_dandelion.png` },
-  { speciesId: "white-clover", category: "flora", cardName: "흰토끼풀", imagePath: `${SPECIES}/bio_0002_white_clover.png` },
-  { speciesId: "yarrow", category: "flora", cardName: "서양톱풀", imagePath: `${SPECIES}/bio_0011_common_yarrow.png` },
-  { speciesId: "red-clover", category: "flora", cardName: "붉은토끼풀", imagePath: `${SPECIES}/bio_0012_red_clover.png` },
-  { speciesId: "sunflower", category: "flora", cardName: "해바라기", imagePath: `${SPECIES}/bio_0003_common_sunflower.png` },
-  { speciesId: "hydrangea", category: "flora", cardName: "수국", imagePath: `${SPECIES}/bio_0004_bigleaf_hydrangea.png` },
-  { speciesId: "lawn-daisy", category: "flora", cardName: "잔디데이지", imagePath: `${SPECIES}/bio_0030_lawn_daisy.png` },
-  { speciesId: "oxeye-daisy", category: "flora", cardName: "큰데이지", imagePath: `${SPECIES}/bio_0039_oxeye_daisy.png` },
-  { speciesId: "maple", category: "flora", cardName: "단풍나무", imagePath: `${SPECIES}/bio_0005_japanese_maple.png` },
-  { speciesId: "oak", category: "flora", cardName: "상수리나무", imagePath: `${SPECIES}/bio_0006_sawtooth_oak.png` },
-  { speciesId: "white-oak", category: "flora", cardName: "흰참나무", imagePath: `${SPECIES}/bio_0133_white_oak.png` },
-  { speciesId: "birch", category: "flora", cardName: "자작나무", imagePath: `${SPECIES}/bio_0162_silver_birch.png` },
-  { speciesId: "reed", category: "flora", cardName: "갈대", imagePath: `${SPECIES}/bio_0007_common_reed.png` },
-  { speciesId: "cattail", category: "flora", cardName: "부들", imagePath: `${SPECIES}/bio_0156_broadleaf_cattail.png` },
-  { speciesId: "waterlily", category: "flora", cardName: "수련", imagePath: `${SPECIES}/bio_0444_american_white_waterlily.png` },
-  { speciesId: "watercress", category: "flora", cardName: "물냉이", imagePath: `${SPECIES}/bio_0586_watercress.png` },
-  { speciesId: "honey-bee", category: "fauna", cardName: "꿀벌", imagePath: `${SPECIES}/bio_0008_western_honey_bee.png` },
-  { speciesId: "bumble-bee", category: "fauna", cardName: "뒤영벌", imagePath: `${SPECIES}/bio_0657_common_eastern_bumble_bee.png` },
-  { speciesId: "carpenter-bee", category: "fauna", cardName: "목수벌", imagePath: `${SPECIES}/bio_0669_eastern_carpenter_bee.png` },
-  { speciesId: "lady-beetle", category: "fauna", cardName: "무당벌레", imagePath: `${SPECIES}/bio_0658_seven_spotted_lady_beetle.png` },
-  { speciesId: "small-white", category: "fauna", cardName: "배추흰나비", imagePath: `${SPECIES}/bio_0009_small_white.png` },
-  { speciesId: "monarch", category: "fauna", cardName: "제왕나비", imagePath: `${SPECIES}/bio_0656_monarch.png` },
-  { speciesId: "red-admiral", category: "fauna", cardName: "붉은줄나비", imagePath: `${SPECIES}/bio_0659_red_admiral.png` },
-  { speciesId: "swallowtail", category: "fauna", cardName: "호랑나비", imagePath: `${SPECIES}/bio_0662_eastern_tiger_swallowtail.png` },
-  { speciesId: "mallard", category: "fauna", cardName: "청둥오리", imagePath: `${SPECIES}/bio_0793_mallard.png` },
-  { speciesId: "sparrow", category: "fauna", cardName: "참새", imagePath: `${SPECIES}/bio_0794_house_sparrow.png` },
-  { speciesId: "robin", category: "fauna", cardName: "울새", imagePath: `${SPECIES}/bio_0796_american_robin.png` },
-  { speciesId: "cardinal", category: "fauna", cardName: "홍관조", imagePath: `${SPECIES}/bio_0799_northern_cardinal.png` },
+export const HOURLY_COMBO_TYPES = Object.freeze([
+  {
+    comboTypeId: "flower",
+    category: "flora",
+    variants: [
+      { speciesId: "dandelion", cardName: "민들레", imagePath: `${SPECIES}/bio_0001_dandelion.png` },
+      { speciesId: "white-clover", cardName: "흰토끼풀", imagePath: `${SPECIES}/bio_0002_white_clover.png` },
+      { speciesId: "sunflower", cardName: "해바라기", imagePath: `${SPECIES}/bio_0003_common_sunflower.png` },
+      { speciesId: "hydrangea", cardName: "수국", imagePath: `${SPECIES}/bio_0004_bigleaf_hydrangea.png` },
+      { speciesId: "yarrow", cardName: "서양톱풀", imagePath: `${SPECIES}/bio_0011_common_yarrow.png` },
+      { speciesId: "red-clover", cardName: "붉은토끼풀", imagePath: `${SPECIES}/bio_0012_red_clover.png` },
+      { speciesId: "lawn-daisy", cardName: "잔디데이지", imagePath: `${SPECIES}/bio_0030_lawn_daisy.png` },
+      { speciesId: "oxeye-daisy", cardName: "큰데이지", imagePath: `${SPECIES}/bio_0039_oxeye_daisy.png` },
+    ],
+  },
+  {
+    comboTypeId: "tree",
+    category: "flora",
+    variants: [
+      { speciesId: "maple", cardName: "단풍나무", imagePath: `${SPECIES}/bio_0005_japanese_maple.png` },
+      { speciesId: "box-elder", cardName: "네군도단풍", imagePath: `${SPECIES}/bio_0019_box_elder.png` },
+      { speciesId: "red-maple", cardName: "붉은단풍나무", imagePath: `${SPECIES}/bio_0028_red_maple.png` },
+      { speciesId: "norway-maple", cardName: "노르웨이단풍", imagePath: `${SPECIES}/bio_0037_norway_maple.png` },
+      { speciesId: "oak", cardName: "상수리나무", imagePath: `${SPECIES}/bio_0006_sawtooth_oak.png` },
+      { speciesId: "northern-red-oak", cardName: "루브라참나무", imagePath: `${SPECIES}/bio_0057_northern_red_oak.png` },
+      { speciesId: "white-oak", cardName: "흰참나무", imagePath: `${SPECIES}/bio_0133_white_oak.png` },
+      { speciesId: "english-oak", cardName: "유럽참나무", imagePath: `${SPECIES}/bio_0077_english_oak.png` },
+    ],
+  },
+  {
+    comboTypeId: "amphibian",
+    category: "fauna",
+    variants: [
+      { speciesId: "green-frog", cardName: "초록개구리", imagePath: `${SPECIES}/bio_0954_green_frog.png` },
+      { speciesId: "bullfrog", cardName: "황소개구리", imagePath: `${SPECIES}/bio_0955_american_bullfrog.png` },
+      { speciesId: "wood-frog", cardName: "숲개구리", imagePath: `${SPECIES}/bio_0960_wood_frog.png` },
+      { speciesId: "leopard-frog", cardName: "북방표범개구리", imagePath: `${SPECIES}/bio_0962_northern_leopard_frog.png` },
+      { speciesId: "american-toad", cardName: "미국두꺼비", imagePath: `${SPECIES}/bio_0953_american_toad.png` },
+      { speciesId: "red-backed-salamander", cardName: "붉은등도롱뇽", imagePath: `${SPECIES}/bio_0956_eastern_red_backed_salamander.png` },
+      { speciesId: "european-toad", cardName: "유럽두꺼비", imagePath: `${SPECIES}/bio_0957_european_toad.png` },
+      { speciesId: "eastern-newt", cardName: "동부영원", imagePath: `${SPECIES}/bio_0963_eastern_newt.png` },
+    ],
+  },
+  {
+    comboTypeId: "bird",
+    category: "fauna",
+    variants: [
+      { speciesId: "mallard", cardName: "청둥오리", imagePath: `${SPECIES}/bio_0793_mallard.png` },
+      { speciesId: "canada-goose", cardName: "캐나다기러기", imagePath: `${SPECIES}/bio_0795_canada_goose.png` },
+      { speciesId: "great-blue-heron", cardName: "큰푸른왜가리", imagePath: `${SPECIES}/bio_0797_great_blue_heron.png` },
+      { speciesId: "green-winged-teal", cardName: "쇠오리", imagePath: `${SPECIES}/bio_0868_green_winged_teal.png` },
+      { speciesId: "sparrow", cardName: "참새", imagePath: `${SPECIES}/bio_0794_house_sparrow.png` },
+      { speciesId: "robin", cardName: "울새", imagePath: `${SPECIES}/bio_0796_american_robin.png` },
+      { speciesId: "cardinal", cardName: "홍관조", imagePath: `${SPECIES}/bio_0799_northern_cardinal.png` },
+      { speciesId: "house-finch", cardName: "집양진이", imagePath: `${SPECIES}/bio_0801_house_finch.png` },
+    ],
+  },
+  {
+    comboTypeId: "insect",
+    category: "fauna",
+    variants: [
+      { speciesId: "honey-bee", cardName: "꿀벌", imagePath: `${SPECIES}/bio_0008_western_honey_bee.png` },
+      { speciesId: "bumble-bee", cardName: "뒤영벌", imagePath: `${SPECIES}/bio_0657_common_eastern_bumble_bee.png` },
+      { speciesId: "carpenter-bee", cardName: "목수벌", imagePath: `${SPECIES}/bio_0669_eastern_carpenter_bee.png` },
+      { speciesId: "lady-beetle", cardName: "무당벌레", imagePath: `${SPECIES}/bio_0658_seven_spotted_lady_beetle.png` },
+      { speciesId: "small-white", cardName: "배추흰나비", imagePath: `${SPECIES}/bio_0009_small_white.png` },
+      { speciesId: "monarch", cardName: "제왕나비", imagePath: `${SPECIES}/bio_0656_monarch.png` },
+      { speciesId: "red-admiral", cardName: "붉은줄나비", imagePath: `${SPECIES}/bio_0659_red_admiral.png` },
+      { speciesId: "swallowtail", cardName: "호랑나비", imagePath: `${SPECIES}/bio_0662_eastern_tiger_swallowtail.png` },
+    ],
+  },
 ]);
+
+export const HOURLY_SPECIES_POOL = Object.freeze(HOURLY_COMBO_TYPES.flatMap((comboType) => (
+  comboType.variants.map((species) => ({
+    ...species,
+    comboTypeId: comboType.comboTypeId,
+    category: comboType.category,
+  }))
+)));
 
 // Kept as an export alias for callers that used the earlier art-list name.
 export const HOURLY_ART_VARIANTS = HOURLY_SPECIES_POOL;
@@ -87,37 +137,40 @@ export function formatDuration(totalSeconds) {
 }
 
 export function createHourlyDeck(seed) {
-  const selected = ["flora", "fauna"].flatMap((category) => {
-    const candidates = HOURLY_SPECIES_POOL.filter((species) => species.category === category);
-    return shuffleInPlace(
-      [...candidates],
-      createRng(`${seed}:${HOURLY_RULES_VERSION}:${HOURLY_ASSET_VERSION}:${category}`),
-    ).slice(0, HOURLY_SPECIES_PER_DECK / 2);
-  });
-  shuffleInPlace(selected, createRng(`${seed}:${HOURLY_RULES_VERSION}:${HOURLY_ASSET_VERSION}:species-order`));
+  const selectedTypes = shuffleInPlace(
+    [...HOURLY_COMBO_TYPES],
+    createRng(`${seed}:${HOURLY_RULES_VERSION}:${HOURLY_ASSET_VERSION}:type-order`),
+  );
 
   const digitOrder = shuffleInPlace(
     Array.from({ length: 10 }, (_, digit) => digit),
     createRng(`${seed}:${HOURLY_RULES_VERSION}:${HOURLY_ASSET_VERSION}:digit-order`),
   );
-  const offsets = shuffleInPlace(
-    Array.from({ length: 10 }, (_, offset) => offset),
-    createRng(`${seed}:${HOURLY_RULES_VERSION}:${HOURLY_ASSET_VERSION}:species-offsets`),
-  ).slice(0, HOURLY_SPECIES_COPIES);
+  const omittedDigits = shuffleInPlace(
+    [...digitOrder],
+    createRng(`${seed}:${HOURLY_RULES_VERSION}:${HOURLY_ASSET_VERSION}:omitted-digits`),
+  );
   const occurrences = Array(10).fill(0);
   const cards = [];
-  selected.forEach((species, speciesIndex) => {
-    offsets.forEach((offset) => {
-      const digit = digitOrder[(speciesIndex + offset) % digitOrder.length];
+  selectedTypes.forEach((comboType, comboTypeIndex) => {
+    const variants = shuffleInPlace(
+      [...comboType.variants],
+      createRng(`${seed}:${HOURLY_RULES_VERSION}:${HOURLY_ASSET_VERSION}:${comboType.comboTypeId}`),
+    );
+    const omitted = new Set(omittedDigits.slice(comboTypeIndex * 2, comboTypeIndex * 2 + 2));
+    const typeDigits = digitOrder.filter((digit) => !omitted.has(digit));
+    typeDigits.forEach((digit, variantIndex) => {
       const occurrence = occurrences[digit];
+      const species = variants[variantIndex];
       occurrences[digit] += 1;
       cards.push({
         id: `${seed}:${digit}:${occurrence}`,
         digit,
         occurrence,
-        speciesIndex,
+        comboTypeIndex,
+        comboTypeId: comboType.comboTypeId,
         speciesId: species.speciesId,
-        category: species.category,
+        category: comboType.category,
         variantId: `${digit}:${species.speciesId}`,
         cardName: species.cardName,
         imagePath: species.imagePath,
@@ -125,6 +178,25 @@ export function createHourlyDeck(seed) {
     });
   });
   return shuffleInPlace(cards, createRng(`${seed}:${HOURLY_RULES_VERSION}:deck`));
+}
+
+export function hourlyDeckOverview(state, sortMode = "digit") {
+  if (!state?.seed) return [];
+  const remainingIds = new Set(
+    [...(state.hand ?? []), ...(state.deck ?? [])].map((card) => String(card.id)),
+  );
+  const typeOrder = new Map(HOURLY_COMBO_TYPES.map((comboType, index) => [comboType.comboTypeId, index]));
+  const cards = createHourlyDeck(state.seed).map((card) => ({
+    ...card,
+    used: !remainingIds.has(String(card.id)),
+  }));
+  const byDigit = (a, b) => a.digit - b.digit
+    || (typeOrder.get(a.comboTypeId) ?? 99) - (typeOrder.get(b.comboTypeId) ?? 99)
+    || a.speciesId.localeCompare(b.speciesId);
+  const byType = (a, b) => (typeOrder.get(a.comboTypeId) ?? 99) - (typeOrder.get(b.comboTypeId) ?? 99)
+    || a.digit - b.digit
+    || a.speciesId.localeCompare(b.speciesId);
+  return cards.sort(sortMode === "type" ? byType : byDigit);
 }
 
 export function clockwisePileIndices(startIndex) {
@@ -169,16 +241,16 @@ export function longestHourlyCardChain(cards) {
   return best;
 }
 
-export function sameSpeciesHarvest(cards) {
-  const speciesIds = Array.from(cards ?? [], (card) => String(card?.speciesId ?? ""));
-  const speciesId = speciesIds[0] ?? "";
-  const matched = speciesIds.length === HOURLY_HARVEST_SIZE
-    && Boolean(speciesId)
-    && speciesIds.every((candidate) => candidate === speciesId);
+export function sameTypeHarvest(cards) {
+  const comboTypeIds = Array.from(cards ?? [], (card) => String(card?.comboTypeId ?? ""));
+  const comboTypeId = comboTypeIds[0] ?? "";
+  const matched = comboTypeIds.length === HOURLY_HARVEST_SIZE
+    && Boolean(comboTypeId)
+    && comboTypeIds.every((candidate) => candidate === comboTypeId);
   return {
     matched,
-    speciesId: matched ? speciesId : null,
-    multiplier: matched ? HOURLY_SAME_SPECIES_MULTIPLIER : 1,
+    comboTypeId: matched ? comboTypeId : null,
+    multiplier: matched ? HOURLY_SAME_TYPE_MULTIPLIER : 1,
   };
 }
 
@@ -261,8 +333,8 @@ export function previewHourlyPlacement(state, handIndex, pileIndex) {
   const chainSum = nextPiles[targetIndex].reduce((sum, item) => sum + Number(item.digit), 0);
   const cardChain = longestHourlyCardChain(nextPiles[targetIndex]);
   const connection = gardenConnection(nextPiles, targetIndex, card.digit);
-  const speciesMatch = sameSpeciesHarvest(nextPiles[targetIndex]);
-  const multiplier = Math.max(cardChain.length, connection.length, speciesMatch.multiplier);
+  const typeMatch = sameTypeHarvest(nextPiles[targetIndex]);
+  const multiplier = Math.max(cardChain.length, connection.length, typeMatch.multiplier);
   const points = chainSum * multiplier;
   return {
     ok: true,
@@ -273,7 +345,7 @@ export function previewHourlyPlacement(state, handIndex, pileIndex) {
     harvest: true,
     chainSum,
     cardChain,
-    speciesMatch,
+    typeMatch,
     multiplier,
     points,
     connection,
@@ -333,12 +405,13 @@ export function playHourlyCard(state, handIndex, pileIndex) {
       chainSum: preview.chainSum,
       cardChain: copy(preview.cardChain),
       connection: copy(preview.connection),
-      speciesMatch: copy(preview.speciesMatch),
+      typeMatch: copy(preview.typeMatch),
       multiplier: preview.multiplier,
       points: preview.points,
     };
   }
 
+  const drawnCard = state.deck.length ? copy(state.deck[0]) : null;
   refillHourlyHand(state);
   state.stars = starsForScore(state.score, state.thresholds);
   state.perfect = state.score >= state.maximumScore;
@@ -347,19 +420,19 @@ export function playHourlyCard(state, handIndex, pileIndex) {
     state.phase = "result";
     state.completedAt = Date.now();
   }
-  return { ok: true, card: copy(card), preview: copy(preview), harvest: copy(state.lastHarvest), state };
+  return { ok: true, card: copy(card), drawnCard, preview: copy(preview), harvest: copy(state.lastHarvest), state };
 }
 
 function solverCardToken(card) {
-  return Number(card.digit) * HOURLY_SPECIES_PER_DECK + Number(card.speciesIndex);
+  return Number(card.digit) * HOURLY_COMBO_TYPE_COUNT + Number(card.comboTypeIndex);
 }
 
 function solverTokenDigit(token) {
-  return Math.floor(Number(token) / HOURLY_SPECIES_PER_DECK);
+  return Math.floor(Number(token) / HOURLY_COMBO_TYPE_COUNT);
 }
 
-function solverTokenSpecies(token) {
-  return Number(token) % HOURLY_SPECIES_PER_DECK;
+function solverTokenType(token) {
+  return Number(token) % HOURLY_COMBO_TYPE_COUNT;
 }
 
 function encodeSolverToken(token) {
@@ -396,9 +469,9 @@ function solverHeuristic(state) {
   for (const pile of state.piles) {
     occupancy += pile.count;
     if (pile.count === 3) {
-      const sameSpeciesReady = pile.species.length === 3
-        && [...pile.species].every((species) => species === pile.species[0]);
-      ready += pile.sum * 2 + Math.max(0, pile.top) + (sameSpeciesReady ? 50 : 0);
+      const sameTypeReady = pile.types.length === 3
+        && [...pile.types].every((comboType) => comboType === pile.types[0]);
+      ready += pile.sum * 2 + Math.max(0, pile.top) + (sameTypeReady ? 50 : 0);
     }
   }
   return state.score * 1000 + ready * 10 - occupancy + state.redrawsLeft;
@@ -406,29 +479,29 @@ function solverHeuristic(state) {
 
 function solverPlayTransition(state, token, handIndex, pileIndex) {
   const digit = solverTokenDigit(token);
-  const speciesIndex = solverTokenSpecies(token);
+  const comboTypeIndex = solverTokenType(token);
   const piles = state.piles.map((pile) => ({ ...pile }));
   const pile = piles[pileIndex];
   let gain = 0;
   if (pile.count === 3) {
     const cardChainLength = longestHourlyCardChain(`${pile.digits}${digit}`).length;
     const connectionLength = compactConnection(piles, pileIndex, digit);
-    const sameSpecies = pile.species.length === 3
-      && [...pile.species].every((species) => Number(species) === speciesIndex);
+    const sameType = pile.types.length === 3
+      && [...pile.types].every((comboType) => Number(comboType) === comboTypeIndex);
     const multiplier = Math.max(
       cardChainLength,
       connectionLength,
-      sameSpecies ? HOURLY_SAME_SPECIES_MULTIPLIER : 1,
+      sameType ? HOURLY_SAME_TYPE_MULTIPLIER : 1,
     );
     gain = (pile.sum + digit) * multiplier;
-    piles[pileIndex] = { count: 0, sum: 0, top: -1, digits: "", species: "", tokens: "" };
+    piles[pileIndex] = { count: 0, sum: 0, top: -1, digits: "", types: "", tokens: "" };
   } else {
     piles[pileIndex] = {
       count: pile.count + 1,
       sum: pile.sum + digit,
       top: digit,
       digits: `${pile.digits}${digit}`,
-      species: `${pile.species}${speciesIndex}`,
+      types: `${pile.types}${comboTypeIndex}`,
       tokens: `${pile.tokens}${encodeSolverToken(token)}`,
     };
   }
@@ -445,7 +518,7 @@ function solverPlayTransition(state, token, handIndex, pileIndex) {
     piles,
     score: state.score + gain,
     redrawsLeft: state.redrawsLeft,
-    trail: { action: { type: "play", digit, speciesIndex, pileIndex }, previous: state.trail },
+    trail: { action: { type: "play", digit, comboTypeIndex, pileIndex }, previous: state.trail },
   };
 }
 
@@ -486,7 +559,7 @@ function materializeSolverPath(trail) {
 export function solveHourlyHarvestMaximum(seed, options = {}) {
   const beamWidth = Math.max(250, safeInt(options.beamWidth, 6000));
   const deckTokens = createHourlyDeck(seed).map(solverCardToken);
-  const emptyPile = () => ({ count: 0, sum: 0, top: -1, digits: "", species: "", tokens: "" });
+  const emptyPile = () => ({ count: 0, sum: 0, top: -1, digits: "", types: "", tokens: "" });
   let beam = [{
     hand: deckTokens.slice(0, HOURLY_HAND_SIZE),
     queue: deckTokens.slice(HOURLY_HAND_SIZE).map(encodeSolverToken).join(""),
@@ -596,7 +669,7 @@ export function replayHourlySolution(seed, solution) {
     }
     if (action.type && action.type !== "play") return { ok: false, reason: "unknown_solution_action", state: run };
     const handIndex = run.hand.findIndex((card) => (
-      card.digit === action.digit && card.speciesIndex === action.speciesIndex
+      card.digit === action.digit && card.comboTypeIndex === action.comboTypeIndex
     ));
     if (handIndex < 0) return { ok: false, reason: "missing_solution_card", state: run };
     const result = playHourlyCard(run, handIndex, action.pileIndex);
@@ -623,15 +696,15 @@ export function hourlyResultShareText(state, url = HOURLY_SHARE_URL, language = 
 }
 
 export function hourlyRunStorageKey(seed) {
-  return `garden-stacks:hourly-v4:${seed}:run`;
+  return `garden-stacks:hourly-v6:${seed}:run`;
 }
 
 export function hourlyBestStorageKey(seed) {
-  return `garden-stacks:hourly-v4:${seed}:best`;
+  return `garden-stacks:hourly-v6:${seed}:best`;
 }
 
 export function hourlySolutionStorageKey(seed) {
-  return `garden-stacks:hourly-v4:${seed}:solution`;
+  return `garden-stacks:hourly-v6:${seed}:solution`;
 }
 
-export const HOURLY_ACTIVE_SEED_KEY = "garden-stacks:hourly-v4:active-seed";
+export const HOURLY_ACTIVE_SEED_KEY = "garden-stacks:hourly-v6:active-seed";
