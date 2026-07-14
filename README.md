@@ -73,6 +73,7 @@ gh api --method POST repos/sungchi/stacks/pages \
   --input - <<'JSON'
 {"source":{"branch":"main","path":"/"}}
 JSON
+gh api --method PUT repos/sungchi/stacks/pages -F https_enforced=true
 ```
 
 이후 배포:
