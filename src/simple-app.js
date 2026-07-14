@@ -54,6 +54,7 @@ const DEAL_CARD_MS = 360;
 const DEAL_STAGGER_MS = 70;
 const DEAL_AFTER_PLAY_DELAY_MS = 120;
 const LANDING_MS = 300;
+const CARD_HOLO_MAX_TILT = 8;
 const SFX_SETTING_KEY = "garden-stacks:hourly:sfx";
 const HELP_SEEN_KEY = "garden-stacks:hourly:help-seen:v4";
 const FALLBACK_CARD_IMAGE = "public/assets/garden-stacks/generated/cards/card_locked_unknown.png";
@@ -1201,6 +1202,47 @@ function hasFineHoverPointer() {
   return matchMedia("(hover: hover) and (pointer: fine)").matches;
 }
 
+let holoPointerFrame = null;
+let holoPointerSample = null;
+
+function resetHandCardHolo(card) {
+  if (!card) return;
+  card.style.removeProperty("--holo-x");
+  card.style.removeProperty("--holo-y");
+  card.style.removeProperty("--holo-tilt-x");
+  card.style.removeProperty("--holo-tilt-y");
+}
+
+function applyHandCardHoloFrame() {
+  holoPointerFrame = null;
+  const sample = holoPointerSample;
+  holoPointerSample = null;
+  if (!sample?.card?.isConnected) return;
+  const rect = sample.card.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+  const x = Math.min(1, Math.max(0, (sample.clientX - rect.left) / rect.width));
+  const y = Math.min(1, Math.max(0, (sample.clientY - rect.top) / rect.height));
+  sample.card.style.setProperty("--holo-x", `${Math.round(x * 100)}%`);
+  sample.card.style.setProperty("--holo-y", `${Math.round(y * 100)}%`);
+  sample.card.style.setProperty("--holo-tilt-x", `${((0.5 - y) * CARD_HOLO_MAX_TILT * 2).toFixed(2)}deg`);
+  sample.card.style.setProperty("--holo-tilt-y", `${((x - 0.5) * CARD_HOLO_MAX_TILT * 2).toFixed(2)}deg`);
+}
+
+function updateHandCardHolo(event) {
+  if (event.pointerType === "touch" || ui.drag || ui.carry) return;
+  const card = event.target.closest(".hand-card[data-hand-index]");
+  if (!card || card.disabled) return;
+  holoPointerSample = { card, clientX: event.clientX, clientY: event.clientY };
+  if (holoPointerFrame == null) holoPointerFrame = window.requestAnimationFrame(applyHandCardHoloFrame);
+}
+
+function leaveHandCardHolo(event) {
+  const card = event.target.closest(".hand-card[data-hand-index]");
+  if (!card || (event.relatedTarget instanceof Node && card.contains(event.relatedTarget))) return;
+  if (holoPointerSample?.card === card) holoPointerSample = null;
+  resetHandCardHolo(card);
+}
+
 function updatePointerCarryFrame() {
   const carry = ui.carry;
   if (!carry) return;
@@ -1363,6 +1405,9 @@ app.addEventListener("pointerdown", (event) => {
   const card = event.target.closest(".hand-card[data-hand-index]");
   if (card) beginDrag(event, card);
 });
+
+app.addEventListener("pointermove", updateHandCardHolo, { passive: true });
+app.addEventListener("pointerout", leaveHandCardHolo, { passive: true });
 
 app.addEventListener("lostpointercapture", endDrag);
 window.addEventListener("pointerup", unlockAudioContext, true);

@@ -655,9 +655,33 @@ button:disabled {
 }
 
 .hand-card {
+  --card-y: var(--fan-y, 0px);
+  --card-rotate: var(--fan-rotate, 0deg);
+  --holo-x: 50%;
+  --holo-y: 50%;
+  --holo-tilt-x: 0deg;
+  --holo-tilt-y: 0deg;
   flex: 0 0 var(--card-width);
-  transform: translateY(var(--fan-y, 0)) rotate(var(--fan-rotate, 0deg));
+  transform: perspective(440px) translateY(var(--card-y)) rotate(var(--card-rotate)) rotateX(var(--holo-tilt-x)) rotateY(var(--holo-tilt-y));
+  transform-style: preserve-3d;
   transition: transform 150ms var(--ease), box-shadow 150ms var(--ease), opacity 120ms ease;
+}
+
+.hand-card::before {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: 4px;
+  content: "";
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease;
+  background: radial-gradient(circle at var(--holo-x) var(--holo-y), rgba(255, 255, 255, 0.9) 0 4%, rgba(255, 255, 255, 0.34) 12%, transparent 42%);
+  mix-blend-mode: screen;
+}
+
+.hand-card:is(:hover, :focus-visible, .is-selected)::before {
+  opacity: 0.34;
 }
 
 .hand-card + .hand-card {
@@ -671,9 +695,18 @@ button:disabled {
 .hand-card:nth-child(5) { --fan-y: 9px; --fan-rotate: 4deg; }
 
 .hand-card.is-selected {
+  --card-y: -10px;
+  --card-rotate: 0deg;
+  --holo-tilt-x: -5deg;
+  --holo-tilt-y: 5deg;
   z-index: 10;
-  transform: translateY(-10px) rotate(0deg);
   box-shadow: 0 11px 0 rgba(21, 23, 21, 0.17);
+}
+
+.hand-card:not(:disabled):hover {
+  z-index: 11;
+  box-shadow: 0 10px 0 rgba(21, 23, 21, 0.14);
+  will-change: transform;
 }
 
 .hand-card.is-rejected {
@@ -1375,6 +1408,17 @@ body.is-card-carrying .garden.is-target {
   100% { opacity: 1; transform: translate3d(0, var(--fan-y, 0px), 0) rotate(var(--fan-rotate, 0deg)) scale(1); }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .hand-card {
+    --holo-tilt-x: 0deg !important;
+    --holo-tilt-y: 0deg !important;
+  }
+
+  .hand-card::before {
+    transition: none;
+  }
+}
+
 @keyframes gardenLanding {
   0%, 100% { box-shadow: none; }
   45% { border-color: var(--ink); box-shadow: inset 0 0 0 2px var(--ink), 0 0 0 4px rgba(21, 23, 21, 0.12); }
@@ -1465,9 +1509,9 @@ body.is-card-carrying .garden.is-target {
 }
 
 .hourly-shell.is-view-mobile .hand-row {
-    --card-width: 104px;
-    --overlap: 47px;
-    min-height: 160px;
+    --card-width: 94px;
+    --overlap: 37px;
+    min-height: 150px;
     padding-inline: 0;
 }
 
@@ -1512,10 +1556,10 @@ body.is-card-carrying .garden.is-target {
 }
 
 .hourly-shell.is-view-desktop {
-    grid-template-columns: minmax(0, 1.35fr) minmax(360px, 0.9fr);
-    grid-template-rows: auto auto auto;
-    align-content: start;
-    gap: 18px 28px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(min-content, 1fr) auto;
+    align-content: stretch;
+    gap: 14px;
     padding: 24px 24px 30px;
 }
 
@@ -1525,14 +1569,18 @@ body.is-card-carrying .garden.is-target {
 
 .hourly-shell.is-view-desktop .board-section {
     grid-column: 1;
-    grid-row: 3;
-    align-self: start;
+    grid-row: 2;
+    align-self: center;
+    justify-self: center;
+    width: min(100%, 760px);
 }
 
 .hourly-shell.is-view-desktop .hand-section {
-    grid-column: 2;
+    grid-column: 1;
     grid-row: 3;
-    align-self: start;
+    align-self: end;
+    justify-self: center;
+    width: min(100%, 760px);
 }
 
 .hourly-shell.is-view-desktop .garden {
@@ -1557,9 +1605,9 @@ body.is-card-carrying .garden.is-target {
 }
 
 .hourly-shell.is-view-desktop .hand-row {
-    --card-width: 110px;
-    --overlap: 50px;
-    min-height: 172px;
+    --card-width: 99px;
+    --overlap: 28px;
+    min-height: 158px;
     padding-inline: 4px;
 }
 
