@@ -1,8 +1,9 @@
 export const HARVEST_ADD_STEP_MS = 300;
 export const HARVEST_MULTIPLIER_START_MS = 1050;
 export const HARVEST_LINK_STEP_MS = 120;
-export const HARVEST_FINAL_DELAY_MS = 1400;
-export const HARVEST_FEEDBACK_DURATION_MS = 1950;
+export const HARVEST_FINAL_DELAY_MS = 1600;
+export const HARVEST_FINAL_DISPLAY_MS = 1100;
+export const HARVEST_FEEDBACK_DURATION_MS = HARVEST_FINAL_DELAY_MS + HARVEST_FINAL_DISPLAY_MS + 100;
 export const HARVEST_REDUCED_DURATION_MS = 450;
 
 const HARVEST_ADDITION_NOTES = Object.freeze([60, 64, 67, 72]);
@@ -53,6 +54,7 @@ export function createHourlyHarvestFeedback(harvest, options = {}) {
       multiplier,
       points: Math.max(0, safeInt(harvest?.points)),
       delayMs: reducedMotion ? 0 : HARVEST_FINAL_DELAY_MS,
+      durationMs: reducedMotion ? HARVEST_REDUCED_DURATION_MS : HARVEST_FINAL_DISPLAY_MS,
     },
     durationMs: reducedMotion ? HARVEST_REDUCED_DURATION_MS : HARVEST_FEEDBACK_DURATION_MS,
   };

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   HARVEST_FEEDBACK_DURATION_MS,
   HARVEST_FINAL_DELAY_MS,
+  HARVEST_FINAL_DISPLAY_MS,
   createHourlyHarvestFeedback,
   createHourlyHarvestTonePlan,
 } from "../src/ui/harvest-feedback.js";
@@ -36,7 +37,10 @@ test("harvest feedback reveals four additions every 300ms and cumulative garden 
   assert.equal(feedback.cardChain.multiplier, 2);
   assert.equal(feedback.connectionEvents.at(-1).winner, true);
   assert.equal(feedback.final.delayMs, HARVEST_FINAL_DELAY_MS);
+  assert.equal(feedback.final.durationMs, HARVEST_FINAL_DISPLAY_MS);
   assert.equal(feedback.durationMs, HARVEST_FEEDBACK_DURATION_MS);
+  assert.ok(feedback.final.delayMs - feedback.connectionEvents.at(-1).delayMs >= 300);
+  assert.ok(feedback.durationMs >= feedback.final.delayMs + feedback.final.durationMs);
 });
 
 test("same-type feedback wins at five without stacking other multipliers", () => {
@@ -54,7 +58,7 @@ test("same-type feedback wins at five without stacking other multipliers", () =>
     delayMs: 1050,
     winner: true,
   });
-  assert.deepEqual(feedback.final, { multiplier: 5, points: 85, delayMs: 1400 });
+  assert.deepEqual(feedback.final, { multiplier: 5, points: 85, delayMs: 1600, durationMs: 1100 });
 });
 
 test("reduced motion resolves all labels immediately and shortens the input lock", () => {
@@ -63,6 +67,7 @@ test("reduced motion resolves all labels immediately and shortens the input lock
   assert.equal(feedback.connectionEvents.every((event) => event.delayMs === 0), true);
   assert.equal(feedback.cardChain.delayMs, 0);
   assert.equal(feedback.final.delayMs, 0);
+  assert.equal(feedback.final.durationMs, 450);
   assert.equal(feedback.durationMs, 450);
 });
 

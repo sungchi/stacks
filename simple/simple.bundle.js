@@ -1301,8 +1301,9 @@ const HOURLY_ACTIVE_SEED_KEY = "garden-stacks:hourly-v6:active-seed";
 const HARVEST_ADD_STEP_MS = 300;
 const HARVEST_MULTIPLIER_START_MS = 1050;
 const HARVEST_LINK_STEP_MS = 120;
-const HARVEST_FINAL_DELAY_MS = 1400;
-const HARVEST_FEEDBACK_DURATION_MS = 1950;
+const HARVEST_FINAL_DELAY_MS = 1600;
+const HARVEST_FINAL_DISPLAY_MS = 1100;
+const HARVEST_FEEDBACK_DURATION_MS = HARVEST_FINAL_DELAY_MS + HARVEST_FINAL_DISPLAY_MS + 100;
 const HARVEST_REDUCED_DURATION_MS = 450;
 
 const HARVEST_ADDITION_NOTES = Object.freeze([60, 64, 67, 72]);
@@ -1353,6 +1354,7 @@ function createHourlyHarvestFeedback(harvest, options = {}) {
       multiplier,
       points: Math.max(0, safeInt(harvest?.points)),
       delayMs: reducedMotion ? 0 : HARVEST_FINAL_DELAY_MS,
+      durationMs: reducedMotion ? HARVEST_REDUCED_DURATION_MS : HARVEST_FINAL_DISPLAY_MS,
     },
     durationMs: reducedMotion ? HARVEST_REDUCED_DURATION_MS : HARVEST_FEEDBACK_DURATION_MS,
   };
@@ -2034,7 +2036,7 @@ function renderHarvestBurst() {
   const x = pileIndex % 2 === 0 ? 25 : 75;
   const y = pileIndex < 2 ? 25 : 75;
   const feedback = ui.harvestPulse.feedback;
-  const style = `--burst-x:${x}%;--burst-y:${y}%;--effect-delay:${feedback.final.delayMs}ms;`;
+  const style = `--burst-x:${x}%;--burst-y:${y}%;--effect-delay:${feedback.final.delayMs}ms;--effect-duration:${feedback.final.durationMs}ms;`;
   return `
     <span class="harvest-success-ring" style="${style}" aria-hidden="true"></span>
     <span class="harvest-success-sparks" style="${style}" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>
@@ -2359,7 +2361,8 @@ function startDealMotion(cards, options = {}) {
     if (ui.deal?.id !== id) return;
     ui.deal = null;
     ui.pendingDealSound = false;
-    render();
+    // Re-rendering here would recreate every delayed harvest label and restart its timeline.
+    if (!ui.harvestPulse) render();
   }, duration);
 }
 

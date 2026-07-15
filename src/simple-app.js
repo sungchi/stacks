@@ -643,7 +643,7 @@ function renderHarvestBurst() {
   const x = pileIndex % 2 === 0 ? 25 : 75;
   const y = pileIndex < 2 ? 25 : 75;
   const feedback = ui.harvestPulse.feedback;
-  const style = `--burst-x:${x}%;--burst-y:${y}%;--effect-delay:${feedback.final.delayMs}ms;`;
+  const style = `--burst-x:${x}%;--burst-y:${y}%;--effect-delay:${feedback.final.delayMs}ms;--effect-duration:${feedback.final.durationMs}ms;`;
   return `
     <span class="harvest-success-ring" style="${style}" aria-hidden="true"></span>
     <span class="harvest-success-sparks" style="${style}" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>
@@ -968,7 +968,8 @@ function startDealMotion(cards, options = {}) {
     if (ui.deal?.id !== id) return;
     ui.deal = null;
     ui.pendingDealSound = false;
-    render();
+    // Re-rendering here would recreate every delayed harvest label and restart its timeline.
+    if (!ui.harvestPulse) render();
   }, duration);
 }
 
