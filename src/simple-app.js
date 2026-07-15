@@ -29,6 +29,7 @@ import {
   canStartPointerCarry,
   dragGhostPosition,
   exceedsPointerDragThreshold,
+  handCardPointerEffect,
   isPointerDragCancellation,
   selectionAfterPointerGesture,
 } from "./ui/pointer-drag.js";
@@ -1209,45 +1210,42 @@ function hasFineHoverPointer() {
   return matchMedia("(hover: hover) and (pointer: fine)").matches;
 }
 
-let holoPointerFrame = null;
-let holoPointerSample = null;
+let handPointerFrame = null;
+let handPointerSample = null;
 
-function resetHandCardHolo(card) {
-  if (!card) return;
-  card.style.removeProperty("--holo-x");
-  card.style.removeProperty("--holo-y");
-  card.style.removeProperty("--holo-tilt-x");
-  card.style.removeProperty("--holo-tilt-y");
+function applySharedHandPointerFrame() {
+  handPointerFrame = null;
+  const sample = handPointerSample;
+  handPointerSample = null;
+  if (!sample) return;
+  const cardEffects = [...app.querySelectorAll(".hand-card[data-hand-index]")].map((card) => ({
+    card,
+    effect: handCardPointerEffect(
+      sample.clientX,
+      sample.clientY,
+      card.getBoundingClientRect(),
+      CARD_HOLO_MAX_TILT,
+    ),
+  }));
+  cardEffects.forEach(({ card, effect }) => {
+    if (card.classList.contains("is-selected")) {
+      card.style.removeProperty("--holo-x");
+      card.style.removeProperty("--holo-y");
+      card.style.removeProperty("--holo-tilt-x");
+      card.style.removeProperty("--holo-tilt-y");
+      return;
+    }
+    card.style.setProperty("--holo-x", `${effect.shineX}%`);
+    card.style.setProperty("--holo-y", `${effect.shineY}%`);
+    card.style.setProperty("--holo-tilt-x", `${effect.tiltX}deg`);
+    card.style.setProperty("--holo-tilt-y", `${effect.tiltY}deg`);
+  });
 }
 
-function applyHandCardHoloFrame() {
-  holoPointerFrame = null;
-  const sample = holoPointerSample;
-  holoPointerSample = null;
-  if (!sample?.card?.isConnected) return;
-  const rect = sample.card.getBoundingClientRect();
-  if (!rect.width || !rect.height) return;
-  const x = Math.min(1, Math.max(0, (sample.clientX - rect.left) / rect.width));
-  const y = Math.min(1, Math.max(0, (sample.clientY - rect.top) / rect.height));
-  sample.card.style.setProperty("--holo-x", `${Math.round(x * 100)}%`);
-  sample.card.style.setProperty("--holo-y", `${Math.round(y * 100)}%`);
-  sample.card.style.setProperty("--holo-tilt-x", `${((0.5 - y) * CARD_HOLO_MAX_TILT * 2).toFixed(2)}deg`);
-  sample.card.style.setProperty("--holo-tilt-y", `${((x - 0.5) * CARD_HOLO_MAX_TILT * 2).toFixed(2)}deg`);
-}
-
-function updateHandCardHolo(event) {
+function updateSharedHandPointer(event) {
   if (event.pointerType === "touch" || ui.drag || ui.carry) return;
-  const card = event.target.closest(".hand-card[data-hand-index]");
-  if (!card || card.disabled) return;
-  holoPointerSample = { card, clientX: event.clientX, clientY: event.clientY };
-  if (holoPointerFrame == null) holoPointerFrame = window.requestAnimationFrame(applyHandCardHoloFrame);
-}
-
-function leaveHandCardHolo(event) {
-  const card = event.target.closest(".hand-card[data-hand-index]");
-  if (!card || (event.relatedTarget instanceof Node && card.contains(event.relatedTarget))) return;
-  if (holoPointerSample?.card === card) holoPointerSample = null;
-  resetHandCardHolo(card);
+  handPointerSample = { clientX: event.clientX, clientY: event.clientY };
+  if (handPointerFrame == null) handPointerFrame = window.requestAnimationFrame(applySharedHandPointerFrame);
 }
 
 function updatePointerCarryFrame() {
@@ -1413,8 +1411,7 @@ app.addEventListener("pointerdown", (event) => {
   if (card) beginDrag(event, card);
 });
 
-app.addEventListener("pointermove", updateHandCardHolo, { passive: true });
-app.addEventListener("pointerout", leaveHandCardHolo, { passive: true });
+window.addEventListener("pointermove", updateSharedHandPointer, { passive: true });
 
 app.addEventListener("lostpointercapture", endDrag);
 window.addEventListener("pointerup", unlockAudioContext, true);

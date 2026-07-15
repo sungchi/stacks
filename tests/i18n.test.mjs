@@ -71,10 +71,10 @@ test("hourly share text follows the selected language", () => {
   };
   assert.equal(
     hourlyResultShareText(state, "https://example.com", "en"),
-    "Stacks #2026071412 In progress 42 pts / Max 300 pts https://example.com",
+    "Stacks #2026071412 In progress 42 pts / ★★★ target 240 pts https://example.com",
   );
   assert.equal(
     hourlyResultShareText(state, "https://example.com", "ja"),
-    "Stacks #2026071412 挑戦中 42点 / 最高 300点 https://example.com",
+    "Stacks #2026071412 挑戦中 42点 / ★★★目標 240点 https://example.com",
   );
 });

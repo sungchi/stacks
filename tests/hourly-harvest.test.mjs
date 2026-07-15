@@ -96,6 +96,8 @@ test("hourly deck has forty unique organisms grouped into five eight-card life g
   );
   assert.equal(new Set(first.map((item) => item.speciesId)).size, 40);
   assert.equal(new Set(first.map((item) => item.imagePath)).size, 40);
+  assert.equal(first.some((item) => item.speciesId === "california-newt"), true);
+  assert.equal(first.some((item) => item.speciesId === "european-toad"), false);
   assert.equal(new Set(first.map((item) => item.comboTypeId)).size, HOURLY_COMBO_TYPE_COUNT);
   assert.equal(first.filter((item) => item.category === "flora").length, 16);
   assert.equal(first.filter((item) => item.category === "fauna").length, 24);
@@ -328,5 +330,21 @@ test("hourly snapshot restore and share text preserve the challenge result", () 
   assert.equal(restored.hand[0].comboTypeId, run.hand[0].comboTypeId);
   assert.equal(restored.redrawsLeft, 2);
   assert.equal(restored.redrawsUsed, 1);
-  assert.match(hourlyResultShareText(restored, "https://example.com"), /^Stacks #2026071311 도전중 0점 \/ 최대 \d+점 https:\/\/example\.com$/);
+  assert.match(hourlyResultShareText(restored, "https://example.com"), /^Stacks #2026071311 도전중 0점 \/ ★★★ 목표 \d+점 https:\/\/example\.com$/);
+});
+
+test("legacy European toad cards restore as the distinct California newt", () => {
+  const solution = { maximumScore: 300, thresholds: thresholdsForMaximum(300), solverVersion: "test", verified: true };
+  const run = newHourlyRun("2026071418", { solution });
+  run.hand[0] = {
+    ...run.hand[0],
+    speciesId: "european-toad",
+    variantId: `${run.hand[0].digit}:european-toad`,
+    cardName: "유럽두꺼비",
+    imagePath: "public/assets/garden-stacks/generated/species/bio_0957_european_toad.png",
+  };
+  const restored = restoreHourlyRun(snapshotHourlyRun(run));
+  assert.equal(restored.hand[0].speciesId, "california-newt");
+  assert.equal(restored.hand[0].cardName, "캘리포니아영원");
+  assert.match(restored.hand[0].imagePath, /bio_0966_california_newt\.png$/);
 });

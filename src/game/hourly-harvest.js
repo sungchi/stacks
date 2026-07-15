@@ -17,6 +17,11 @@ export const HOURLY_GARDEN_LABELS = Object.freeze(["A", "B", "D", "C"]);
 export const HOURLY_SHARE_URL = "https://plan9.kr/stacks";
 
 const SPECIES = "public/assets/garden-stacks/generated/species";
+const CALIFORNIA_NEWT = Object.freeze({
+  speciesId: "california-newt",
+  cardName: "캘리포니아영원",
+  imagePath: `${SPECIES}/bio_0966_california_newt.png`,
+});
 
 export const HOURLY_COMBO_TYPES = Object.freeze([
   {
@@ -57,7 +62,7 @@ export const HOURLY_COMBO_TYPES = Object.freeze([
       { speciesId: "leopard-frog", cardName: "북방표범개구리", imagePath: `${SPECIES}/bio_0962_northern_leopard_frog.png` },
       { speciesId: "american-toad", cardName: "미국두꺼비", imagePath: `${SPECIES}/bio_0953_american_toad.png` },
       { speciesId: "red-backed-salamander", cardName: "붉은등도롱뇽", imagePath: `${SPECIES}/bio_0956_eastern_red_backed_salamander.png` },
-      { speciesId: "european-toad", cardName: "유럽두꺼비", imagePath: `${SPECIES}/bio_0957_european_toad.png` },
+      CALIFORNIA_NEWT,
       { speciesId: "eastern-newt", cardName: "동부영원", imagePath: `${SPECIES}/bio_0963_eastern_newt.png` },
     ],
   },
@@ -645,7 +650,21 @@ export function snapshotHourlyRun(state) {
 export function restoreHourlyRun(snapshot) {
   if (!snapshot || snapshot.mode !== HOURLY_MODE || snapshot.version !== HOURLY_RULES_VERSION) return null;
   const state = copy(snapshot);
-  if (!Array.isArray(state.hand) || !Array.isArray(state.deck) || !Array.isArray(state.piles) || state.piles.length !== 4) return null;
+  if (!Array.isArray(state.hand)
+    || !Array.isArray(state.deck)
+    || !Array.isArray(state.piles)
+    || state.piles.length !== 4
+    || state.piles.some((pile) => !Array.isArray(pile))) return null;
+  const migrateSpecies = (card) => card?.speciesId === "european-toad"
+    ? {
+        ...card,
+        ...CALIFORNIA_NEWT,
+        variantId: `${safeInt(card.digit)}:${CALIFORNIA_NEWT.speciesId}`,
+      }
+    : card;
+  state.hand = state.hand.map(migrateSpecies);
+  state.deck = state.deck.map(migrateSpecies);
+  state.piles = state.piles.map((pile) => pile.map(migrateSpecies));
   state.score = Math.max(0, safeInt(state.score));
   state.cardsPlayed = Math.max(0, safeInt(state.cardsPlayed));
   state.harvests = Math.max(0, safeInt(state.harvests));
@@ -690,7 +709,7 @@ export function hourlyResultShareText(state, url = HOURLY_SHARE_URL, language = 
     seed: state.seed,
     result,
     score: state.score,
-    maximum: state.maximumScore,
+    target: state.thresholds?.three ?? thresholdsForMaximum(state.maximumScore).three,
     url,
   });
 }

@@ -124,3 +124,4 @@ Lua manifest는 현재 원본 구조를 보존하기 위한 참고 파일이다.
 | `bio_0022_bull_thistle.png` | 2026-07-13 | 깨진 픽셀과 꽃 실루엣 문제 | 런타임 파일을 `bio_0327_cornflower.png`로 대체, 원본 사용 금지 |
 | `bio_0442_milk_thistle.png` | 2026-07-13 | 사용자 확인 시각적 문제 | 대체 후보에서 제외, 교정 전 사용 금지 |
 | `bio_0247_cuckooflower.png` | 2026-07-13 | 사용자 확인 시각적 문제 | 대체 후보에서 제외, 교정 전 사용 금지 |
+| `bio_0957_european_toad.png` | 2026-07-15 | `bio_0953_american_toad.png`와 카드 축소 상태의 실루엣이 거의 동일 | 시간 정원 후보에서 제외하고 `bio_0966_california_newt.png` 사용 |

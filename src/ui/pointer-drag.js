@@ -33,3 +33,22 @@ export function dragGhostPosition(clientX, clientY, offsetX, offsetY) {
     y: Math.round(clientY - offsetY),
   };
 }
+
+export function handCardPointerEffect(clientX, clientY, bounds, maxTilt = 8) {
+  const width = Number(bounds?.width);
+  const height = Number(bounds?.height);
+  if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+    return { shineX: 50, shineY: 50, tiltX: 0, tiltY: 0 };
+  }
+
+  const left = Number(bounds?.left) || 0;
+  const top = Number(bounds?.top) || 0;
+  const x = Math.min(1, Math.max(0, (clientX - left) / width));
+  const y = Math.min(1, Math.max(0, (clientY - top) / height));
+  return {
+    shineX: Math.round(x * 100),
+    shineY: Math.round(y * 100),
+    tiltX: Number(((0.5 - y) * maxTilt * 2).toFixed(2)),
+    tiltY: Number(((x - 0.5) * maxTilt * 2).toFixed(2)),
+  };
+}

@@ -658,13 +658,15 @@ button:disabled {
   --card-y: var(--fan-y, 0px);
   --card-rotate: var(--fan-rotate, 0deg);
   --holo-x: 50%;
-  --holo-y: 50%;
-  --holo-tilt-x: 0deg;
-  --holo-tilt-y: 0deg;
+  --holo-y: 38%;
+  --holo-tilt-x: -5deg;
+  --holo-tilt-y: var(--fan-tilt-y, 0deg);
   flex: 0 0 var(--card-width);
   transform: perspective(440px) translateY(var(--card-y)) rotate(var(--card-rotate)) rotateX(var(--holo-tilt-x)) rotateY(var(--holo-tilt-y));
   transform-style: preserve-3d;
+  box-shadow: 0 5px 0 rgba(21, 23, 21, 0.14);
   transition: transform 150ms var(--ease), box-shadow 150ms var(--ease), opacity 120ms ease;
+  will-change: transform;
 }
 
 .hand-card::before {
@@ -673,26 +675,26 @@ button:disabled {
   z-index: 3;
   border-radius: 4px;
   content: "";
-  opacity: 0;
+  opacity: 0.34;
   pointer-events: none;
   transition: opacity 140ms ease;
   background: radial-gradient(circle at var(--holo-x) var(--holo-y), rgba(255, 255, 255, 0.9) 0 4%, rgba(255, 255, 255, 0.34) 12%, transparent 42%);
   mix-blend-mode: screen;
 }
 
-.hand-card:is(:hover, :focus-visible, .is-selected)::before {
-  opacity: 0.34;
+.hand-card:is(:focus-visible, .is-selected)::before {
+  opacity: 0.3;
 }
 
 .hand-card + .hand-card {
   margin-left: calc(-1 * var(--overlap));
 }
 
-.hand-card:nth-child(1) { --fan-y: 9px; --fan-rotate: -4deg; }
-.hand-card:nth-child(2) { --fan-y: 3px; --fan-rotate: -2deg; }
-.hand-card:nth-child(3) { --fan-y: 0px; --fan-rotate: 0deg; }
-.hand-card:nth-child(4) { --fan-y: 3px; --fan-rotate: 2deg; }
-.hand-card:nth-child(5) { --fan-y: 9px; --fan-rotate: 4deg; }
+.hand-card:nth-child(1) { --fan-y: 9px; --fan-rotate: -4deg; --fan-tilt-y: -5deg; }
+.hand-card:nth-child(2) { --fan-y: 3px; --fan-rotate: -2deg; --fan-tilt-y: -2.5deg; }
+.hand-card:nth-child(3) { --fan-y: 0px; --fan-rotate: 0deg; --fan-tilt-y: 0deg; }
+.hand-card:nth-child(4) { --fan-y: 3px; --fan-rotate: 2deg; --fan-tilt-y: 2.5deg; }
+.hand-card:nth-child(5) { --fan-y: 9px; --fan-rotate: 4deg; --fan-tilt-y: 5deg; }
 
 .hand-card.is-selected {
   --card-y: -10px;
@@ -700,13 +702,11 @@ button:disabled {
   --holo-tilt-x: -5deg;
   --holo-tilt-y: 5deg;
   z-index: 10;
-  box-shadow: 0 11px 0 rgba(21, 23, 21, 0.17);
+  box-shadow: 0 6px 0 rgba(21, 23, 21, 0.17);
 }
 
-.hand-card:not(:disabled):hover {
+.hand-card:not(:disabled):is(:hover, :focus-visible) {
   z-index: 11;
-  box-shadow: 0 10px 0 rgba(21, 23, 21, 0.14);
-  will-change: transform;
 }
 
 .hand-card.is-rejected {

@@ -238,7 +238,7 @@ const TRANSLATIONS = {
     "language.ja": "日本語",
     "share.button": "결과공유",
     "share.statusInProgress": "도전중",
-    "share.result": "Stacks #{seed} {result} {score}점 / 최대 {maximum}점 {url}",
+    "share.result": "Stacks #{seed} {result} {score}점 / ★★★ 목표 {target}점 {url}",
     "timer.ready": "준비됨",
     "timer.readyAria": "새 게임 준비됨",
     "timer.nextAria": "다음 게임까지",
@@ -321,7 +321,7 @@ const TRANSLATIONS = {
     "language.ja": "日本語",
     "share.button": "Share result",
     "share.statusInProgress": "In progress",
-    "share.result": "Stacks #{seed} {result} {score} pts / Max {maximum} pts {url}",
+    "share.result": "Stacks #{seed} {result} {score} pts / ★★★ target {target} pts {url}",
     "timer.ready": "Ready",
     "timer.readyAria": "New game ready",
     "timer.nextAria": "Until next game",
@@ -404,7 +404,7 @@ const TRANSLATIONS = {
     "language.ja": "日本語",
     "share.button": "結果を共有",
     "share.statusInProgress": "挑戦中",
-    "share.result": "Stacks #{seed} {result} {score}点 / 最高 {maximum}点 {url}",
+    "share.result": "Stacks #{seed} {result} {score}点 / ★★★目標 {target}点 {url}",
     "timer.ready": "準備完了",
     "timer.readyAria": "新しいゲームの準備完了",
     "timer.nextAria": "次のゲームまで",
@@ -520,6 +520,7 @@ const CARD_NAMES = {
   "american-toad": { ko: "미국두꺼비", en: "American Toad", ja: "アメリカヒキガエル" },
   "red-backed-salamander": { ko: "붉은등도롱뇽", en: "Red-backed Salamander", ja: "セアカサンショウウオ" },
   "european-toad": { ko: "유럽두꺼비", en: "European Toad", ja: "ヨーロッパヒキガエル" },
+  "california-newt": { ko: "캘리포니아영원", en: "California Newt", ja: "カリフォルニアイモリ" },
   "eastern-newt": { ko: "동부영원", en: "Eastern Newt", ja: "イースタンニュート" },
 };
 
@@ -609,6 +610,11 @@ const HOURLY_GARDEN_LABELS = Object.freeze(["A", "B", "D", "C"]);
 const HOURLY_SHARE_URL = "https://plan9.kr/stacks";
 
 const SPECIES = "public/assets/garden-stacks/generated/species";
+const CALIFORNIA_NEWT = Object.freeze({
+  speciesId: "california-newt",
+  cardName: "캘리포니아영원",
+  imagePath: `${SPECIES}/bio_0966_california_newt.png`,
+});
 
 const HOURLY_COMBO_TYPES = Object.freeze([
   {
@@ -649,7 +655,7 @@ const HOURLY_COMBO_TYPES = Object.freeze([
       { speciesId: "leopard-frog", cardName: "북방표범개구리", imagePath: `${SPECIES}/bio_0962_northern_leopard_frog.png` },
       { speciesId: "american-toad", cardName: "미국두꺼비", imagePath: `${SPECIES}/bio_0953_american_toad.png` },
       { speciesId: "red-backed-salamander", cardName: "붉은등도롱뇽", imagePath: `${SPECIES}/bio_0956_eastern_red_backed_salamander.png` },
-      { speciesId: "european-toad", cardName: "유럽두꺼비", imagePath: `${SPECIES}/bio_0957_european_toad.png` },
+      CALIFORNIA_NEWT,
       { speciesId: "eastern-newt", cardName: "동부영원", imagePath: `${SPECIES}/bio_0963_eastern_newt.png` },
     ],
   },
@@ -1237,7 +1243,21 @@ function snapshotHourlyRun(state) {
 function restoreHourlyRun(snapshot) {
   if (!snapshot || snapshot.mode !== HOURLY_MODE || snapshot.version !== HOURLY_RULES_VERSION) return null;
   const state = copy(snapshot);
-  if (!Array.isArray(state.hand) || !Array.isArray(state.deck) || !Array.isArray(state.piles) || state.piles.length !== 4) return null;
+  if (!Array.isArray(state.hand)
+    || !Array.isArray(state.deck)
+    || !Array.isArray(state.piles)
+    || state.piles.length !== 4
+    || state.piles.some((pile) => !Array.isArray(pile))) return null;
+  const migrateSpecies = (card) => card?.speciesId === "european-toad"
+    ? {
+        ...card,
+        ...CALIFORNIA_NEWT,
+        variantId: `${safeInt(card.digit)}:${CALIFORNIA_NEWT.speciesId}`,
+      }
+    : card;
+  state.hand = state.hand.map(migrateSpecies);
+  state.deck = state.deck.map(migrateSpecies);
+  state.piles = state.piles.map((pile) => pile.map(migrateSpecies));
   state.score = Math.max(0, safeInt(state.score));
   state.cardsPlayed = Math.max(0, safeInt(state.cardsPlayed));
   state.harvests = Math.max(0, safeInt(state.harvests));
@@ -1282,7 +1302,7 @@ function hourlyResultShareText(state, url = HOURLY_SHARE_URL, language = "ko") {
     seed: state.seed,
     result,
     score: state.score,
-    maximum: state.maximumScore,
+    target: state.thresholds?.three ?? thresholdsForMaximum(state.maximumScore).three,
     url,
   });
 }
@@ -1432,6 +1452,25 @@ function dragGhostPosition(clientX, clientY, offsetX, offsetY) {
   return {
     x: Math.round(clientX - offsetX),
     y: Math.round(clientY - offsetY),
+  };
+}
+
+function handCardPointerEffect(clientX, clientY, bounds, maxTilt = 8) {
+  const width = Number(bounds?.width);
+  const height = Number(bounds?.height);
+  if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+    return { shineX: 50, shineY: 50, tiltX: 0, tiltY: 0 };
+  }
+
+  const left = Number(bounds?.left) || 0;
+  const top = Number(bounds?.top) || 0;
+  const x = Math.min(1, Math.max(0, (clientX - left) / width));
+  const y = Math.min(1, Math.max(0, (clientY - top) / height));
+  return {
+    shineX: Math.round(x * 100),
+    shineY: Math.round(y * 100),
+    tiltX: Number(((0.5 - y) * maxTilt * 2).toFixed(2)),
+    tiltY: Number(((x - 0.5) * maxTilt * 2).toFixed(2)),
   };
 }
 
@@ -2608,45 +2647,42 @@ function hasFineHoverPointer() {
   return matchMedia("(hover: hover) and (pointer: fine)").matches;
 }
 
-let holoPointerFrame = null;
-let holoPointerSample = null;
+let handPointerFrame = null;
+let handPointerSample = null;
 
-function resetHandCardHolo(card) {
-  if (!card) return;
-  card.style.removeProperty("--holo-x");
-  card.style.removeProperty("--holo-y");
-  card.style.removeProperty("--holo-tilt-x");
-  card.style.removeProperty("--holo-tilt-y");
+function applySharedHandPointerFrame() {
+  handPointerFrame = null;
+  const sample = handPointerSample;
+  handPointerSample = null;
+  if (!sample) return;
+  const cardEffects = [...app.querySelectorAll(".hand-card[data-hand-index]")].map((card) => ({
+    card,
+    effect: handCardPointerEffect(
+      sample.clientX,
+      sample.clientY,
+      card.getBoundingClientRect(),
+      CARD_HOLO_MAX_TILT,
+    ),
+  }));
+  cardEffects.forEach(({ card, effect }) => {
+    if (card.classList.contains("is-selected")) {
+      card.style.removeProperty("--holo-x");
+      card.style.removeProperty("--holo-y");
+      card.style.removeProperty("--holo-tilt-x");
+      card.style.removeProperty("--holo-tilt-y");
+      return;
+    }
+    card.style.setProperty("--holo-x", `${effect.shineX}%`);
+    card.style.setProperty("--holo-y", `${effect.shineY}%`);
+    card.style.setProperty("--holo-tilt-x", `${effect.tiltX}deg`);
+    card.style.setProperty("--holo-tilt-y", `${effect.tiltY}deg`);
+  });
 }
 
-function applyHandCardHoloFrame() {
-  holoPointerFrame = null;
-  const sample = holoPointerSample;
-  holoPointerSample = null;
-  if (!sample?.card?.isConnected) return;
-  const rect = sample.card.getBoundingClientRect();
-  if (!rect.width || !rect.height) return;
-  const x = Math.min(1, Math.max(0, (sample.clientX - rect.left) / rect.width));
-  const y = Math.min(1, Math.max(0, (sample.clientY - rect.top) / rect.height));
-  sample.card.style.setProperty("--holo-x", `${Math.round(x * 100)}%`);
-  sample.card.style.setProperty("--holo-y", `${Math.round(y * 100)}%`);
-  sample.card.style.setProperty("--holo-tilt-x", `${((0.5 - y) * CARD_HOLO_MAX_TILT * 2).toFixed(2)}deg`);
-  sample.card.style.setProperty("--holo-tilt-y", `${((x - 0.5) * CARD_HOLO_MAX_TILT * 2).toFixed(2)}deg`);
-}
-
-function updateHandCardHolo(event) {
+function updateSharedHandPointer(event) {
   if (event.pointerType === "touch" || ui.drag || ui.carry) return;
-  const card = event.target.closest(".hand-card[data-hand-index]");
-  if (!card || card.disabled) return;
-  holoPointerSample = { card, clientX: event.clientX, clientY: event.clientY };
-  if (holoPointerFrame == null) holoPointerFrame = window.requestAnimationFrame(applyHandCardHoloFrame);
-}
-
-function leaveHandCardHolo(event) {
-  const card = event.target.closest(".hand-card[data-hand-index]");
-  if (!card || (event.relatedTarget instanceof Node && card.contains(event.relatedTarget))) return;
-  if (holoPointerSample?.card === card) holoPointerSample = null;
-  resetHandCardHolo(card);
+  handPointerSample = { clientX: event.clientX, clientY: event.clientY };
+  if (handPointerFrame == null) handPointerFrame = window.requestAnimationFrame(applySharedHandPointerFrame);
 }
 
 function updatePointerCarryFrame() {
@@ -2812,8 +2848,7 @@ app.addEventListener("pointerdown", (event) => {
   if (card) beginDrag(event, card);
 });
 
-app.addEventListener("pointermove", updateHandCardHolo, { passive: true });
-app.addEventListener("pointerout", leaveHandCardHolo, { passive: true });
+window.addEventListener("pointermove", updateSharedHandPointer, { passive: true });
 
 app.addEventListener("lostpointercapture", endDrag);
 window.addEventListener("pointerup", unlockAudioContext, true);
