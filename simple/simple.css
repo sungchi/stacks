@@ -534,16 +534,34 @@ button:disabled {
   height: 65%;
   object-fit: contain;
   image-rendering: auto;
+  transform: translateY(2px);
 }
 
-.garden-card strong {
+.garden-card .card-name {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
+  height: 2.2em;
   overflow: hidden;
   font-size: 7px;
   line-height: 1.1;
   text-align: center;
+}
+
+.garden-card .card-name > span,
+.remaining-card .card-name > span,
+.hand-card .card-name > span,
+.drag-ghost .card-name > span,
+.snap-card .card-name > span {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  overflow-wrap: anywhere;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .garden-preview {
@@ -793,17 +811,20 @@ body.is-card-dragging .hand-card {
   height: 86%;
   object-fit: contain;
   image-rendering: auto;
+  transform: translateY(6px);
 }
 
-.hand-card strong,
-.drag-ghost strong,
-.snap-card strong {
+.hand-card .card-name,
+.drag-ghost .card-name,
+.snap-card .card-name {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
+  height: 2.3em;
   overflow: hidden;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.15;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .drag-ghost {
@@ -1100,16 +1121,19 @@ body.is-card-carrying .garden.is-target {
   height: 65%;
   object-fit: contain;
   image-rendering: auto;
+  transform: translateY(2px);
 }
 
-.remaining-card strong {
+.remaining-card .card-name {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
+  height: 2.2em;
   overflow: hidden;
   font-size: 7px;
   line-height: 1.1;
   text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .overlay {
@@ -1557,10 +1581,10 @@ body.is-card-carrying .garden.is-target {
     padding: 6px;
 }
 
-.hourly-shell.is-view-mobile .hand-card strong,
-.hourly-shell.is-view-mobile .drag-ghost strong,
-.hourly-shell.is-view-mobile .snap-card strong {
-    font-size: 13px;
+.hourly-shell.is-view-mobile .hand-card .card-name,
+.hourly-shell.is-view-mobile .drag-ghost .card-name,
+.hourly-shell.is-view-mobile .snap-card .card-name {
+    font-size: 12px;
 }
 
 .hourly-shell.is-view-mobile .run-actions .redraw-action {
@@ -1633,7 +1657,7 @@ body.is-card-carrying .garden.is-target {
     font-size: 8px;
 }
 
-.hourly-shell.is-view-desktop .garden-card strong {
+.hourly-shell.is-view-desktop .garden-card .card-name {
     font-size: 9px;
 }
 

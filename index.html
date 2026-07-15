@@ -43,7 +43,7 @@
         const legacy = ["endless", "campaign"].includes(mode);
         const runtime = legacy
           ? { css: "./src/styles.css?v=20260712-stable-preview-1", js: "./public/app.bundle.js?v=20260712-stable-preview-1" }
-          : { css: "./simple/simple.css?v=20260715-fixed-stars-v2", js: "./simple/simple.bundle.js?v=20260715-fixed-stars-v2" };
+          : { css: "./simple/simple.css?v=20260715-card-image-offset-v2", js: "./simple/simple.bundle.js?v=20260715-card-image-offset-v2" };
         const stylesheet = document.createElement("link");
         stylesheet.rel = "stylesheet";
         stylesheet.href = runtime.css;

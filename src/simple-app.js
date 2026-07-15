@@ -539,7 +539,7 @@ function cardMarkup(card) {
     <span class="card-digit">${card.digit}</span>
     <span class="card-type">${escapeHtml(comboTypeDisplayName(card))}</span>
     <img src="${escapeHtml(card.imagePath)}" alt="${escapeHtml(cardDisplayName(card))}" draggable="false" />
-    <strong>${escapeHtml(cardDisplayName(card))}</strong>
+    <strong class="card-name"><span>${escapeHtml(cardDisplayName(card))}</span></strong>
   `;
 }
 
