@@ -226,7 +226,7 @@ const TRANSLATIONS = {
     "help.rule3": "수확한 네 카드를 놓은 순서대로 보고, 마지막 카드에서 시계방향으로 다른 정원의 맨 위 카드를 이어 봅니다.",
     "help.rule4": "그 한 줄에서 가장 긴 연속 숫자의 길이만큼 기본 점수에 곱합니다(최대 ×4). 네 장이 모두 같은 생물군이면 ×5이며, 더 높은 배수 하나만 적용합니다.",
     "help.rule5": "새로받기는 현재 손패를 덱 뒤로 보내고 새 손패를 받습니다. 한 게임에 세 번 쓸 수 있습니다.",
-    "help.rule6": "카드 40장을 모두 놓고 200·300·500점에서 별을 받습니다.",
+    "help.rule6": "카드 40장을 모두 놓고 250·400·600점에서 별을 받습니다.",
     "help.exampleLabel": "예:",
     "help.example": "수확 카드가 1→2→7→8이고 다음 정원이 9→0이면, 7→8→9→0이 한 줄로 이어져 ×4입니다. 감소 방향도 같습니다.",
     "help.sound": "효과음",
@@ -310,7 +310,7 @@ const TRANSLATIONS = {
     "help.rule3": "Read the four harvested cards in play order, then continue clockwise from the last card through the top cards of the other gardens.",
     "help.rule4": "Multiply the base score by the longest consecutive run in that single line (up to ×4). Four cards from the same life group give ×5; use only the higher multiplier.",
     "help.rule5": "Redraw sends your hand to the deck’s back and deals again. Three uses per game.",
-    "help.rule6": "Use all 40 cards. Stars: 200 / 300 / 500.",
+    "help.rule6": "Use all 40 cards. Stars: 250 / 400 / 600.",
     "help.exampleLabel": "Example:",
     "help.example": "If the harvest is 1→2→7→8 and the next gardens are 9→0, then 7→8→9→0 is one run for ×4. Descending runs work too.",
     "help.sound": "Sound effects",
@@ -394,7 +394,7 @@ const TRANSLATIONS = {
     "help.rule3": "収穫した4枚を置いた順に読み、最後のカードから時計回りに、ほかのガーデンの一番上のカードへ続けます。",
     "help.rule4": "その1本の列で最長の連続数字の長さを基本点に掛けます（最大×4）。4枚が同じ生物グループなら×5で、高い方の倍率だけを使います。",
     "help.rule5": "手札交換は今の手札をデッキの後ろに送り、新しい手札を引きます。1ゲーム3回まで。",
-    "help.rule6": "40枚すべて置くと終了。200・300・500点で星を獲得します。",
+    "help.rule6": "40枚すべて置くと終了。250・400・600点で星を獲得します。",
     "help.exampleLabel": "例：",
     "help.example": "収穫が1→2→7→8で次のガーデンが9→0なら、7→8→9→0が1本につながり×4です。減少方向も同じです。",
     "help.sound": "効果音",
@@ -598,7 +598,7 @@ function shuffled(items, rng = Math.random) {
 
 
 const HOURLY_MODE = "hourly";
-const HOURLY_RULES_VERSION = "hourly-four-harvest-v7";
+const HOURLY_RULES_VERSION = "hourly-four-harvest-v8";
 const HOURLY_ASSET_VERSION = "broad-life-groups-v1";
 const HOURLY_HAND_SIZE = 5;
 const HOURLY_DECK_SIZE = 40;
@@ -609,7 +609,7 @@ const HOURLY_COMBO_TYPE_COUNT = 5;
 const HOURLY_COMBO_TYPE_SIZE = 8;
 const HOURLY_SAME_TYPE_MULTIPLIER = 5;
 const HOURLY_MAX_CHAIN_MULTIPLIER = 4;
-const HOURLY_SCORE_TARGETS = Object.freeze({ one: 200, two: 300, three: 500 });
+const HOURLY_SCORE_TARGETS = Object.freeze({ one: 250, two: 400, three: 600 });
 const HOURLY_CLOCKWISE_ORDER = [0, 1, 3, 2];
 const HOURLY_GARDEN_LABELS = Object.freeze(["A", "B", "D", "C"]);
 const HOURLY_SHARE_URL = "https://plan9.kr/stacks";
@@ -1308,14 +1308,14 @@ function hourlyRootUrl(origin, pathname = "/") {
 }
 
 function hourlyRunStorageKey(seed) {
-  return `garden-stacks:hourly-v7:${seed}:run`;
+  return `garden-stacks:hourly-v8:${seed}:run`;
 }
 
 function hourlyBestStorageKey(seed) {
-  return `garden-stacks:hourly-v7:${seed}:best`;
+  return `garden-stacks:hourly-v8:${seed}:best`;
 }
 
-const HOURLY_ACTIVE_SEED_KEY = "garden-stacks:hourly-v7:active-seed";
+const HOURLY_ACTIVE_SEED_KEY = "garden-stacks:hourly-v8:active-seed";
 
 
 
@@ -1496,7 +1496,7 @@ const DEAL_AFTER_PLAY_DELAY_MS = 120;
 const LANDING_MS = 300;
 const CARD_HOLO_MAX_TILT = 8;
 const SFX_SETTING_KEY = "garden-stacks:hourly:sfx";
-const HELP_SEEN_KEY = "garden-stacks:hourly:help-seen:v5";
+const HELP_SEEN_KEY = "garden-stacks:hourly:help-seen:v6";
 const FALLBACK_CARD_IMAGE = "public/assets/garden-stacks/generated/cards/card_locked_unknown.png";
 
 const ui = {

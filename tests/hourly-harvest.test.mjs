@@ -216,12 +216,12 @@ test("four-card sum uses one chain across the harvest and clockwise gardens", ()
   assert.equal(state.phase, "result");
 });
 
-test("a completed run reaches three stars at 500 points", () => {
+test("a completed run reaches three stars at 600 points", () => {
   const state = ruleState();
-  state.score = 424;
+  state.score = 524;
   const result = playHourlyCard(state, 0, 0);
   assert.equal(result.harvest.points, 76);
-  assert.equal(state.score, 500);
+  assert.equal(state.score, 600);
   assert.equal(state.stars, 3);
   assert.equal("perfect" in state, false);
   assert.equal(state.phase, "result");
@@ -348,19 +348,19 @@ test("hourly hand can be redrawn three times without discarding cards", () => {
   assert.deepEqual(redrawHourlyHand(state), { ok: false, reason: "no_redraws" });
 });
 
-test("all hourly seeds use fixed 200, 300, and 500 point star targets", () => {
+test("all hourly seeds use fixed 250, 400, and 600 point star targets", () => {
   const first = newHourlyRun("2026071500");
   const second = newHourlyRun("2026071501");
-  assert.deepEqual(hourlyScoreTargets(), { one: 200, two: 300, three: 500 });
+  assert.deepEqual(hourlyScoreTargets(), { one: 250, two: 400, three: 600 });
   assert.deepEqual(first.thresholds, second.thresholds);
-  assert.equal(starsForScore(199, first.thresholds), 0);
-  assert.equal(starsForScore(200, first.thresholds), 1);
-  assert.equal(starsForScore(300, first.thresholds), 2);
-  assert.equal(starsForScore(499, first.thresholds), 2);
-  assert.equal(starsForScore(500, first.thresholds), 3);
+  assert.equal(starsForScore(249, first.thresholds), 0);
+  assert.equal(starsForScore(250, first.thresholds), 1);
+  assert.equal(starsForScore(400, first.thresholds), 2);
+  assert.equal(starsForScore(599, first.thresholds), 2);
+  assert.equal(starsForScore(600, first.thresholds), 3);
 
   const legacyTargets = snapshotHourlyRun(first);
-  legacyTargets.score = 500;
+  legacyTargets.score = 600;
   legacyTargets.maximumScore = 742;
   legacyTargets.thresholds = { one: 250, two: 440, three: 590, perfect: 742 };
   legacyTargets.perfect = true;
@@ -393,7 +393,7 @@ test("hourly snapshot restore and share text preserve the challenge result", () 
   assert.equal(restored.redrawsUsed, 1);
   assert.equal(
     hourlyResultShareText(restored, "https://example.com"),
-    "Stacks #2026071311 도전중 0점 / ★★★ 목표 500점 https://example.com",
+    "Stacks #2026071311 도전중 0점 / ★★★ 목표 600점 https://example.com",
   );
 });
 

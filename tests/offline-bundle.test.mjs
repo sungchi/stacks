@@ -43,7 +43,7 @@ test("hourly header exposes the shared Malitmot Discord community link", () => {
 });
 
 test("hourly boot uses fixed targets without running the balance solver", () => {
-  assert.match(hourlyBundle, /HOURLY_SCORE_TARGETS = Object\.freeze\(\{ one: 200, two: 300, three: 500 \}\)/);
+  assert.match(hourlyBundle, /HOURLY_SCORE_TARGETS = Object\.freeze\(\{ one: 250, two: 400, three: 600 \}\)/);
   assert.doesNotMatch(hourlyBundle, /function loadSolution\(/);
   assert.doesNotMatch(hourlyBundle, /solver\.hourly/);
   assert.doesNotMatch(hourlyBundle, /PERFECT/);

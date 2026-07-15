@@ -52,7 +52,7 @@ const DEAL_AFTER_PLAY_DELAY_MS = 120;
 const LANDING_MS = 300;
 const CARD_HOLO_MAX_TILT = 8;
 const SFX_SETTING_KEY = "garden-stacks:hourly:sfx";
-const HELP_SEEN_KEY = "garden-stacks:hourly:help-seen:v5";
+const HELP_SEEN_KEY = "garden-stacks:hourly:help-seen:v6";
 const FALLBACK_CARD_IMAGE = "public/assets/garden-stacks/generated/cards/card_locked_unknown.png";
 
 const ui = {
