@@ -39,6 +39,13 @@ test("text translation interpolates variables and falls back safely", () => {
   assert.equal(translateText("fr", "score.score"), "점수");
 });
 
+test("game name remains Stacks in every language", () => {
+  for (const language of SUPPORTED_LANGUAGES) {
+    assert.equal(translateText(language, "brand.name"), "Stacks");
+    assert.equal(translateText(language, "document.title").startsWith("Stacks -"), true);
+  }
+});
+
 test("all hourly species candidates have names in all three languages", () => {
   assert.equal(HOURLY_SPECIES_POOL.length, 40);
   for (const { speciesId, cardName } of HOURLY_SPECIES_POOL) {
@@ -68,6 +75,6 @@ test("hourly share text follows the selected language", () => {
   );
   assert.equal(
     hourlyResultShareText(state, "https://example.com", "ja"),
-    "スタックス #2026071412 挑戦中 42点 / 最高 300点 https://example.com",
+    "Stacks #2026071412 挑戦中 42点 / 最高 300点 https://example.com",
   );
 });

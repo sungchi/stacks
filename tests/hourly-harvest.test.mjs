@@ -328,5 +328,5 @@ test("hourly snapshot restore and share text preserve the challenge result", () 
   assert.equal(restored.hand[0].comboTypeId, run.hand[0].comboTypeId);
   assert.equal(restored.redrawsLeft, 2);
   assert.equal(restored.redrawsUsed, 1);
-  assert.match(hourlyResultShareText(restored, "https://example.com"), /^스택스 #2026071311 도전중 0점 \/ 최대 \d+점 https:\/\/example\.com$/);
+  assert.match(hourlyResultShareText(restored, "https://example.com"), /^Stacks #2026071311 도전중 0점 \/ 최대 \d+점 https:\/\/example\.com$/);
 });

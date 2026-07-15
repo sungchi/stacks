@@ -584,7 +584,7 @@ function renderHeader() {
   return `
     <header class="hourly-header">
       <div class="brand-lockup">
-        <h1>Stacks</h1>
+        <h1>${escapeHtml(t("brand.name"))}</h1>
         <span>${escapeHtml(seedLabel(ui.state.seed))}</span>
       </div>
       <div class="header-actions">
@@ -813,6 +813,12 @@ function applyDocumentLanguage() {
   document.documentElement.lang = ui.language;
   document.title = t("document.title");
   document.querySelector('meta[name="description"]')?.setAttribute("content", t("document.description"));
+  document.querySelector('meta[property="og:title"]')?.setAttribute("content", t("document.title"));
+  document.querySelector('meta[property="og:description"]')?.setAttribute("content", t("document.description"));
+  document.querySelector('meta[property="og:image:alt"]')?.setAttribute("content", t("document.thumbnailAlt"));
+  document.querySelector('meta[name="twitter:title"]')?.setAttribute("content", t("document.title"));
+  document.querySelector('meta[name="twitter:description"]')?.setAttribute("content", t("document.description"));
+  document.querySelector('meta[name="twitter:image:alt"]')?.setAttribute("content", t("document.thumbnailAlt"));
 }
 
 function loadingMarkup() {

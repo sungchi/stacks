@@ -5,8 +5,10 @@ export const LANGUAGE_STORAGE_KEY = "garden-stacks:language:v1";
 
 export const TRANSLATIONS = {
   ko: {
-    "document.title": "Stacks (스택스) - 매시간 숫자 정원",
+    "brand.name": "Stacks",
+    "document.title": "Stacks - 매시간 숫자 정원",
     "document.description": "매시간 같은 숫자 덱으로 연쇄와 같은 생물군 네 장 수확을 만드는 모바일 카드 게임.",
+    "document.thumbnailAlt": "Stacks 네 장 수확과 연쇄 4배 점수 예시",
     "loading.title": "새 정원을 준비하는 중",
     "loading.detail": "최대 점수를 계산하고 있어요.",
     "error.title": "게임을 준비하지 못했습니다.",
@@ -32,7 +34,7 @@ export const TRANSLATIONS = {
     "language.ja": "日本語",
     "share.button": "결과공유",
     "share.statusInProgress": "도전중",
-    "share.result": "스택스 #{seed} {result} {score}점 / 최대 {maximum}점 {url}",
+    "share.result": "Stacks #{seed} {result} {score}점 / 최대 {maximum}점 {url}",
     "timer.ready": "준비됨",
     "timer.readyAria": "새 게임 준비됨",
     "timer.nextAria": "다음 게임까지",
@@ -86,8 +88,10 @@ export const TRANSLATIONS = {
     "comboType.insect": "곤충",
   },
   en: {
+    "brand.name": "Stacks",
     "document.title": "Stacks - Hourly Number Garden",
     "document.description": "A mobile card game where everyone plays the same hourly deck, building chains and four-of-a-type harvests.",
+    "document.thumbnailAlt": "Stacks four-card harvest and x4 chain scoring example",
     "loading.title": "Preparing a new garden",
     "loading.detail": "Calculating the target scores.",
     "error.title": "The game could not be prepared.",
@@ -167,8 +171,10 @@ export const TRANSLATIONS = {
     "comboType.insect": "Insect",
   },
   ja: {
-    "document.title": "Stacks（スタックス）- 毎時の数字ガーデン",
+    "brand.name": "Stacks",
+    "document.title": "Stacks - 毎時の数字ガーデン",
     "document.description": "毎時同じ数字デッキで、連鎖と同じ生物グループ4枚の収穫を作るモバイルカードゲーム。",
+    "document.thumbnailAlt": "Stacksの4枚収穫と4倍連鎖スコアの例",
     "loading.title": "新しいガーデンを準備中",
     "loading.detail": "目標スコアを計算しています。",
     "error.title": "ゲームを準備できませんでした。",
@@ -194,7 +200,7 @@ export const TRANSLATIONS = {
     "language.ja": "日本語",
     "share.button": "結果を共有",
     "share.statusInProgress": "挑戦中",
-    "share.result": "スタックス #{seed} {result} {score}点 / 最高 {maximum}点 {url}",
+    "share.result": "Stacks #{seed} {result} {score}点 / 最高 {maximum}点 {url}",
     "timer.ready": "準備完了",
     "timer.readyAria": "新しいゲームの準備完了",
     "timer.nextAria": "次のゲームまで",

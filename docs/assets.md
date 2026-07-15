@@ -26,6 +26,7 @@
 
 | 경로 | 역할 |
 |---|---|
+| `public/og/` | OG·Twitter 공유용 `1200×630` 썸네일 |
 | `generated/cards/` | 숫자 카드와 Stacks (스택스) 카드 대표 이미지 |
 | `generated/species/` | 대표 종 120개 런타임 이미지와 manifest |
 | `generated/discovery/` | 발견 스탬프 |
@@ -46,6 +47,7 @@
 - 이미지 키와 게임 데이터 키가 다르면 게임 데이터에 `imageId`를 명시한다.
 - 누락 이미지가 있을 때는 `generated/cards/card_locked_unknown.png` 또는 중립 UI fallback을 쓴다.
 - 픽셀 애셋은 정수 배율 확대에서 `image-rendering: pixelated`를 적용한다. 시간 정원 카드처럼 서로 다른 원본을 비정수 축소하고 회전하는 표면은 `image-rendering: auto`로 aliasing을 줄인다.
+- `public/og/stacks-og.png`는 기본 공유 썸네일이다. 2·3·4·5 카드 합, `×4`, `+56` 점수 예시와 `Stacks` 단일 게임명을 유지한다.
 
 ## 4. 주요 manifest
 
