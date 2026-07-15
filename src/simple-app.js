@@ -52,7 +52,7 @@ const DEAL_AFTER_PLAY_DELAY_MS = 120;
 const LANDING_MS = 300;
 const CARD_HOLO_MAX_TILT = 8;
 const SFX_SETTING_KEY = "garden-stacks:hourly:sfx";
-const HELP_SEEN_KEY = "garden-stacks:hourly:help-seen:v4";
+const HELP_SEEN_KEY = "garden-stacks:hourly:help-seen:v5";
 const FALLBACK_CARD_IMAGE = "public/assets/garden-stacks/generated/cards/card_locked_unknown.png";
 
 const ui = {
@@ -228,7 +228,7 @@ function wavDataUri(tones, duration) {
 
 function fallbackSfxUri(name, detail = {}) {
   const feedback = detail.feedback;
-  const key = `${name}:${detail.count ?? 0}:${feedback?.cardChain?.multiplier ?? 1}:${feedback?.connectionEvents?.length ?? 0}:${feedback?.comboType ? 5 : 1}`;
+  const key = `${name}:${detail.count ?? 0}:${feedback?.final?.multiplier ?? 1}:${feedback?.connectionEvents?.length ?? 0}:${feedback?.comboType ? 5 : 1}`;
   if (audio.wavCache.has(key)) return audio.wavCache.get(key);
   let tones = [];
   if (name === "deal") {

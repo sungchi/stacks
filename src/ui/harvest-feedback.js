@@ -22,19 +22,27 @@ export function createHourlyHarvestFeedback(harvest, options = {}) {
     digit: safeInt(card?.digit),
     delayMs: reducedMotion ? 0 : index * HARVEST_ADD_STEP_MS,
   }));
-  const cardChainMultiplier = Math.max(1, Math.min(4, safeInt(harvest?.cardChain?.length, 1)));
+  const chainMultiplier = Math.max(1, Math.min(4, safeInt(harvest?.chain?.multiplier, 1)));
+  const chainPositions = Array.from(harvest?.chain?.positions ?? []).slice(0, chainMultiplier);
+  const finalChainIndex = chainPositions.length - 1;
+  const lastHarvestPosition = chainPositions.filter((position) => position?.source === "harvest").at(-1);
+  const cardChainMultiplier = lastHarvestPosition
+    ? Math.max(1, Math.min(4, safeInt(lastHarvestPosition.chainIndex, 0) + 1))
+    : 1;
   const cardChain = cardChainMultiplier > 1 ? {
     multiplier: cardChainMultiplier,
     delayMs: reducedMotion ? 0 : HARVEST_MULTIPLIER_START_MS,
-    winner: cardChainMultiplier === multiplier,
+    winner: lastHarvestPosition.chainIndex === finalChainIndex && chainMultiplier === multiplier,
   } : null;
-  const connectionEvents = Array.from(harvest?.connection?.pileIndices ?? []).slice(1).map((pileIndex, index) => {
-    const connectionMultiplier = index + 2;
+  const connectionEvents = chainPositions.filter((position) => (
+    position?.source === "garden" && safeInt(position.chainIndex, 0) > 0
+  )).map((position, index) => {
+    const connectionMultiplier = Math.max(2, Math.min(4, safeInt(position.chainIndex, 0) + 1));
     return {
-      pileIndex: safeInt(pileIndex, -1),
+      pileIndex: safeInt(position.pileIndex, -1),
       multiplier: connectionMultiplier,
       delayMs: reducedMotion ? 0 : HARVEST_MULTIPLIER_START_MS + index * HARVEST_LINK_STEP_MS,
-      winner: connectionMultiplier === multiplier,
+      winner: safeInt(position.chainIndex, -1) === finalChainIndex && chainMultiplier === multiplier,
     };
   });
   const comboType = harvest?.typeMatch?.matched === true ? {

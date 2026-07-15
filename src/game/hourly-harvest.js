@@ -2,7 +2,7 @@ import { createRng, shuffleInPlace } from "./random.js";
 import { translateText } from "../i18n.js";
 
 export const HOURLY_MODE = "hourly";
-export const HOURLY_RULES_VERSION = "hourly-four-harvest-v6";
+export const HOURLY_RULES_VERSION = "hourly-four-harvest-v7";
 export const HOURLY_ASSET_VERSION = "broad-life-groups-v1";
 export const HOURLY_HAND_SIZE = 5;
 export const HOURLY_DECK_SIZE = 40;
@@ -12,6 +12,7 @@ export const HOURLY_REDRAW_LIMIT = 3;
 export const HOURLY_COMBO_TYPE_COUNT = 5;
 export const HOURLY_COMBO_TYPE_SIZE = 8;
 export const HOURLY_SAME_TYPE_MULTIPLIER = 5;
+export const HOURLY_MAX_CHAIN_MULTIPLIER = 4;
 export const HOURLY_SCORE_TARGETS = Object.freeze({ one: 200, two: 300, three: 500 });
 export const HOURLY_CLOCKWISE_ORDER = [0, 1, 3, 2];
 export const HOURLY_GARDEN_LABELS = Object.freeze(["A", "B", "D", "C"]);
@@ -260,33 +261,42 @@ export function sameTypeHarvest(cards) {
   };
 }
 
-export function gardenConnection(piles, triggerIndex, triggerDigit = null) {
-  const order = clockwisePileIndices(triggerIndex);
-  const firstPile = piles[triggerIndex] ?? [];
-  const firstDigit = triggerDigit ?? firstPile[firstPile.length - 1]?.digit;
-  if (firstDigit == null) return { length: 1, direction: 0, pileIndices: [triggerIndex], digits: [] };
+export function hourlyHarvestPath(piles, triggerIndex, harvestedCards = null) {
+  const targetIndex = safeInt(triggerIndex, -1);
+  if (targetIndex < 0 || targetIndex >= HOURLY_PILE_COUNT) return [];
+  const targetPile = piles?.[targetIndex] ?? [];
+  const cards = Array.isArray(harvestedCards) ? harvestedCards : targetPile;
+  const positions = cards.slice(0, HOURLY_HARVEST_SIZE).map((card, cardIndex) => ({
+    source: "harvest",
+    pileIndex: targetIndex,
+    cardIndex,
+    digit: safeInt(card?.digit ?? card, -1),
+  })).filter((position) => position.digit >= 0 && position.digit <= 9);
 
-  const pileIndices = [triggerIndex];
-  const digits = [Number(firstDigit)];
-  let direction = 0;
-  let previous = Number(firstDigit);
-
-  for (const pileIndex of order.slice(1)) {
-    const pile = piles[pileIndex] ?? [];
-    const digit = pile[pile.length - 1]?.digit;
-    if (digit == null) break;
-    if (!direction) direction = circularDirection(previous, Number(digit));
-    if (!direction || Number(digit) !== (previous + direction + 10) % 10) break;
-    pileIndices.push(pileIndex);
-    digits.push(Number(digit));
-    previous = Number(digit);
+  for (const pileIndex of clockwisePileIndices(targetIndex).slice(1)) {
+    const pile = piles?.[pileIndex] ?? [];
+    const cardIndex = pile.length - 1;
+    const digit = safeInt(pile[cardIndex]?.digit, -1);
+    if (digit < 0 || digit > 9) break;
+    positions.push({ source: "garden", pileIndex, cardIndex, digit });
   }
+  return positions;
+}
 
+export function longestHourlyHarvestChain(piles, triggerIndex, harvestedCards = null) {
+  const path = hourlyHarvestPath(piles, triggerIndex, harvestedCards);
+  const chain = longestHourlyCardChain(path.map((position) => position.digit));
+  const positions = chain.startIndex < 0
+    ? []
+    : path.slice(chain.startIndex, chain.startIndex + chain.length).map((position, chainIndex) => ({
+        ...position,
+        chainIndex,
+      }));
   return {
-    length: pileIndices.length,
-    direction: pileIndices.length >= 2 ? direction : 0,
-    pileIndices,
-    digits,
+    ...chain,
+    multiplier: Math.max(1, Math.min(HOURLY_MAX_CHAIN_MULTIPLIER, chain.length)),
+    path,
+    positions,
   };
 }
 
@@ -322,17 +332,15 @@ export function previewHourlyPlacement(state, handIndex, pileIndex) {
       cardsUntilHarvest: HOURLY_HARVEST_SIZE - countAfter,
       harvest: false,
       points: 0,
-      connection: { length: 1, direction: 0, pileIndices: [targetIndex], digits: [card.digit] },
     };
   }
 
   const nextPiles = piles.map((pile) => [...pile]);
   nextPiles[targetIndex].push(card);
   const chainSum = nextPiles[targetIndex].reduce((sum, item) => sum + Number(item.digit), 0);
-  const cardChain = longestHourlyCardChain(nextPiles[targetIndex]);
-  const connection = gardenConnection(nextPiles, targetIndex, card.digit);
+  const chain = longestHourlyHarvestChain(nextPiles, targetIndex, nextPiles[targetIndex]);
   const typeMatch = sameTypeHarvest(nextPiles[targetIndex]);
-  const multiplier = Math.max(cardChain.length, connection.length, typeMatch.multiplier);
+  const multiplier = Math.max(chain.multiplier, typeMatch.multiplier);
   const points = chainSum * multiplier;
   return {
     ok: true,
@@ -342,11 +350,10 @@ export function previewHourlyPlacement(state, handIndex, pileIndex) {
     cardsUntilHarvest: 0,
     harvest: true,
     chainSum,
-    cardChain,
+    chain,
     typeMatch,
     multiplier,
     points,
-    connection,
   };
 }
 
@@ -401,8 +408,7 @@ export function playHourlyCard(state, handIndex, pileIndex) {
       pileIndex: preview.pileIndex,
       cards: copy(cards),
       chainSum: preview.chainSum,
-      cardChain: copy(preview.cardChain),
-      connection: copy(preview.connection),
+      chain: copy(preview.chain),
       typeMatch: copy(preview.typeMatch),
       multiplier: preview.multiplier,
       points: preview.points,
@@ -440,20 +446,18 @@ function decodeSolverToken(character) {
   return character.charCodeAt(0) - 0x100;
 }
 
-function compactConnection(piles, triggerIndex, digit) {
-  const order = clockwisePileIndices(triggerIndex);
-  let length = 1;
-  let direction = 0;
-  let previous = digit;
-  for (const pileIndex of order.slice(1)) {
+function compactHarvestChainMultiplier(piles, triggerIndex, digit) {
+  const target = piles[triggerIndex];
+  const pathDigits = [...`${target.digits}${digit}`].map(Number);
+  for (const pileIndex of clockwisePileIndices(triggerIndex).slice(1)) {
     const next = piles[pileIndex]?.top ?? -1;
     if (next < 0) break;
-    if (!direction) direction = circularDirection(previous, next);
-    if (!direction || next !== (previous + direction + 10) % 10) break;
-    length += 1;
-    previous = next;
+    pathDigits.push(next);
   }
-  return length;
+  return Math.max(1, Math.min(
+    HOURLY_MAX_CHAIN_MULTIPLIER,
+    longestHourlyCardChain(pathDigits).length,
+  ));
 }
 
 function compactKey(hand, queue, piles, redrawsLeft) {
@@ -481,13 +485,11 @@ function solverPlayTransition(state, token, handIndex, pileIndex) {
   const pile = piles[pileIndex];
   let gain = 0;
   if (pile.count === 3) {
-    const cardChainLength = longestHourlyCardChain(`${pile.digits}${digit}`).length;
-    const connectionLength = compactConnection(piles, pileIndex, digit);
+    const chainMultiplier = compactHarvestChainMultiplier(piles, pileIndex, digit);
     const sameType = pile.types.length === 3
       && [...pile.types].every((comboType) => Number(comboType) === comboTypeIndex);
     const multiplier = Math.max(
-      cardChainLength,
-      connectionLength,
+      chainMultiplier,
       sameType ? HOURLY_SAME_TYPE_MULTIPLIER : 1,
     );
     gain = (pile.sum + digit) * multiplier;
@@ -710,11 +712,11 @@ export function hourlyRootUrl(origin, pathname = "/") {
 }
 
 export function hourlyRunStorageKey(seed) {
-  return `garden-stacks:hourly-v6:${seed}:run`;
+  return `garden-stacks:hourly-v7:${seed}:run`;
 }
 
 export function hourlyBestStorageKey(seed) {
-  return `garden-stacks:hourly-v6:${seed}:best`;
+  return `garden-stacks:hourly-v7:${seed}:best`;
 }
 
-export const HOURLY_ACTIVE_SEED_KEY = "garden-stacks:hourly-v6:active-seed";
+export const HOURLY_ACTIVE_SEED_KEY = "garden-stacks:hourly-v7:active-seed";

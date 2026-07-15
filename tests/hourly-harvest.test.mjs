@@ -8,13 +8,14 @@ import {
   HOURLY_COMBO_TYPE_SIZE,
   HOURLY_COMBO_TYPES,
   HOURLY_GARDEN_LABELS,
+  HOURLY_MAX_CHAIN_MULTIPLIER,
   HOURLY_REDRAW_LIMIT,
   HOURLY_SAME_TYPE_MULTIPLIER,
   HOURLY_SPECIES_POOL,
   canRedrawHourlyHand,
   createHourlyDeck,
   formatDuration,
-  gardenConnection,
+  hourlyHarvestPath,
   hourlyGardenLabel,
   hourlyDeckOverview,
   hourlyResultShareText,
@@ -22,6 +23,7 @@ import {
   hourlyScoreTargets,
   kstHourSeed,
   longestHourlyCardChain,
+  longestHourlyHarvestChain,
   newHourlyRun,
   playHourlyCard,
   previewHourlyPlacement,
@@ -139,21 +141,41 @@ test("deck overview keeps all cards, greys played cards, and supports both sort 
   )), true);
 });
 
-test("clockwise connection starts at the played garden and fixes direction", () => {
+test("harvest path continues from the four-card stack through clockwise garden tops", () => {
   assert.deepEqual(HOURLY_CLOCKWISE_ORDER, [0, 1, 3, 2]);
   const state = ruleState();
   const nextPiles = state.piles.map((pile) => [...pile]);
   nextPiles[0].push(state.hand[0]);
-  const connection = gardenConnection(nextPiles, 0, 5);
-  assert.deepEqual(connection, {
-    length: 3,
+  assert.deepEqual(hourlyHarvestPath(nextPiles, 0).map(({ source, pileIndex, digit }) => ({
+    source,
+    pileIndex,
+    digit,
+  })), [
+    { source: "harvest", pileIndex: 0, digit: 2 },
+    { source: "harvest", pileIndex: 0, digit: 8 },
+    { source: "harvest", pileIndex: 0, digit: 4 },
+    { source: "harvest", pileIndex: 0, digit: 5 },
+    { source: "garden", pileIndex: 1, digit: 6 },
+    { source: "garden", pileIndex: 3, digit: 7 },
+    { source: "garden", pileIndex: 2, digit: 2 },
+  ]);
+  const chain = longestHourlyHarvestChain(nextPiles, 0);
+  assert.deepEqual({
+    length: chain.length,
+    direction: chain.direction,
+    startIndex: chain.startIndex,
+    digits: chain.digits,
+    multiplier: chain.multiplier,
+  }, {
+    length: 4,
     direction: 1,
-    pileIndices: [0, 1, 3],
-    digits: [5, 6, 7],
+    startIndex: 2,
+    digits: [4, 5, 6, 7],
+    multiplier: HOURLY_MAX_CHAIN_MULTIPLIER,
   });
 
-  nextPiles[3] = [card(5, "direction-break")];
-  assert.equal(gardenConnection(nextPiles, 0, 5).length, 2);
+  nextPiles[1] = [];
+  assert.equal(hourlyHarvestPath(nextPiles, 0).length, 4);
 });
 
 test("longest card chain follows play order, fixes direction, and allows 9-0", () => {
@@ -174,19 +196,19 @@ test("longest card chain follows play order, fixes direction, and allows 9-0", (
   assert.equal(longestHourlyCardChain([9, 0, 1, 2]).length, 4);
 });
 
-test("four-card sum uses the longer card chain or garden connection as multiplier", () => {
+test("four-card sum uses one chain across the harvest and clockwise gardens", () => {
   const state = ruleState();
   const preview = previewHourlyPlacement(state, 0, 0);
   assert.equal(preview.harvest, true);
   assert.equal(preview.chainSum, 19);
-  assert.equal(preview.cardChain.length, 2);
-  assert.equal(preview.connection.length, 3);
-  assert.equal(preview.multiplier, 3);
-  assert.equal(preview.points, 57);
+  assert.equal(preview.chain.length, 4);
+  assert.deepEqual(preview.chain.digits, [4, 5, 6, 7]);
+  assert.equal(preview.multiplier, 4);
+  assert.equal(preview.points, 76);
 
   const result = playHourlyCard(state, 0, 0);
   assert.equal(result.ok, true);
-  assert.equal(state.score, 57);
+  assert.equal(state.score, 76);
   assert.equal(state.harvests, 1);
   assert.equal(state.piles[0].length, 0);
   assert.equal(state.piles[1][0].digit, 6);
@@ -196,23 +218,23 @@ test("four-card sum uses the longer card chain or garden connection as multiplie
 
 test("a completed run reaches three stars at 500 points", () => {
   const state = ruleState();
-  state.score = 443;
+  state.score = 424;
   const result = playHourlyCard(state, 0, 0);
-  assert.equal(result.harvest.points, 57);
+  assert.equal(result.harvest.points, 76);
   assert.equal(state.score, 500);
   assert.equal(state.stars, 3);
   assert.equal("perfect" in state, false);
   assert.equal(state.phase, "result");
 });
 
-test("a four-card internal chain can beat a missing garden connection", () => {
+test("a four-card harvest chain scores without any occupied next garden", () => {
   const state = ruleState();
   state.hand = [card(4, "played-4")];
   state.piles = [[card(1, "a"), card(2, "b"), card(3, "c")], [], [], []];
   const preview = previewHourlyPlacement(state, 0, 0);
   assert.equal(preview.chainSum, 10);
-  assert.equal(preview.cardChain.length, 4);
-  assert.equal(preview.connection.length, 1);
+  assert.equal(preview.chain.length, 4);
+  assert.equal(preview.chain.multiplier, 4);
   assert.equal(preview.multiplier, 4);
   assert.equal(preview.points, 40);
 });
@@ -236,14 +258,31 @@ test("four different organisms of the same combo type use a non-stacking five-ti
     comboTypeId: "flower",
     multiplier: HOURLY_SAME_TYPE_MULTIPLIER,
   });
-  assert.equal(preview.cardChain.length, 4);
-  assert.equal(preview.connection.length, 4);
+  assert.equal(preview.chain.length, 7);
+  assert.equal(preview.chain.multiplier, HOURLY_MAX_CHAIN_MULTIPLIER);
   assert.equal(preview.multiplier, 5);
   assert.equal(preview.points, 50);
 
   const result = playHourlyCard(state, 0, 0);
   assert.equal(result.harvest.typeMatch.matched, true);
   assert.equal(state.score, 50);
+});
+
+test("disconnected runs are not added together inside the unified harvest path", () => {
+  const state = ruleState();
+  state.hand = [card(8, "played-8")];
+  state.piles = [
+    [card(1, "a"), card(2, "b"), card(7, "c")],
+    [card(9, "d")],
+    [card(4, "e")],
+    [card(0, "f")],
+  ];
+  const preview = previewHourlyPlacement(state, 0, 0);
+  assert.deepEqual(preview.chain.path.map((position) => position.digit), [1, 2, 7, 8, 9, 0, 4]);
+  assert.deepEqual(preview.chain.digits, [7, 8, 9, 0]);
+  assert.equal(preview.chain.length, 4);
+  assert.equal(preview.multiplier, 4);
+  assert.equal(preview.points, 72);
 });
 
 test("three matching types are not enough and a fourth different type keeps the normal multiplier", () => {

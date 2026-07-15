@@ -12,8 +12,16 @@ import {
 function harvest(overrides = {}) {
   return {
     cards: [0, 9, 5, 3].map((digit, index) => ({ id: `card-${index}`, digit })),
-    cardChain: { length: 2 },
-    connection: { pileIndices: [0, 1, 3, 2] },
+    chain: {
+      length: 4,
+      multiplier: 4,
+      positions: [
+        { source: "harvest", pileIndex: 0, chainIndex: 0 },
+        { source: "garden", pileIndex: 1, chainIndex: 1 },
+        { source: "garden", pileIndex: 3, chainIndex: 2 },
+        { source: "garden", pileIndex: 2, chainIndex: 3 },
+      ],
+    },
     typeMatch: { matched: false, comboTypeId: null },
     multiplier: 4,
     points: 68,
@@ -21,7 +29,7 @@ function harvest(overrides = {}) {
   };
 }
 
-test("harvest feedback reveals four additions every 300ms and cumulative garden links", () => {
+test("harvest feedback reveals four additions and continues one cumulative chain across gardens", () => {
   const feedback = createHourlyHarvestFeedback(harvest());
   assert.deepEqual(feedback.additions.map((event) => [event.digit, event.delayMs]), [
     [0, 0],
@@ -34,7 +42,7 @@ test("harvest feedback reveals four additions every 300ms and cumulative garden 
     [3, 3],
     [2, 4],
   ]);
-  assert.equal(feedback.cardChain.multiplier, 2);
+  assert.equal(feedback.cardChain, null);
   assert.equal(feedback.connectionEvents.at(-1).winner, true);
   assert.equal(feedback.final.delayMs, HARVEST_FINAL_DELAY_MS);
   assert.equal(feedback.final.durationMs, HARVEST_FINAL_DISPLAY_MS);
@@ -45,13 +53,21 @@ test("harvest feedback reveals four additions every 300ms and cumulative garden 
 
 test("same-type feedback wins at five without stacking other multipliers", () => {
   const feedback = createHourlyHarvestFeedback(harvest({
-    cardChain: { length: 4 },
+    chain: {
+      length: 4,
+      multiplier: 4,
+      positions: [0, 1, 2, 3].map((chainIndex) => ({
+        source: "harvest",
+        pileIndex: 0,
+        chainIndex,
+      })),
+    },
     typeMatch: { matched: true, comboTypeId: "flower" },
     multiplier: 5,
     points: 85,
   }));
   assert.equal(feedback.cardChain.winner, false);
-  assert.equal(feedback.connectionEvents.at(-1).winner, false);
+  assert.equal(feedback.connectionEvents.length, 0);
   assert.deepEqual(feedback.comboType, {
     multiplier: 5,
     comboTypeId: "flower",
@@ -61,11 +77,35 @@ test("same-type feedback wins at five without stacking other multipliers", () =>
   assert.deepEqual(feedback.final, { multiplier: 5, points: 85, delayMs: 1600, durationMs: 1100 });
 });
 
+test("feedback stops at the x4 scoring cap instead of repeating x4 across later gardens", () => {
+  const feedback = createHourlyHarvestFeedback(harvest({
+    chain: {
+      length: 7,
+      multiplier: 4,
+      positions: [
+        ...[0, 1, 2, 3].map((chainIndex) => ({
+          source: "harvest",
+          pileIndex: 0,
+          chainIndex,
+        })),
+        ...[1, 3, 2].map((pileIndex, index) => ({
+          source: "garden",
+          pileIndex,
+          chainIndex: index + 4,
+        })),
+      ],
+    },
+  }));
+  assert.equal(feedback.cardChain.multiplier, 4);
+  assert.equal(feedback.cardChain.winner, true);
+  assert.deepEqual(feedback.connectionEvents, []);
+});
+
 test("reduced motion resolves all labels immediately and shortens the input lock", () => {
   const feedback = createHourlyHarvestFeedback(harvest(), { reducedMotion: true });
   assert.equal(feedback.additions.every((event) => event.delayMs === 0), true);
   assert.equal(feedback.connectionEvents.every((event) => event.delayMs === 0), true);
-  assert.equal(feedback.cardChain.delayMs, 0);
+  assert.equal(feedback.cardChain, null);
   assert.equal(feedback.final.delayMs, 0);
   assert.equal(feedback.final.durationMs, 450);
   assert.equal(feedback.durationMs, 450);
