@@ -12,6 +12,7 @@ export const HOURLY_REDRAW_LIMIT = 3;
 export const HOURLY_COMBO_TYPE_COUNT = 5;
 export const HOURLY_COMBO_TYPE_SIZE = 8;
 export const HOURLY_SAME_TYPE_MULTIPLIER = 5;
+export const HOURLY_SCORE_TARGETS = Object.freeze({ one: 200, two: 300, three: 500 });
 export const HOURLY_CLOCKWISE_ORDER = [0, 1, 3, 2];
 export const HOURLY_GARDEN_LABELS = Object.freeze(["A", "B", "D", "C"]);
 export const HOURLY_SHARE_URL = "https://plan9.kr/stacks";
@@ -289,16 +290,8 @@ export function gardenConnection(piles, triggerIndex, triggerDigit = null) {
   };
 }
 
-export function thresholdsForMaximum(maxScore) {
-  const maximum = Math.max(1, safeInt(maxScore, 1));
-  const rounded = (ratio) => Math.max(10, Math.floor((maximum * ratio) / 10) * 10);
-  let one = rounded(0.35);
-  let two = Math.max(one + 10, rounded(0.6));
-  let three = Math.max(two + 10, rounded(0.8));
-  if (three >= maximum) three = Math.max(three, maximum);
-  if (two >= three) two = Math.max(10, three - 10);
-  if (one >= two) one = Math.max(10, two - 10);
-  return { one, two, three, perfect: maximum };
+export function hourlyScoreTargets() {
+  return copy(HOURLY_SCORE_TARGETS);
 }
 
 export function starsForScore(score, thresholds) {
@@ -419,7 +412,6 @@ export function playHourlyCard(state, handIndex, pileIndex) {
   const drawnCard = state.deck.length ? copy(state.deck[0]) : null;
   refillHourlyHand(state);
   state.stars = starsForScore(state.score, state.thresholds);
-  state.perfect = state.score >= state.maximumScore;
   state.updatedAt = Date.now();
   if (!state.deck.length && !state.hand.length) {
     state.phase = "result";
@@ -603,7 +595,7 @@ export function solveHourlyHarvestMaximum(seed, options = {}) {
   return {
     seed,
     maximumScore: best?.score ?? 1,
-    thresholds: thresholdsForMaximum(best?.score ?? 1),
+    thresholds: hourlyScoreTargets(),
     path: materializeSolverPath(best?.trail),
     exploredStates,
     verified: true,
@@ -612,7 +604,7 @@ export function solveHourlyHarvestMaximum(seed, options = {}) {
 }
 
 export function newHourlyRun(seed, options = {}) {
-  const solution = options.solution ?? solveHourlyHarvestMaximum(seed, options);
+  const solution = options.solution ?? null;
   const deck = createHourlyDeck(seed);
   const state = {
     version: HOURLY_RULES_VERSION,
@@ -623,16 +615,14 @@ export function newHourlyRun(seed, options = {}) {
     hand: [],
     piles: Array.from({ length: HOURLY_PILE_COUNT }, () => []),
     score: 0,
-    maximumScore: solution.maximumScore,
-    thresholds: copy(solution.thresholds),
-    solverVersion: solution.solverVersion,
-    solverVerified: solution.verified === true,
+    thresholds: hourlyScoreTargets(),
+    solverVersion: solution?.solverVersion ?? null,
+    solverVerified: solution?.verified === true,
     cardsPlayed: 0,
     harvests: 0,
     redrawsLeft: HOURLY_REDRAW_LIMIT,
     redrawsUsed: 0,
     stars: 0,
-    perfect: false,
     lastHarvest: null,
     startedAt: Date.now(),
     updatedAt: Date.now(),
@@ -670,10 +660,10 @@ export function restoreHourlyRun(snapshot) {
   state.harvests = Math.max(0, safeInt(state.harvests));
   state.redrawsLeft = Math.max(0, Math.min(HOURLY_REDRAW_LIMIT, safeInt(state.redrawsLeft, HOURLY_REDRAW_LIMIT)));
   state.redrawsUsed = Math.max(0, Math.min(HOURLY_REDRAW_LIMIT, safeInt(state.redrawsUsed, HOURLY_REDRAW_LIMIT - state.redrawsLeft)));
-  state.maximumScore = Math.max(1, safeInt(state.maximumScore, 1));
-  state.thresholds = thresholdsForMaximum(state.maximumScore);
+  state.thresholds = hourlyScoreTargets();
   state.stars = starsForScore(state.score, state.thresholds);
-  state.perfect = state.score >= state.maximumScore;
+  delete state.maximumScore;
+  delete state.perfect;
   state.phase = state.phase === "result" ? "result" : "play";
   return state;
 }
@@ -702,14 +692,12 @@ export function replayHourlySolution(seed, solution) {
 }
 
 export function hourlyResultShareText(state, url = HOURLY_SHARE_URL, language = "ko") {
-  const result = state.perfect
-    ? "PERFECT"
-    : "★".repeat(state.stars) || translateText(language, "share.statusInProgress");
+  const result = "★".repeat(state.stars) || translateText(language, "share.statusInProgress");
   return translateText(language, "share.result", {
     seed: state.seed,
     result,
     score: state.score,
-    target: state.thresholds?.three ?? thresholdsForMaximum(state.maximumScore).three,
+    target: state.thresholds?.three ?? HOURLY_SCORE_TARGETS.three,
     url,
   });
 }
@@ -727,10 +715,6 @@ export function hourlyRunStorageKey(seed) {
 
 export function hourlyBestStorageKey(seed) {
   return `garden-stacks:hourly-v6:${seed}:best`;
-}
-
-export function hourlySolutionStorageKey(seed) {
-  return `garden-stacks:hourly-v6:${seed}:solution`;
 }
 
 export const HOURLY_ACTIVE_SEED_KEY = "garden-stacks:hourly-v6:active-seed";

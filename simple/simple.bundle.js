@@ -214,21 +214,21 @@ const TRANSLATIONS = {
     "document.description": "매시간 같은 숫자 덱으로 연쇄와 같은 생물군 네 장 수확을 만드는 모바일 카드 게임.",
     "document.thumbnailAlt": "Stacks 네 장 수확과 연쇄 4배 점수 예시",
     "loading.title": "새 정원을 준비하는 중",
-    "loading.detail": "최대 점수를 계산하고 있어요.",
+    "loading.detail": "시간 시드로 카드를 섞고 있어요.",
     "error.title": "게임을 준비하지 못했습니다.",
     "error.reload": "새로고침",
     "seed.label": "{month}월 {day}일 {hour}시",
     "help.open": "게임방법",
     "help.title": "게임방법",
     "help.close": "닫기",
-    "help.rule1": "손패 카드 한 장을 원하는 정원으로 옮깁니다.",
-    "help.rule2": "정원에 네 장이 쌓이면 숫자를 더하고, 놓인 순서에서 가장 긴 ±1 카드 연쇄를 찾습니다.",
-    "help.rule3": "카드 연쇄와 놓은 정원부터의 시계방향 정원 연결 중 더 긴 길이를 ×1~×4 배수로 씁니다.",
-    "help.rule4": "꽃·나무·양서류·새·곤충 중 같은 생물군 네 장을 함께 수확하면 ×5입니다. 배수는 겹치지 않고 가장 높은 하나만 씁니다.",
-    "help.rule5": "카드 새로받기는 손패를 덱 뒤로 보내며 한 게임에 세 번 쓸 수 있습니다.",
-    "help.rule6": "40장을 모두 사용한 점수로 별을 받습니다.",
+    "help.rule1": "손패에서 카드 한 장을 골라 원하는 정원에 놓습니다.",
+    "help.rule2": "한 정원에 네 장이 쌓이면 바로 수확합니다. 기본 점수는 네 장의 숫자 합입니다.",
+    "help.rule3": "연속 숫자는 두 곳에서 찾습니다. ① 수확한 네 카드를 놓은 순서 ② 방금 놓은 카드에서 시작해 시계방향으로 본 각 정원의 맨 위 카드",
+    "help.rule4": "숫자 합에 둘 중 더 긴 연속 길이를 곱합니다(1~4장 = ×1~×4). 네 장이 모두 같은 생물군이면 ×5이며, 가장 높은 배수 하나만 적용합니다.",
+    "help.rule5": "새로받기는 현재 손패를 덱 뒤로 보내고 새 손패를 받습니다. 한 게임에 세 번 쓸 수 있습니다.",
+    "help.rule6": "카드 40장을 모두 놓고 200·300·500점에서 별을 받습니다.",
     "help.exampleLabel": "예:",
-    "help.example": "서로 다른 꽃 네 장의 합 19 × 같은 생물군 5 = 95점",
+    "help.example": "2→3→4 또는 4→3→2는 3장 연속으로 ×3입니다. 9와 0도 이어집니다.",
     "help.sound": "효과음",
     "help.language": "언어",
     "help.retry": "현재 게임 다시하기",
@@ -298,21 +298,21 @@ const TRANSLATIONS = {
     "document.description": "A mobile card game where everyone plays the same hourly deck, building chains and four-of-a-type harvests.",
     "document.thumbnailAlt": "Stacks four-card harvest and x4 chain scoring example",
     "loading.title": "Preparing a new garden",
-    "loading.detail": "Calculating the target scores.",
+    "loading.detail": "Shuffling cards from the hourly seed.",
     "error.title": "The game could not be prepared.",
     "error.reload": "Reload",
     "seed.label": "{month}/{day} {hour}:00 KST",
     "help.open": "How to play",
     "help.title": "How to play",
     "help.close": "Close",
-    "help.rule1": "Move one card from your hand to any garden.",
-    "help.rule2": "When a garden reaches four cards, add them and find the longest ±1 card chain in play order.",
-    "help.rule3": "Use the longer of that card chain and the clockwise garden link as the ×1–×4 multiplier.",
-    "help.rule4": "Harvest four cards from the same life group (flower, tree, amphibian, bird, or insect) for ×5. Multipliers do not stack; only the highest one counts.",
-    "help.rule5": "Redraw sends your hand to the back of the deck and can be used three times per game.",
-    "help.rule6": "Use all 40 cards to earn stars from your final score.",
+    "help.rule1": "Place one hand card in any garden.",
+    "help.rule2": "Four cards in one garden are harvested. Base score = number sum.",
+    "help.rule3": "Find chains in: ① harvested cards in play order ② garden top cards, clockwise from where you played",
+    "help.rule4": "Score = sum × longer chain (1–4 cards = ×1–×4). Same life group ×5. Use only the highest multiplier.",
+    "help.rule5": "Redraw sends your hand to the deck’s back and deals again. Three uses per game.",
+    "help.rule6": "Use all 40 cards. Stars: 200 / 300 / 500.",
     "help.exampleLabel": "Example:",
-    "help.example": "Four different flowers: sum 19 × same group 5 = 95 points",
+    "help.example": "2→3→4 or 4→3→2 = three-card chain (×3). 9 connects to 0.",
     "help.sound": "Sound effects",
     "help.language": "Language",
     "help.retry": "Restart this game",
@@ -382,21 +382,21 @@ const TRANSLATIONS = {
     "document.description": "毎時同じ数字デッキで、連鎖と同じ生物グループ4枚の収穫を作るモバイルカードゲーム。",
     "document.thumbnailAlt": "Stacksの4枚収穫と4倍連鎖スコアの例",
     "loading.title": "新しいガーデンを準備中",
-    "loading.detail": "目標スコアを計算しています。",
+    "loading.detail": "時間シードでカードをシャッフルしています。",
     "error.title": "ゲームを準備できませんでした。",
     "error.reload": "再読み込み",
     "seed.label": "{month}月{day}日 {hour}時",
     "help.open": "遊び方",
     "help.title": "遊び方",
     "help.close": "閉じる",
-    "help.rule1": "手札から1枚を選び、好きなガーデンへ移動します。",
-    "help.rule2": "ガーデンに4枚たまると数字を足し、置いた順で最長の±1カード連鎖を探します。",
-    "help.rule3": "カード連鎖と置いたガーデンから時計回りの連結を比べ、長い方を×1〜×4の倍率にします。",
-    "help.rule4": "花・木・両生類・鳥・昆虫のうち同じ生物グループを4枚収穫すると×5です。倍率は重ならず、最も高い1つだけを使います。",
-    "help.rule5": "手札交換は手札をデッキの後ろへ送り、1ゲームに3回使えます。",
-    "help.rule6": "40枚をすべて使ったスコアで星を獲得します。",
+    "help.rule1": "手札から1枚選び、好きなガーデンに置きます。",
+    "help.rule2": "1つのガーデンに4枚たまると収穫。基本点は4枚の数字の合計です。",
+    "help.rule3": "連続数字は2か所で探します。① 収穫した4枚の順番 ② 今置いたカードから時計回りに見た各ガーデンの一番上",
+    "help.rule4": "数字の合計に長い方の連続数を掛けます（1〜4枚＝×1〜×4）。同じ生物グループ4枚なら×5。最も高い倍率だけを使います。",
+    "help.rule5": "手札交換は今の手札をデッキの後ろに送り、新しい手札を引きます。1ゲーム3回まで。",
+    "help.rule6": "40枚すべて置くと終了。200・300・500点で星を獲得します。",
     "help.exampleLabel": "例：",
-    "help.example": "異なる花4枚：合計19 × 同じグループ5 = 95点",
+    "help.example": "2→3→4や4→3→2は3枚連続（×3）。9と0もつながります。",
     "help.sound": "効果音",
     "help.language": "言語",
     "help.retry": "このゲームをやり直す",
@@ -608,6 +608,7 @@ const HOURLY_REDRAW_LIMIT = 3;
 const HOURLY_COMBO_TYPE_COUNT = 5;
 const HOURLY_COMBO_TYPE_SIZE = 8;
 const HOURLY_SAME_TYPE_MULTIPLIER = 5;
+const HOURLY_SCORE_TARGETS = Object.freeze({ one: 200, two: 300, three: 500 });
 const HOURLY_CLOCKWISE_ORDER = [0, 1, 3, 2];
 const HOURLY_GARDEN_LABELS = Object.freeze(["A", "B", "D", "C"]);
 const HOURLY_SHARE_URL = "https://plan9.kr/stacks";
@@ -885,16 +886,8 @@ function gardenConnection(piles, triggerIndex, triggerDigit = null) {
   };
 }
 
-function thresholdsForMaximum(maxScore) {
-  const maximum = Math.max(1, safeInt(maxScore, 1));
-  const rounded = (ratio) => Math.max(10, Math.floor((maximum * ratio) / 10) * 10);
-  let one = rounded(0.35);
-  let two = Math.max(one + 10, rounded(0.6));
-  let three = Math.max(two + 10, rounded(0.8));
-  if (three >= maximum) three = Math.max(three, maximum);
-  if (two >= three) two = Math.max(10, three - 10);
-  if (one >= two) one = Math.max(10, two - 10);
-  return { one, two, three, perfect: maximum };
+function hourlyScoreTargets() {
+  return copy(HOURLY_SCORE_TARGETS);
 }
 
 function starsForScore(score, thresholds) {
@@ -1015,7 +1008,6 @@ function playHourlyCard(state, handIndex, pileIndex) {
   const drawnCard = state.deck.length ? copy(state.deck[0]) : null;
   refillHourlyHand(state);
   state.stars = starsForScore(state.score, state.thresholds);
-  state.perfect = state.score >= state.maximumScore;
   state.updatedAt = Date.now();
   if (!state.deck.length && !state.hand.length) {
     state.phase = "result";
@@ -1199,7 +1191,7 @@ function solveHourlyHarvestMaximum(seed, options = {}) {
   return {
     seed,
     maximumScore: best?.score ?? 1,
-    thresholds: thresholdsForMaximum(best?.score ?? 1),
+    thresholds: hourlyScoreTargets(),
     path: materializeSolverPath(best?.trail),
     exploredStates,
     verified: true,
@@ -1208,7 +1200,7 @@ function solveHourlyHarvestMaximum(seed, options = {}) {
 }
 
 function newHourlyRun(seed, options = {}) {
-  const solution = options.solution ?? solveHourlyHarvestMaximum(seed, options);
+  const solution = options.solution ?? null;
   const deck = createHourlyDeck(seed);
   const state = {
     version: HOURLY_RULES_VERSION,
@@ -1219,16 +1211,14 @@ function newHourlyRun(seed, options = {}) {
     hand: [],
     piles: Array.from({ length: HOURLY_PILE_COUNT }, () => []),
     score: 0,
-    maximumScore: solution.maximumScore,
-    thresholds: copy(solution.thresholds),
-    solverVersion: solution.solverVersion,
-    solverVerified: solution.verified === true,
+    thresholds: hourlyScoreTargets(),
+    solverVersion: solution?.solverVersion ?? null,
+    solverVerified: solution?.verified === true,
     cardsPlayed: 0,
     harvests: 0,
     redrawsLeft: HOURLY_REDRAW_LIMIT,
     redrawsUsed: 0,
     stars: 0,
-    perfect: false,
     lastHarvest: null,
     startedAt: Date.now(),
     updatedAt: Date.now(),
@@ -1266,10 +1256,10 @@ function restoreHourlyRun(snapshot) {
   state.harvests = Math.max(0, safeInt(state.harvests));
   state.redrawsLeft = Math.max(0, Math.min(HOURLY_REDRAW_LIMIT, safeInt(state.redrawsLeft, HOURLY_REDRAW_LIMIT)));
   state.redrawsUsed = Math.max(0, Math.min(HOURLY_REDRAW_LIMIT, safeInt(state.redrawsUsed, HOURLY_REDRAW_LIMIT - state.redrawsLeft)));
-  state.maximumScore = Math.max(1, safeInt(state.maximumScore, 1));
-  state.thresholds = thresholdsForMaximum(state.maximumScore);
+  state.thresholds = hourlyScoreTargets();
   state.stars = starsForScore(state.score, state.thresholds);
-  state.perfect = state.score >= state.maximumScore;
+  delete state.maximumScore;
+  delete state.perfect;
   state.phase = state.phase === "result" ? "result" : "play";
   return state;
 }
@@ -1298,14 +1288,12 @@ function replayHourlySolution(seed, solution) {
 }
 
 function hourlyResultShareText(state, url = HOURLY_SHARE_URL, language = "ko") {
-  const result = state.perfect
-    ? "PERFECT"
-    : "★".repeat(state.stars) || translateText(language, "share.statusInProgress");
+  const result = "★".repeat(state.stars) || translateText(language, "share.statusInProgress");
   return translateText(language, "share.result", {
     seed: state.seed,
     result,
     score: state.score,
-    target: state.thresholds?.three ?? thresholdsForMaximum(state.maximumScore).three,
+    target: state.thresholds?.three ?? HOURLY_SCORE_TARGETS.three,
     url,
   });
 }
@@ -1323,10 +1311,6 @@ function hourlyRunStorageKey(seed) {
 
 function hourlyBestStorageKey(seed) {
   return `garden-stacks:hourly-v6:${seed}:best`;
-}
-
-function hourlySolutionStorageKey(seed) {
-  return `garden-stacks:hourly-v6:${seed}:solution`;
 }
 
 const HOURLY_ACTIVE_SEED_KEY = "garden-stacks:hourly-v6:active-seed";
@@ -1495,8 +1479,6 @@ function handCardPointerEffect(clientX, clientY, bounds, maxTilt = 8) {
 
 const app = document.querySelector("#app");
 const perfMonitor = createPerformanceMonitor("Stacks Hourly");
-const SOLVER_BEAM_WIDTH = 2000;
-const SOLVER_VERSION = `${HOURLY_RULES_VERSION}:beam-${SOLVER_BEAM_WIDTH}`;
 const SNAP_MS = 150;
 const DEAL_CARD_MS = 360;
 const DEAL_STAGGER_MS = 70;
@@ -1509,7 +1491,6 @@ const FALLBACK_CARD_IMAGE = "public/assets/garden-stacks/generated/cards/card_lo
 
 const ui = {
   state: null,
-  solution: null,
   selectedHandIndex: null,
   pendingSeed: "",
   newGameConfirmOpen: false,
@@ -1866,13 +1847,6 @@ function interactionLocked() {
   return Boolean(ui.motion || ui.deal || ui.harvestPulse);
 }
 
-function validSolutionPath(path) {
-  if (!Array.isArray(path)) return false;
-  const plays = path.filter((action) => !action.type || action.type === "play").length;
-  const redraws = path.filter((action) => action.type === "redraw").length;
-  return plays === 40 && redraws <= HOURLY_REDRAW_LIMIT && path.length === plays + redraws;
-}
-
 function activeSeed() {
   try {
     return localStorage.getItem(HOURLY_ACTIVE_SEED_KEY) ?? "";
@@ -1889,24 +1863,6 @@ function setActiveSeed(seed) {
   }
 }
 
-function loadSolution(seed) {
-  const cached = readJson(hourlySolutionStorageKey(seed));
-  if (cached?.seed === seed
-    && cached.solverVersion === SOLVER_VERSION
-    && validSolutionPath(cached.path)
-    && cached.maximumScore > 0) {
-    const replay = replayHourlySolution(seed, cached);
-    if (replay.ok) return cached;
-  }
-  const stop = perfMonitor.start("solver.hourly", { seed, beamWidth: SOLVER_BEAM_WIDTH });
-  const solution = solveHourlyHarvestMaximum(seed, { beamWidth: SOLVER_BEAM_WIDTH });
-  const replay = replayHourlySolution(seed, solution);
-  stop({ exploredStates: solution.exploredStates, maximumScore: solution.maximumScore, verified: replay.ok });
-  if (!replay.ok) throw new Error("hourly solver path verification failed");
-  writeJson(hourlySolutionStorageKey(seed), solution);
-  return solution;
-}
-
 function saveRun() {
   if (!ui.state) return;
   writeJson(hourlyRunStorageKey(ui.state.seed), snapshotHourlyRun(ui.state));
@@ -1915,7 +1871,7 @@ function saveRun() {
 
 function loadBest(seed) {
   const best = readJson(hourlyBestStorageKey(seed));
-  return best && Number.isFinite(best.score) ? best : { score: 0, stars: 0, perfect: false, attempts: 0 };
+  return best && Number.isFinite(best.score) ? best : { score: 0, stars: 0, attempts: 0 };
 }
 
 function recordResult() {
@@ -1924,15 +1880,13 @@ function recordResult() {
   writeJson(hourlyBestStorageKey(ui.state.seed), {
     score: Math.max(previous.score ?? 0, ui.state.score),
     stars: Math.max(previous.stars ?? 0, ui.state.stars),
-    perfect: previous.perfect === true || ui.state.perfect === true,
     attempts: Math.max(1, (previous.attempts ?? 0) + 1),
     completedAt: Date.now(),
   });
 }
 
 function createRun(seed) {
-  ui.solution = loadSolution(seed);
-  return newHourlyRun(seed, { solution: ui.solution });
+  return newHourlyRun(seed);
 }
 
 function restoreOrCreateRun() {
@@ -1941,7 +1895,6 @@ function restoreOrCreateRun() {
   const candidateSeed = savedActiveSeed || currentSeed;
   let state = restoreHourlyRun(readJson(hourlyRunStorageKey(candidateSeed)));
   if (!state) state = createRun(currentSeed);
-  else ui.solution = loadSolution(state.seed);
   ui.state = state;
   ui.resultOpen = state.phase === "result";
   setActiveSeed(state.seed);
@@ -2229,7 +2182,7 @@ function renderResult() {
     <div class="overlay result-overlay">
       <section class="dialog result-dialog" role="dialog" aria-modal="true" aria-labelledby="result-title">
         <span class="result-seed">#${ui.state.seed}</span>
-        <h2 id="result-title">${ui.state.perfect ? "PERFECT" : starsText(ui.state.stars)}</h2>
+        <h2 id="result-title">${starsText(ui.state.stars)}</h2>
         <strong class="result-score">${escapeHtml(t("result.points", { score: ui.state.score }))}</strong>
         <p>${escapeHtml(t("result.best", { score: best.score }))}</p>
         <div class="result-actions">
@@ -2459,14 +2412,13 @@ function retryCurrent() {
   ui.selectedHandIndex = null;
   ui.motion = null;
   ui.deal = null;
-  ui.state = newHourlyRun(ui.state.seed, { solution: ui.solution ?? loadSolution(ui.state.seed) });
+  ui.state = newHourlyRun(ui.state.seed);
   saveRun();
   startDealMotion(ui.state.hand);
   render();
 }
 
 function startSeed(seed) {
-  ui.loading = true;
   ui.resultOpen = false;
   ui.helpOpen = false;
   ui.remainingOpen = false;
@@ -2474,17 +2426,11 @@ function startSeed(seed) {
   ui.selectedHandIndex = null;
   ui.motion = null;
   ui.deal = null;
-  applyDocumentLanguage();
-  app.innerHTML = loadingMarkup();
-  window.setTimeout(() => {
-    ui.solution = loadSolution(seed);
-    ui.state = newHourlyRun(seed, { solution: ui.solution });
-    ui.pendingSeed = "";
-    ui.loading = false;
-    saveRun();
-    startDealMotion(ui.state.hand);
-    render();
-  }, 30);
+  ui.state = newHourlyRun(seed);
+  ui.pendingSeed = "";
+  saveRun();
+  startDealMotion(ui.state.hand);
+  render();
 }
 
 function shouldUseNativeShare() {

@@ -19,6 +19,7 @@ import {
   hourlyDeckOverview,
   hourlyResultShareText,
   hourlyRootUrl,
+  hourlyScoreTargets,
   kstHourSeed,
   longestHourlyCardChain,
   newHourlyRun,
@@ -32,7 +33,6 @@ import {
   snapshotHourlyRun,
   solveHourlyHarvestMaximum,
   starsForScore,
-  thresholdsForMaximum,
 } from "../src/game/hourly-harvest.js";
 
 test("garden labels read A B / D C and clockwise as A B C D", () => {
@@ -70,8 +70,7 @@ function ruleState() {
     score: 0,
     cardsPlayed: 39,
     harvests: 0,
-    thresholds: thresholdsForMaximum(500),
-    maximumScore: 500,
+    thresholds: hourlyScoreTargets(),
   };
 }
 
@@ -123,8 +122,7 @@ test("all hourly species candidates exist in runtime assets", () => {
 });
 
 test("deck overview keeps all cards, greys played cards, and supports both sort modes", () => {
-  const solution = { maximumScore: 300, thresholds: thresholdsForMaximum(300), solverVersion: "test", verified: true };
-  const state = newHourlyRun("2026071416", { solution });
+  const state = newHourlyRun("2026071416");
   const firstCardId = state.hand[0].id;
   const digitSorted = hourlyDeckOverview(state, "digit");
   assert.equal(digitSorted.length, 40);
@@ -193,6 +191,17 @@ test("four-card sum uses the longer card chain or garden connection as multiplie
   assert.equal(state.piles[0].length, 0);
   assert.equal(state.piles[1][0].digit, 6);
   assert.equal(state.piles[3][0].digit, 7);
+  assert.equal(state.phase, "result");
+});
+
+test("a completed run reaches three stars at 500 points", () => {
+  const state = ruleState();
+  state.score = 443;
+  const result = playHourlyCard(state, 0, 0);
+  assert.equal(result.harvest.points, 57);
+  assert.equal(state.score, 500);
+  assert.equal(state.stars, 3);
+  assert.equal("perfect" in state, false);
   assert.equal(state.phase, "result");
 });
 
@@ -267,8 +276,7 @@ test("non-harvest placement remains legal in every garden", () => {
 });
 
 test("playing a card reports the replacement card drawn into the hand", () => {
-  const solution = { maximumScore: 300, thresholds: thresholdsForMaximum(300), solverVersion: "test", verified: true };
-  const state = newHourlyRun("2026071417", { solution });
+  const state = newHourlyRun("2026071417");
   const expectedDrawnCard = state.deck[0];
   const playedCard = state.hand[0];
 
@@ -282,8 +290,7 @@ test("playing a card reports the replacement card drawn into the hand", () => {
 });
 
 test("hourly hand can be redrawn three times without discarding cards", () => {
-  const solution = { maximumScore: 300, thresholds: thresholdsForMaximum(300), solverVersion: "test", verified: true };
-  const state = newHourlyRun("2026071312", { solution });
+  const state = newHourlyRun("2026071312");
   const originalHandIds = state.hand.map((item) => item.id);
   const originalCardIds = [...state.hand, ...state.deck].map((item) => item.id).sort();
 
@@ -302,12 +309,26 @@ test("hourly hand can be redrawn three times without discarding cards", () => {
   assert.deepEqual(redrawHourlyHand(state), { ok: false, reason: "no_redraws" });
 });
 
-test("star thresholds are rounded and PERFECT remains separate", () => {
-  const thresholds = thresholdsForMaximum(347);
-  assert.deepEqual(thresholds, { one: 120, two: 200, three: 270, perfect: 347 });
-  assert.equal(starsForScore(119, thresholds), 0);
-  assert.equal(starsForScore(120, thresholds), 1);
-  assert.equal(starsForScore(270, thresholds), 3);
+test("all hourly seeds use fixed 200, 300, and 500 point star targets", () => {
+  const first = newHourlyRun("2026071500");
+  const second = newHourlyRun("2026071501");
+  assert.deepEqual(hourlyScoreTargets(), { one: 200, two: 300, three: 500 });
+  assert.deepEqual(first.thresholds, second.thresholds);
+  assert.equal(starsForScore(199, first.thresholds), 0);
+  assert.equal(starsForScore(200, first.thresholds), 1);
+  assert.equal(starsForScore(300, first.thresholds), 2);
+  assert.equal(starsForScore(499, first.thresholds), 2);
+  assert.equal(starsForScore(500, first.thresholds), 3);
+
+  const legacyTargets = snapshotHourlyRun(first);
+  legacyTargets.score = 500;
+  legacyTargets.maximumScore = 742;
+  legacyTargets.thresholds = { one: 250, two: 440, three: 590, perfect: 742 };
+  legacyTargets.perfect = true;
+  const restored = restoreHourlyRun(legacyTargets);
+  assert.deepEqual(restored.thresholds, hourlyScoreTargets());
+  assert.equal("maximumScore" in restored, false);
+  assert.equal("perfect" in restored, false);
 });
 
 test("deterministic solver target replays to its verified score", () => {
@@ -331,7 +352,10 @@ test("hourly snapshot restore and share text preserve the challenge result", () 
   assert.equal(restored.hand[0].comboTypeId, run.hand[0].comboTypeId);
   assert.equal(restored.redrawsLeft, 2);
   assert.equal(restored.redrawsUsed, 1);
-  assert.match(hourlyResultShareText(restored, "https://example.com"), /^Stacks #2026071311 도전중 0점 \/ ★★★ 목표 \d+점 https:\/\/example\.com$/);
+  assert.equal(
+    hourlyResultShareText(restored, "https://example.com"),
+    "Stacks #2026071311 도전중 0점 / ★★★ 목표 500점 https://example.com",
+  );
 });
 
 test("hourly links canonicalize the compatibility simple path to the game root", () => {
@@ -341,8 +365,7 @@ test("hourly links canonicalize the compatibility simple path to the game root",
 });
 
 test("legacy European toad cards restore as the distinct California newt", () => {
-  const solution = { maximumScore: 300, thresholds: thresholdsForMaximum(300), solverVersion: "test", verified: true };
-  const run = newHourlyRun("2026071418", { solution });
+  const run = newHourlyRun("2026071418");
   run.hand[0] = {
     ...run.hand[0],
     speciesId: "european-toad",

@@ -1,7 +1,6 @@
 import {
   HOURLY_ACTIVE_SEED_KEY,
   HOURLY_REDRAW_LIMIT,
-  HOURLY_RULES_VERSION,
   canRedrawHourlyHand,
   formatDuration,
   hourlyDeckOverview,
@@ -10,17 +9,14 @@ import {
   hourlyResultShareText,
   hourlyRootUrl,
   hourlyRunStorageKey,
-  hourlySolutionStorageKey,
   kstHourSeed,
   newHourlyRun,
   playHourlyCard,
   previewHourlyPlacement,
   redrawHourlyHand,
-  replayHourlySolution,
   restoreHourlyRun,
   secondsUntilNextHour,
   snapshotHourlyRun,
-  solveHourlyHarvestMaximum,
 } from "./game/hourly-harvest.js";
 import {
   createPerformanceMonitor,
@@ -49,8 +45,6 @@ import {
 
 const app = document.querySelector("#app");
 const perfMonitor = createPerformanceMonitor("Stacks Hourly");
-const SOLVER_BEAM_WIDTH = 2000;
-const SOLVER_VERSION = `${HOURLY_RULES_VERSION}:beam-${SOLVER_BEAM_WIDTH}`;
 const SNAP_MS = 150;
 const DEAL_CARD_MS = 360;
 const DEAL_STAGGER_MS = 70;
@@ -63,7 +57,6 @@ const FALLBACK_CARD_IMAGE = "public/assets/garden-stacks/generated/cards/card_lo
 
 const ui = {
   state: null,
-  solution: null,
   selectedHandIndex: null,
   pendingSeed: "",
   newGameConfirmOpen: false,
@@ -420,13 +413,6 @@ function interactionLocked() {
   return Boolean(ui.motion || ui.deal || ui.harvestPulse);
 }
 
-function validSolutionPath(path) {
-  if (!Array.isArray(path)) return false;
-  const plays = path.filter((action) => !action.type || action.type === "play").length;
-  const redraws = path.filter((action) => action.type === "redraw").length;
-  return plays === 40 && redraws <= HOURLY_REDRAW_LIMIT && path.length === plays + redraws;
-}
-
 function activeSeed() {
   try {
     return localStorage.getItem(HOURLY_ACTIVE_SEED_KEY) ?? "";
@@ -443,24 +429,6 @@ function setActiveSeed(seed) {
   }
 }
 
-function loadSolution(seed) {
-  const cached = readJson(hourlySolutionStorageKey(seed));
-  if (cached?.seed === seed
-    && cached.solverVersion === SOLVER_VERSION
-    && validSolutionPath(cached.path)
-    && cached.maximumScore > 0) {
-    const replay = replayHourlySolution(seed, cached);
-    if (replay.ok) return cached;
-  }
-  const stop = perfMonitor.start("solver.hourly", { seed, beamWidth: SOLVER_BEAM_WIDTH });
-  const solution = solveHourlyHarvestMaximum(seed, { beamWidth: SOLVER_BEAM_WIDTH });
-  const replay = replayHourlySolution(seed, solution);
-  stop({ exploredStates: solution.exploredStates, maximumScore: solution.maximumScore, verified: replay.ok });
-  if (!replay.ok) throw new Error("hourly solver path verification failed");
-  writeJson(hourlySolutionStorageKey(seed), solution);
-  return solution;
-}
-
 function saveRun() {
   if (!ui.state) return;
   writeJson(hourlyRunStorageKey(ui.state.seed), snapshotHourlyRun(ui.state));
@@ -469,7 +437,7 @@ function saveRun() {
 
 function loadBest(seed) {
   const best = readJson(hourlyBestStorageKey(seed));
-  return best && Number.isFinite(best.score) ? best : { score: 0, stars: 0, perfect: false, attempts: 0 };
+  return best && Number.isFinite(best.score) ? best : { score: 0, stars: 0, attempts: 0 };
 }
 
 function recordResult() {
@@ -478,15 +446,13 @@ function recordResult() {
   writeJson(hourlyBestStorageKey(ui.state.seed), {
     score: Math.max(previous.score ?? 0, ui.state.score),
     stars: Math.max(previous.stars ?? 0, ui.state.stars),
-    perfect: previous.perfect === true || ui.state.perfect === true,
     attempts: Math.max(1, (previous.attempts ?? 0) + 1),
     completedAt: Date.now(),
   });
 }
 
 function createRun(seed) {
-  ui.solution = loadSolution(seed);
-  return newHourlyRun(seed, { solution: ui.solution });
+  return newHourlyRun(seed);
 }
 
 function restoreOrCreateRun() {
@@ -495,7 +461,6 @@ function restoreOrCreateRun() {
   const candidateSeed = savedActiveSeed || currentSeed;
   let state = restoreHourlyRun(readJson(hourlyRunStorageKey(candidateSeed)));
   if (!state) state = createRun(currentSeed);
-  else ui.solution = loadSolution(state.seed);
   ui.state = state;
   ui.resultOpen = state.phase === "result";
   setActiveSeed(state.seed);
@@ -783,7 +748,7 @@ function renderResult() {
     <div class="overlay result-overlay">
       <section class="dialog result-dialog" role="dialog" aria-modal="true" aria-labelledby="result-title">
         <span class="result-seed">#${ui.state.seed}</span>
-        <h2 id="result-title">${ui.state.perfect ? "PERFECT" : starsText(ui.state.stars)}</h2>
+        <h2 id="result-title">${starsText(ui.state.stars)}</h2>
         <strong class="result-score">${escapeHtml(t("result.points", { score: ui.state.score }))}</strong>
         <p>${escapeHtml(t("result.best", { score: best.score }))}</p>
         <div class="result-actions">
@@ -1013,14 +978,13 @@ function retryCurrent() {
   ui.selectedHandIndex = null;
   ui.motion = null;
   ui.deal = null;
-  ui.state = newHourlyRun(ui.state.seed, { solution: ui.solution ?? loadSolution(ui.state.seed) });
+  ui.state = newHourlyRun(ui.state.seed);
   saveRun();
   startDealMotion(ui.state.hand);
   render();
 }
 
 function startSeed(seed) {
-  ui.loading = true;
   ui.resultOpen = false;
   ui.helpOpen = false;
   ui.remainingOpen = false;
@@ -1028,17 +992,11 @@ function startSeed(seed) {
   ui.selectedHandIndex = null;
   ui.motion = null;
   ui.deal = null;
-  applyDocumentLanguage();
-  app.innerHTML = loadingMarkup();
-  window.setTimeout(() => {
-    ui.solution = loadSolution(seed);
-    ui.state = newHourlyRun(seed, { solution: ui.solution });
-    ui.pendingSeed = "";
-    ui.loading = false;
-    saveRun();
-    startDealMotion(ui.state.hand);
-    render();
-  }, 30);
+  ui.state = newHourlyRun(seed);
+  ui.pendingSeed = "";
+  saveRun();
+  startDealMotion(ui.state.hand);
+  render();
 }
 
 function shouldUseNativeShare() {

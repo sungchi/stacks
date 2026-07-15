@@ -64,17 +64,15 @@ test("all hourly species candidates have names in all three languages", () => {
 test("hourly share text follows the selected language", () => {
   const state = {
     seed: "2026071412",
-    perfect: false,
     stars: 0,
     score: 42,
-    maximumScore: 300,
   };
   assert.equal(
     hourlyResultShareText(state, "https://example.com", "en"),
-    "Stacks #2026071412 In progress 42 pts / ★★★ target 240 pts https://example.com",
+    "Stacks #2026071412 In progress 42 pts / ★★★ target 500 pts https://example.com",
   );
   assert.equal(
     hourlyResultShareText(state, "https://example.com", "ja"),
-    "Stacks #2026071412 挑戦中 42点 / ★★★目標 240点 https://example.com",
+    "Stacks #2026071412 挑戦中 42点 / ★★★目標 500点 https://example.com",
   );
 });
