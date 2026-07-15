@@ -18,6 +18,7 @@ import {
   hourlyGardenLabel,
   hourlyDeckOverview,
   hourlyResultShareText,
+  hourlyRootUrl,
   kstHourSeed,
   longestHourlyCardChain,
   newHourlyRun,
@@ -331,6 +332,12 @@ test("hourly snapshot restore and share text preserve the challenge result", () 
   assert.equal(restored.redrawsLeft, 2);
   assert.equal(restored.redrawsUsed, 1);
   assert.match(hourlyResultShareText(restored, "https://example.com"), /^Stacks #2026071311 도전중 0점 \/ ★★★ 목표 \d+점 https:\/\/example\.com$/);
+});
+
+test("hourly links canonicalize the compatibility simple path to the game root", () => {
+  assert.equal(hourlyRootUrl("https://plan9.kr", "/stacks/"), "https://plan9.kr/stacks/");
+  assert.equal(hourlyRootUrl("https://plan9.kr", "/stacks/simple/"), "https://plan9.kr/stacks/");
+  assert.equal(hourlyRootUrl("http://127.0.0.1:4174", "/simple/"), "http://127.0.0.1:4174/");
 });
 
 test("legacy European toad cards restore as the distinct California newt", () => {

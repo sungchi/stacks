@@ -54,7 +54,7 @@ Stacks (스택스) 최신 프로토타입의 `Stacks (스택스) 4.1 / Four Gard
 - `index.html`, `src/app.js`, `src/styles.css`, `src/game/*.js` 구조를 우선한다.
 - Vite/React 같은 프레임워크는 도입하지 않는다.
 - 소스는 ES module로 유지하고, `scripts/build-offline.mjs`가 레거시 `public/app.bundle.js`와 기본 시간 게임 `simple/simple.bundle.js` classic script 번들을 만든다.
-- 기본 `index.html`은 모드가 없으면 `simple/` 시간 게임으로 이동하고, 명시적 레거시 모드에서는 `public/app.bundle.js`를 로드한다.
+- 기본 `index.html`은 주소를 `simple/`로 바꾸지 않고 루트에서 `simple/simple.bundle.js` 시간 게임을 직접 실행한다. `mode=endless`와 `mode=campaign`일 때만 같은 루트 주소에서 `public/app.bundle.js`를 로드한다.
 - `package.json`은 `type: module`, `test: node --test`, `build:current`, `build:hourly`, `build:legacy`, `build:offline`, `open`, `serve` 스크립트를 제공한다.
 - 게임 규칙은 `src/game/`의 순수 ES module로 둔다.
 - DOM 이벤트, 애니메이션, `localStorage`, Web Share 같은 브라우저 API는 UI 계층에 둔다.
@@ -279,7 +279,7 @@ MVP 기본값:
 - `다시하기`는 게임방법 `?` 모달 안에서만 제공한다. 같은 seed의 덱, 손패, 새로받기 3회를 초기화하되 최고 점수, 최고 별, PERFECT, 도전 횟수는 유지한다.
 - 브라우저 새로고침은 진행 중이거나 완료된 활성 seed를 복원하고 최신 seed는 대기 상태로 둔다.
 - 저장 키는 `garden-stacks:hourly-v6:<seed>:run`, `:best`, `:solution`과 활성 seed 키를 사용한다. v5 이하 런과 solver 캐시는 새 생물군 규칙에 사용하지 않는다.
-- 공유는 모든 언어에서 `Stacks` 게임명을 사용하고 선택 언어의 결과·점수 문구를 붙인 `Stacks #시드 별 점수 / ★★★ 목표 URL` 한 줄이며, PERFECT용 최대 점수는 노출하지 않는다. 모바일은 Web Share, 데스크톱은 클립보드 복사와 토스트를 사용한다.
+- 공유는 모든 언어에서 `Stacks` 게임명을 사용하고 선택 언어의 결과·점수 문구를 붙인 `Stacks #시드 별 점수 / ★★★ 목표 URL` 한 줄이며, PERFECT용 최대 점수는 노출하지 않는다. 공유 URL은 항상 `https://plan9.kr/stacks/` 루트를 가리키고 `/simple/`을 포함하지 않는다. 모바일은 Web Share, 데스크톱은 클립보드 복사와 토스트를 사용한다.
 
 ## 5. UI/UX
 
@@ -334,7 +334,7 @@ MVP 기본값:
 - 유효 드롭은 놓은 위치에서 대상 슬롯까지 0.18초 이하로 짧게 스냅한 뒤 보드 카드, 착지 pulse, 효과음을 같은 시점에 시작한다. 스냅 중 대상 더미는 방금 놓은 카드를 미리 표시하지 않는다.
 - 카드 스냅과 수확 모션 중에는 다음 카드 선택, 정원 확정, 새로받기를 차단한다.
 - 시간 정원 키보드는 `1~5`로 손패를 고르고 `Q/W/E/R`로 정원을 확정하며 `Escape`로 선택을 취소한다. 레거시 무한 정원의 `6/7` 도구 입력은 명시 모드에서 보존한다.
-- 시간 정원 `simple/`에서는 손패 선택·hover·focus 중 네 정원의 즉시 획득 점수를 같은 대비로 표시하고 특정 정원을 추천하지 않는다.
+- 시간 정원 루트와 `simple/` 호환 주소에서는 손패 선택·hover·focus 중 네 정원의 즉시 획득 점수를 같은 대비로 표시하고 특정 정원을 추천하지 않는다.
 - 손패 미리보기 전환 전후에 각 정원 셀과 2x2 보드의 크기·위치는 변하지 않는다. 미리보기 문구 공간은 정원 헤더와 같은 약 12px 높이로 항상 예약해 카드 기준 위아래 여백을 균형 있게 유지하고, 추천 표시는 레이아웃에 영향을 주지 않는 테두리 또는 그림자 애니메이션으로 표현한다.
 - 메인 UI의 손패 hover/focus도 기존 DOM의 카드·정원 강조와 미리보기만 갱신한다. 포인터 진입·이탈 때문에 전체 플레이 DOM을 반복 생성해서는 안 된다.
 - 시간 정원 손패의 광택·기울기 포인터 좌표는 `requestAnimationFrame`당 한 번만 처리하고, 카드별 영역을 먼저 읽은 뒤 각 카드의 CSS 변수를 한꺼번에 갱신한다. 게임 상태·정원 미리보기·카드 크기에는 영향을 주지 않는다.

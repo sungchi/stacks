@@ -28,3 +28,11 @@ test("root and simple pages load the configured AdSense client asynchronously", 
     assert.match(html, /<script async src="https:\/\/pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js\?client=ca-pub-0368183753784097" crossorigin="anonymous"><\/script>/);
   }
 });
+
+test("root boots the hourly game in place while preserving explicit legacy modes", () => {
+  assert.doesNotMatch(rootHtml, /location\.replace/);
+  assert.match(rootHtml, /\.\/simple\/simple\.bundle\.js/);
+  assert.match(rootHtml, /\["endless", "campaign"\]\.includes\(mode\)/);
+  assert.match(rootHtml, /\.\/public\/app\.bundle\.js/);
+  assert.match(simpleHtml, /<link rel="canonical" href="https:\/\/plan9\.kr\/stacks\/" \/>/);
+});

@@ -714,6 +714,13 @@ export function hourlyResultShareText(state, url = HOURLY_SHARE_URL, language = 
   });
 }
 
+export function hourlyRootUrl(origin, pathname = "/") {
+  const base = String(origin ?? "").replace(/\/$/, "");
+  const path = String(pathname || "/");
+  const rootedPath = (path.startsWith("/") ? path : `/${path}`).replace(/\/simple\/?$/, "/");
+  return `${base}${rootedPath}`;
+}
+
 export function hourlyRunStorageKey(seed) {
   return `garden-stacks:hourly-v6:${seed}:run`;
 }

@@ -1307,6 +1307,13 @@ function hourlyResultShareText(state, url = HOURLY_SHARE_URL, language = "ko") {
   });
 }
 
+function hourlyRootUrl(origin, pathname = "/") {
+  const base = String(origin ?? "").replace(/\/$/, "");
+  const path = String(pathname || "/");
+  const rootedPath = (path.startsWith("/") ? path : `/${path}`).replace(/\/simple\/?$/, "/");
+  return `${base}${rootedPath}`;
+}
+
 function hourlyRunStorageKey(seed) {
   return `garden-stacks:hourly-v6:${seed}:run`;
 }
@@ -2501,7 +2508,7 @@ async function copyShareText(text) {
 }
 
 async function shareResult() {
-  const url = `${location.origin}${location.pathname}`;
+  const url = hourlyRootUrl(location.origin, location.pathname);
   const text = hourlyResultShareText(ui.state, url, ui.language);
   if (shouldUseNativeShare()) {
     try {

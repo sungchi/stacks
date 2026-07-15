@@ -39,7 +39,7 @@
 ## 구현 방향
 
 - 첫 화면은 랜딩 페이지가 아니라 실제 게임 화면이어야 한다.
-- 정적 웹 앱을 기본으로 한다. 기본 주소는 `simple/simple.bundle.js` 시간 게임으로 이동하고 명시적 레거시 모드는 `public/app.bundle.js`를 사용한다.
+- 정적 웹 앱을 기본으로 한다. 루트 주소는 이동 없이 `simple/simple.bundle.js` 시간 게임을 직접 실행하고 명시적 레거시 모드는 `public/app.bundle.js`를 사용한다.
 - 게임 규칙은 DOM 코드에서 분리해 순수 JS 모듈로 작성한다.
 - 저장은 우선 `localStorage`를 사용한다.
 - 모바일 우선으로 만들되, 데스크톱에서는 실제 4정원 보드와 손패가 넓게 읽히게 한다.
@@ -54,7 +54,7 @@
 - `npm run build:legacy`: 명시 모드용 `public/app.bundle.js`만 갱신한다.
 - `npm test`: 시간 정원과 레거시 숫자 솔리테어의 순수 규칙 테스트를 실행한다.
 - `npm run serve`: `http://127.0.0.1:4173/`에서 로컬 확인 서버를 연다.
-- 기본 시간 게임은 `http://127.0.0.1:4173/` 또는 `/simple/`에서 연다.
+- 기본 시간 게임은 `http://127.0.0.1:4173/`에서 연다. `/simple/`은 기존 링크 호환용으로만 유지한다.
 - 레거시 무한 정원은 `/?mode=endless`, 캠페인은 `/?mode=campaign`으로 연다.
 - `npm run open`: `index.html`을 연다.
 

@@ -8,6 +8,7 @@ import {
   hourlyBestStorageKey,
   hourlyGardenLabel,
   hourlyResultShareText,
+  hourlyRootUrl,
   hourlyRunStorageKey,
   hourlySolutionStorageKey,
   kstHourSeed,
@@ -1064,7 +1065,7 @@ async function copyShareText(text) {
 }
 
 async function shareResult() {
-  const url = `${location.origin}${location.pathname}`;
+  const url = hourlyRootUrl(location.origin, location.pathname);
   const text = hourlyResultShareText(ui.state, url, ui.language);
   if (shouldUseNativeShare()) {
     try {
