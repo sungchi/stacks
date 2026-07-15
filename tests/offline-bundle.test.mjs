@@ -22,3 +22,9 @@ test("root and simple pages expose the Stacks social thumbnail", () => {
   assert.equal(ogImage.readUInt32BE(16), 1200);
   assert.equal(ogImage.readUInt32BE(20), 630);
 });
+
+test("root and simple pages load the configured AdSense client asynchronously", () => {
+  for (const html of [rootHtml, simpleHtml]) {
+    assert.match(html, /<script async src="https:\/\/pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js\?client=ca-pub-0368183753784097" crossorigin="anonymous"><\/script>/);
+  }
+});
