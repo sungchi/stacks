@@ -233,6 +233,7 @@ const TRANSLATIONS = {
     "help.language": "언어",
     "help.retry": "현재 게임 다시하기",
     "help.continue": "계속하기",
+    "community.discord": "디스코드 커뮤니티 열기",
     "language.ko": "한국어",
     "language.en": "English",
     "language.ja": "日本語",
@@ -316,6 +317,7 @@ const TRANSLATIONS = {
     "help.language": "Language",
     "help.retry": "Restart this game",
     "help.continue": "Continue",
+    "community.discord": "Open the Discord community",
     "language.ko": "한국어",
     "language.en": "English",
     "language.ja": "日本語",
@@ -399,6 +401,7 @@ const TRANSLATIONS = {
     "help.language": "言語",
     "help.retry": "このゲームをやり直す",
     "help.continue": "続ける",
+    "community.discord": "Discordコミュニティを開く",
     "language.ko": "한국어",
     "language.en": "English",
     "language.ja": "日本語",
@@ -2034,6 +2037,11 @@ function renderHeader() {
       </div>
       <div class="header-actions">
         <button class="icon-button" type="button" data-action="help" aria-label="${escapeHtml(t("help.open"))}">?</button>
+        <a class="icon-button discord-button" href="https://discord.gg/MA6xyVAkt" target="_blank" rel="noopener" aria-label="${escapeHtml(t("community.discord"))}">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M20.32 4.37a19.8 19.8 0 0 0-4.89-1.52.08.08 0 0 0-.08.04c-.21.38-.44.86-.61 1.25a18.3 18.3 0 0 0-5.48 0c-.17-.39-.41-.88-.62-1.25a.08.08 0 0 0-.08-.04 19.7 19.7 0 0 0-4.88 1.52.07.07 0 0 0-.03.03C.53 9.05-.32 13.58.1 18.06c0 .02.01.04.03.06a19.9 19.9 0 0 0 5.99 3.03.08.08 0 0 0 .08-.03c.46-.63.87-1.3 1.23-1.99a.08.08 0 0 0-.04-.11 13.1 13.1 0 0 1-1.87-.89.08.08 0 0 1-.01-.13l.37-.29a.07.07 0 0 1 .08-.01c3.93 1.79 8.18 1.79 12.06 0a.07.07 0 0 1 .08.01l.37.29a.08.08 0 0 1-.01.13 12.3 12.3 0 0 1-1.87.89.08.08 0 0 0-.04.11c.36.7.77 1.36 1.23 1.99a.08.08 0 0 0 .08.03 19.84 19.84 0 0 0 6-3.03.08.08 0 0 0 .03-.05c.5-5.18-.84-9.67-3.55-13.66a.06.06 0 0 0-.03-.04ZM8.02 15.33c-1.18 0-2.16-1.09-2.16-2.42s.96-2.42 2.16-2.42c1.21 0 2.18 1.1 2.16 2.42 0 1.33-.96 2.42-2.16 2.42Zm7.98 0c-1.18 0-2.16-1.09-2.16-2.42s.96-2.42 2.16-2.42c1.21 0 2.18 1.1 2.16 2.42 0 1.33-.95 2.42-2.16 2.42Z" />
+          </svg>
+        </a>
         <button class="text-button" type="button" data-action="share">${escapeHtml(t("share.button"))}</button>
         ${timerBox}
       </div>

@@ -42,6 +42,11 @@ button:focus-visible {
   outline-offset: 2px;
 }
 
+.icon-button:focus-visible {
+  outline: 3px solid var(--yellow);
+  outline-offset: 2px;
+}
+
 button:disabled {
   cursor: not-allowed;
 }
@@ -138,10 +143,22 @@ button:disabled {
 }
 
 .icon-button {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
   width: 42px;
   padding: 0;
+  color: inherit;
   font-size: 17px;
   font-weight: 1000;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.discord-button svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
 }
 
 .text-button {
@@ -1489,8 +1506,24 @@ body.is-card-carrying .garden.is-target {
     font-size: 22px;
 }
 
+.hourly-shell.is-view-mobile .icon-button,
+.hourly-shell.is-view-mobile .text-button,
+.hourly-shell.is-view-mobile .timer-box {
+    min-height: 38px;
+}
+
+.hourly-shell.is-view-mobile .icon-button {
+    width: 36px;
+}
+
+.hourly-shell.is-view-mobile .discord-button svg {
+    width: 18px;
+    height: 18px;
+}
+
 .hourly-shell.is-view-mobile .text-button {
-    padding-inline: 8px;
+    padding-inline: 7px;
+    font-size: 11px;
 }
 
 .hourly-shell.is-view-mobile .timer-box {

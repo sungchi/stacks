@@ -36,3 +36,8 @@ test("root boots the hourly game in place while preserving explicit legacy modes
   assert.match(rootHtml, /\.\/public\/app\.bundle\.js/);
   assert.match(simpleHtml, /<link rel="canonical" href="https:\/\/plan9\.kr\/stacks\/" \/>/);
 });
+
+test("hourly header exposes the shared Malitmot Discord community link", () => {
+  assert.match(hourlyBundle, /href="https:\/\/discord\.gg\/MA6xyVAkt" target="_blank" rel="noopener"/);
+  assert.match(hourlyBundle, /community\.discord/);
+});
