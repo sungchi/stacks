@@ -51,8 +51,9 @@ test("help copy describes one harvest path through the clockwise gardens in ever
   assert.match(translateText("en", "help.rule3"), /continue clockwise from the last card/);
   assert.match(translateText("ja", "help.rule3"), /最後のカードから時計回り/);
   for (const language of SUPPORTED_LANGUAGES) {
-    assert.match(translateText(language, "help.rule4"), /4/);
-    assert.match(translateText(language, "help.example"), /7→8→9→0/);
+    assert.match(translateText(language, "help.rule4"), /×7/);
+    assert.match(translateText(language, "help.example"), /3→4→5→6/);
+    assert.match(translateText(language, "help.example"), /×5/);
   }
 });
 

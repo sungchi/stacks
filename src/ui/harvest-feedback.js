@@ -1,7 +1,10 @@
+import { HOURLY_MAX_CHAIN_MULTIPLIER } from "../game/hourly-harvest.js";
+
 export const HARVEST_ADD_STEP_MS = 300;
 export const HARVEST_MULTIPLIER_START_MS = 1050;
 export const HARVEST_LINK_STEP_MS = 120;
 export const HARVEST_FINAL_DELAY_MS = 1600;
+export const HARVEST_FINAL_GAP_MS = 300;
 export const HARVEST_FINAL_DISPLAY_MS = 1100;
 export const HARVEST_FEEDBACK_DURATION_MS = HARVEST_FINAL_DELAY_MS + HARVEST_FINAL_DISPLAY_MS + 100;
 export const HARVEST_REDUCED_DURATION_MS = 450;
@@ -22,26 +25,35 @@ export function createHourlyHarvestFeedback(harvest, options = {}) {
     digit: safeInt(card?.digit),
     delayMs: reducedMotion ? 0 : index * HARVEST_ADD_STEP_MS,
   }));
-  const chainMultiplier = Math.max(1, Math.min(4, safeInt(harvest?.chain?.multiplier, 1)));
+  const chainMultiplier = Math.max(1, Math.min(
+    HOURLY_MAX_CHAIN_MULTIPLIER,
+    safeInt(harvest?.chain?.multiplier, 1),
+  ));
   const chainPositions = Array.from(harvest?.chain?.positions ?? []).slice(0, chainMultiplier);
   const finalChainIndex = chainPositions.length - 1;
   const lastHarvestPosition = chainPositions.filter((position) => position?.source === "harvest").at(-1);
   const cardChainMultiplier = lastHarvestPosition
-    ? Math.max(1, Math.min(4, safeInt(lastHarvestPosition.chainIndex, 0) + 1))
+    ? Math.max(1, Math.min(HOURLY_MAX_CHAIN_MULTIPLIER, safeInt(lastHarvestPosition.chainIndex, 0) + 1))
     : 1;
   const cardChain = cardChainMultiplier > 1 ? {
     multiplier: cardChainMultiplier,
     delayMs: reducedMotion ? 0 : HARVEST_MULTIPLIER_START_MS,
     winner: lastHarvestPosition.chainIndex === finalChainIndex && chainMultiplier === multiplier,
   } : null;
+  const connectionDelayOffset = cardChain ? 1 : 0;
   const connectionEvents = chainPositions.filter((position) => (
     position?.source === "garden" && safeInt(position.chainIndex, 0) > 0
   )).map((position, index) => {
-    const connectionMultiplier = Math.max(2, Math.min(4, safeInt(position.chainIndex, 0) + 1));
+    const connectionMultiplier = Math.max(2, Math.min(
+      HOURLY_MAX_CHAIN_MULTIPLIER,
+      safeInt(position.chainIndex, 0) + 1,
+    ));
     return {
       pileIndex: safeInt(position.pileIndex, -1),
       multiplier: connectionMultiplier,
-      delayMs: reducedMotion ? 0 : HARVEST_MULTIPLIER_START_MS + index * HARVEST_LINK_STEP_MS,
+      delayMs: reducedMotion
+        ? 0
+        : HARVEST_MULTIPLIER_START_MS + (index + connectionDelayOffset) * HARVEST_LINK_STEP_MS,
       winner: safeInt(position.chainIndex, -1) === finalChainIndex && chainMultiplier === multiplier,
     };
   });
@@ -51,6 +63,18 @@ export function createHourlyHarvestFeedback(harvest, options = {}) {
     delayMs: reducedMotion ? 0 : HARVEST_MULTIPLIER_START_MS,
     winner: multiplier === 5,
   } : null;
+  const multiplierDelays = [
+    cardChain?.delayMs,
+    comboType?.delayMs,
+    ...connectionEvents.map((event) => event.delayMs),
+  ].filter(Number.isFinite);
+  const lastMultiplierDelay = multiplierDelays.length
+    ? Math.max(...multiplierDelays)
+    : HARVEST_MULTIPLIER_START_MS;
+  const finalDelayMs = reducedMotion
+    ? 0
+    : Math.max(HARVEST_FINAL_DELAY_MS, lastMultiplierDelay + HARVEST_FINAL_GAP_MS);
+  const finalDurationMs = reducedMotion ? HARVEST_REDUCED_DURATION_MS : HARVEST_FINAL_DISPLAY_MS;
 
   return {
     reducedMotion,
@@ -61,10 +85,10 @@ export function createHourlyHarvestFeedback(harvest, options = {}) {
     final: {
       multiplier,
       points: Math.max(0, safeInt(harvest?.points)),
-      delayMs: reducedMotion ? 0 : HARVEST_FINAL_DELAY_MS,
-      durationMs: reducedMotion ? HARVEST_REDUCED_DURATION_MS : HARVEST_FINAL_DISPLAY_MS,
+      delayMs: finalDelayMs,
+      durationMs: finalDurationMs,
     },
-    durationMs: reducedMotion ? HARVEST_REDUCED_DURATION_MS : HARVEST_FEEDBACK_DURATION_MS,
+    durationMs: reducedMotion ? HARVEST_REDUCED_DURATION_MS : finalDelayMs + finalDurationMs + 100,
   };
 }
 
@@ -93,7 +117,7 @@ export function createHourlyHarvestTonePlan(feedback) {
   const finalDelay = (feedback?.final?.delayMs ?? HARVEST_FINAL_DELAY_MS) / 1000;
   tones.push(
     { stage: "final-bass", note: 48, delay: finalDelay, duration: 0.16, gain: 0.14 },
-    { stage: "final", note: 84, delay: finalDelay, duration: 0.18, gain: 0.19 },
+    { stage: "final", note: 88, delay: finalDelay, duration: 0.18, gain: 0.19 },
   );
   return tones;
 }

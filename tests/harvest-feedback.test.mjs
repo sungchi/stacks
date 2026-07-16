@@ -5,6 +5,7 @@ import {
   HARVEST_FEEDBACK_DURATION_MS,
   HARVEST_FINAL_DELAY_MS,
   HARVEST_FINAL_DISPLAY_MS,
+  HARVEST_FINAL_GAP_MS,
   createHourlyHarvestFeedback,
   createHourlyHarvestTonePlan,
 } from "../src/ui/harvest-feedback.js";
@@ -77,11 +78,11 @@ test("same-type feedback wins at five without stacking other multipliers", () =>
   assert.deepEqual(feedback.final, { multiplier: 5, points: 85, delayMs: 1600, durationMs: 1100 });
 });
 
-test("feedback stops at the x4 scoring cap instead of repeating x4 across later gardens", () => {
+test("feedback continues from x4 through x7 across later gardens", () => {
   const feedback = createHourlyHarvestFeedback(harvest({
     chain: {
       length: 7,
-      multiplier: 4,
+      multiplier: 7,
       positions: [
         ...[0, 1, 2, 3].map((chainIndex) => ({
           source: "harvest",
@@ -95,10 +96,25 @@ test("feedback stops at the x4 scoring cap instead of repeating x4 across later 
         })),
       ],
     },
+    multiplier: 7,
+    points: 119,
   }));
   assert.equal(feedback.cardChain.multiplier, 4);
-  assert.equal(feedback.cardChain.winner, true);
-  assert.deepEqual(feedback.connectionEvents, []);
+  assert.equal(feedback.cardChain.winner, false);
+  assert.deepEqual(feedback.connectionEvents.map((event) => [
+    event.pileIndex,
+    event.multiplier,
+    event.delayMs,
+    event.winner,
+  ]), [
+    [1, 5, 1170, false],
+    [3, 6, 1290, false],
+    [2, 7, 1410, true],
+  ]);
+  assert.equal(feedback.final.multiplier, 7);
+  assert.equal(feedback.final.points, 119);
+  assert.ok(feedback.final.delayMs - feedback.connectionEvents.at(-1).delayMs >= HARVEST_FINAL_GAP_MS);
+  assert.equal(feedback.durationMs, feedback.final.delayMs + feedback.final.durationMs + 100);
 });
 
 test("reduced motion resolves all labels immediately and shortens the input lock", () => {
@@ -116,6 +132,6 @@ test("harvest combo melody rises through additions and multiplier beats", () => 
   const comboNotes = tones
     .filter((tone) => tone.stage === "addition" || tone.stage === "multiplier" || tone.stage === "final")
     .map((tone) => tone.note);
-  assert.deepEqual(comboNotes, [60, 64, 67, 72, 74, 77, 81, 84]);
+  assert.deepEqual(comboNotes, [60, 64, 67, 72, 74, 77, 81, 88]);
   assert.equal(comboNotes.every((note, index) => index === 0 || note > comboNotes[index - 1]), true);
 });

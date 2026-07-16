@@ -10,16 +10,20 @@ import {
   HOURLY_GARDEN_LABELS,
   HOURLY_MAX_CHAIN_MULTIPLIER,
   HOURLY_REDRAW_LIMIT,
+  HOURLY_RULES_VERSION,
   HOURLY_SAME_TYPE_MULTIPLIER,
   HOURLY_SPECIES_POOL,
+  HOURLY_ACTIVE_SEED_KEY,
   canRedrawHourlyHand,
   createHourlyDeck,
   formatDuration,
   hourlyHarvestPath,
+  hourlyBestStorageKey,
   hourlyGardenLabel,
   hourlyDeckOverview,
   hourlyResultShareText,
   hourlyRootUrl,
+  hourlyRunStorageKey,
   hourlyScoreTargets,
   kstHourSeed,
   longestHourlyCardChain,
@@ -171,7 +175,7 @@ test("harvest path continues from the four-card stack through clockwise garden t
     direction: 1,
     startIndex: 2,
     digits: [4, 5, 6, 7],
-    multiplier: HOURLY_MAX_CHAIN_MULTIPLIER,
+    multiplier: 4,
   });
 
   nextPiles[1] = [];
@@ -248,9 +252,9 @@ test("four different organisms of the same combo type use a non-stacking five-ti
       card(2, "b", "flower", "sunflower"),
       card(3, "c", "flower", "yarrow"),
     ],
-    [card(5, "d")],
-    [card(7, "e")],
-    [card(6, "f")],
+    [],
+    [],
+    [],
   ];
   const preview = previewHourlyPlacement(state, 0, 0);
   assert.deepEqual(preview.typeMatch, {
@@ -258,14 +262,55 @@ test("four different organisms of the same combo type use a non-stacking five-ti
     comboTypeId: "flower",
     multiplier: HOURLY_SAME_TYPE_MULTIPLIER,
   });
-  assert.equal(preview.chain.length, 7);
-  assert.equal(preview.chain.multiplier, HOURLY_MAX_CHAIN_MULTIPLIER);
+  assert.equal(preview.chain.length, 4);
+  assert.equal(preview.chain.multiplier, 4);
   assert.equal(preview.multiplier, 5);
   assert.equal(preview.points, 50);
 
   const result = playHourlyCard(state, 0, 0);
   assert.equal(result.harvest.typeMatch.matched, true);
   assert.equal(state.score, 50);
+});
+
+test("one harvest chain keeps increasing through all three clockwise gardens up to x7", () => {
+  const state = ruleState();
+  state.hand = [card(4, "played-4")];
+  state.piles = [
+    [card(1, "a"), card(2, "b"), card(3, "c")],
+    [card(5, "d")],
+    [card(7, "e")],
+    [card(6, "f")],
+  ];
+  const preview = previewHourlyPlacement(state, 0, 0);
+  assert.equal(HOURLY_MAX_CHAIN_MULTIPLIER, 7);
+  assert.deepEqual(preview.chain.digits, [1, 2, 3, 4, 5, 6, 7]);
+  assert.equal(preview.chain.length, 7);
+  assert.equal(preview.chain.multiplier, 7);
+  assert.equal(preview.multiplier, 7);
+  assert.equal(preview.points, 70);
+});
+
+test("a D harvest continues clockwise into A and scores the fifth chain card", () => {
+  const state = ruleState();
+  state.hand = [card(6, "played-6")];
+  state.piles = [
+    [card(7, "a-top")],
+    [],
+    [card(3, "d-1"), card(4, "d-2"), card(5, "d-3")],
+    [],
+  ];
+  const preview = previewHourlyPlacement(state, 0, 2);
+  assert.deepEqual(preview.chain.path.map((position) => position.digit), [3, 4, 5, 6, 7]);
+  assert.deepEqual(preview.chain.digits, [3, 4, 5, 6, 7]);
+  assert.equal(preview.chain.multiplier, 5);
+  assert.equal(preview.multiplier, 5);
+  assert.equal(preview.points, 90);
+
+  const result = playHourlyCard(state, 0, 2);
+  assert.equal(result.ok, true);
+  assert.equal(state.score, 90);
+  assert.equal(state.piles[2].length, 0);
+  assert.equal(state.piles[0][0].digit, 7);
 });
 
 test("disconnected runs are not added together inside the unified harvest path", () => {
@@ -401,6 +446,13 @@ test("hourly links canonicalize the compatibility simple path to the game root",
   assert.equal(hourlyRootUrl("https://plan9.kr", "/stacks/"), "https://plan9.kr/stacks/");
   assert.equal(hourlyRootUrl("https://plan9.kr", "/stacks/simple/"), "https://plan9.kr/stacks/");
   assert.equal(hourlyRootUrl("http://127.0.0.1:4174", "/simple/"), "http://127.0.0.1:4174/");
+});
+
+test("full-chain scoring uses the v9 run and storage namespace", () => {
+  assert.equal(HOURLY_RULES_VERSION, "hourly-four-harvest-v9");
+  assert.equal(hourlyRunStorageKey("2026071609"), "garden-stacks:hourly-v9:2026071609:run");
+  assert.equal(hourlyBestStorageKey("2026071609"), "garden-stacks:hourly-v9:2026071609:best");
+  assert.equal(HOURLY_ACTIVE_SEED_KEY, "garden-stacks:hourly-v9:active-seed");
 });
 
 test("legacy European toad cards restore as the distinct California newt", () => {

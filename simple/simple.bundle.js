@@ -224,11 +224,11 @@ const TRANSLATIONS = {
     "help.rule1": "손패에서 카드 한 장을 골라 원하는 정원에 놓습니다. 덱에 카드가 남아 있으면 새 카드 한 장을 받습니다.",
     "help.rule2": "한 정원에 네 장이 쌓이면 자동으로 수확합니다. 기본 점수는 네 장의 숫자 합입니다.",
     "help.rule3": "수확한 네 카드를 놓은 순서대로 보고, 마지막 카드에서 시계방향으로 다른 정원의 맨 위 카드를 이어 봅니다.",
-    "help.rule4": "그 한 줄에서 가장 긴 연속 숫자의 길이만큼 기본 점수에 곱합니다(최대 ×4). 네 장이 모두 같은 생물군이면 ×5이며, 더 높은 배수 하나만 적용합니다.",
+    "help.rule4": "그 한 줄에서 가장 긴 연속 숫자의 전체 길이만큼 기본 점수에 곱합니다(최대 ×7). 네 장이 모두 같은 생물군이면 ×5이며, 더 높은 배수 하나만 적용합니다.",
     "help.rule5": "새로받기는 현재 손패를 덱 뒤로 보내고 새 손패를 받습니다. 한 게임에 세 번 쓸 수 있습니다.",
     "help.rule6": "카드 40장을 모두 놓고 250·400·600점에서 별을 받습니다.",
     "help.exampleLabel": "예:",
-    "help.example": "수확 카드가 1→2→7→8이고 다음 정원이 9→0이면, 7→8→9→0이 한 줄로 이어져 ×4입니다. 감소 방향도 같습니다.",
+    "help.example": "수확 카드가 3→4→5→6이고 다음 정원이 7이면 3→4→5→6→7이 이어져 ×5입니다. 다음 정원이 8→9까지 이어지면 ×7이며, 감소 방향도 같습니다.",
     "help.sound": "효과음",
     "help.language": "언어",
     "help.retry": "현재 게임 다시하기",
@@ -260,7 +260,7 @@ const TRANSLATIONS = {
     "preview.sameType": "합 {sum} × 같은 생물군 5 = +{points}",
     "garden.title": "정원 {label}",
     "garden.region": "네 정원",
-    "garden.rule": "네 장 합 × 한 줄 연쇄(최대 ×4) · 같은 생물군 ×5",
+    "garden.rule": "네 장 합 × 한 줄 연쇄(최대 ×7) · 같은 생물군 ×5",
     "harvest.sameType": "같은 생물군 ×5",
     "harvest.aria": "수확 합 {sum} × 최고 배수 {multiplier}, {points}점 획득",
     "hand.cardAria": "{type} 생물군, {species} {digit}, 손패 {index}",
@@ -308,11 +308,11 @@ const TRANSLATIONS = {
     "help.rule1": "Place one hand card in any garden. If the deck has cards left, draw one replacement.",
     "help.rule2": "Four cards in one garden are harvested automatically. The base score is their number sum.",
     "help.rule3": "Read the four harvested cards in play order, then continue clockwise from the last card through the top cards of the other gardens.",
-    "help.rule4": "Multiply the base score by the longest consecutive run in that single line (up to ×4). Four cards from the same life group give ×5; use only the higher multiplier.",
+    "help.rule4": "Multiply the base score by the full length of the longest consecutive run in that single line (up to ×7). Four cards from the same life group give ×5; use only the higher multiplier.",
     "help.rule5": "Redraw sends your hand to the deck’s back and deals again. Three uses per game.",
     "help.rule6": "Use all 40 cards. Stars: 250 / 400 / 600.",
     "help.exampleLabel": "Example:",
-    "help.example": "If the harvest is 1→2→7→8 and the next gardens are 9→0, then 7→8→9→0 is one run for ×4. Descending runs work too.",
+    "help.example": "If the harvest is 3→4→5→6 and the next garden is 7, the full 3→4→5→6→7 run gives ×5. Continue through 8→9 for ×7. Descending runs work too.",
     "help.sound": "Sound effects",
     "help.language": "Language",
     "help.retry": "Restart this game",
@@ -344,7 +344,7 @@ const TRANSLATIONS = {
     "preview.sameType": "Sum {sum} × Same group 5 = +{points}",
     "garden.title": "Garden {label}",
     "garden.region": "Four gardens",
-    "garden.rule": "Four-card sum × one chain (up to ×4) · same group ×5",
+    "garden.rule": "Four-card sum × one chain (up to ×7) · same group ×5",
     "harvest.sameType": "Same group ×5",
     "harvest.aria": "Harvest sum {sum} × best multiplier {multiplier}, {points} points earned",
     "hand.cardAria": "{type} group, {species} {digit}, hand card {index}",
@@ -392,11 +392,11 @@ const TRANSLATIONS = {
     "help.rule1": "手札から1枚選び、好きなガーデンに置きます。デッキにカードが残っていれば、新しいカードを1枚引きます。",
     "help.rule2": "1つのガーデンに4枚たまると自動で収穫します。基本点は4枚の数字の合計です。",
     "help.rule3": "収穫した4枚を置いた順に読み、最後のカードから時計回りに、ほかのガーデンの一番上のカードへ続けます。",
-    "help.rule4": "その1本の列で最長の連続数字の長さを基本点に掛けます（最大×4）。4枚が同じ生物グループなら×5で、高い方の倍率だけを使います。",
+    "help.rule4": "その1本の列で最長の連続数字すべての長さを基本点に掛けます（最大×7）。4枚が同じ生物グループなら×5で、高い方の倍率だけを使います。",
     "help.rule5": "手札交換は今の手札をデッキの後ろに送り、新しい手札を引きます。1ゲーム3回まで。",
     "help.rule6": "40枚すべて置くと終了。250・400・600点で星を獲得します。",
     "help.exampleLabel": "例：",
-    "help.example": "収穫が1→2→7→8で次のガーデンが9→0なら、7→8→9→0が1本につながり×4です。減少方向も同じです。",
+    "help.example": "収穫が3→4→5→6で次のガーデンが7なら、3→4→5→6→7の全体がつながり×5です。さらに8→9まで続けば×7です。減少方向も同じです。",
     "help.sound": "効果音",
     "help.language": "言語",
     "help.retry": "このゲームをやり直す",
@@ -428,7 +428,7 @@ const TRANSLATIONS = {
     "preview.sameType": "合計 {sum} × 同じグループ5 = +{points}",
     "garden.title": "ガーデン {label}",
     "garden.region": "4つのガーデン",
-    "garden.rule": "4枚の合計 × 1本の連鎖（最大×4）・同じグループ×5",
+    "garden.rule": "4枚の合計 × 1本の連鎖（最大×7）・同じグループ×5",
     "harvest.sameType": "同じグループ ×5",
     "harvest.aria": "収穫の合計 {sum} × 最高倍率 {multiplier}、{points}点獲得",
     "hand.cardAria": "{type}グループ、{species} {digit}、手札 {index}",
@@ -598,7 +598,7 @@ function shuffled(items, rng = Math.random) {
 
 
 const HOURLY_MODE = "hourly";
-const HOURLY_RULES_VERSION = "hourly-four-harvest-v8";
+const HOURLY_RULES_VERSION = "hourly-four-harvest-v9";
 const HOURLY_ASSET_VERSION = "broad-life-groups-v1";
 const HOURLY_HAND_SIZE = 5;
 const HOURLY_DECK_SIZE = 40;
@@ -608,7 +608,7 @@ const HOURLY_REDRAW_LIMIT = 3;
 const HOURLY_COMBO_TYPE_COUNT = 5;
 const HOURLY_COMBO_TYPE_SIZE = 8;
 const HOURLY_SAME_TYPE_MULTIPLIER = 5;
-const HOURLY_MAX_CHAIN_MULTIPLIER = 4;
+const HOURLY_MAX_CHAIN_MULTIPLIER = HOURLY_HARVEST_SIZE + HOURLY_PILE_COUNT - 1;
 const HOURLY_SCORE_TARGETS = Object.freeze({ one: 250, two: 400, three: 600 });
 const HOURLY_CLOCKWISE_ORDER = [0, 1, 3, 2];
 const HOURLY_GARDEN_LABELS = Object.freeze(["A", "B", "D", "C"]);
@@ -1308,22 +1308,25 @@ function hourlyRootUrl(origin, pathname = "/") {
 }
 
 function hourlyRunStorageKey(seed) {
-  return `garden-stacks:hourly-v8:${seed}:run`;
+  return `garden-stacks:hourly-v9:${seed}:run`;
 }
 
 function hourlyBestStorageKey(seed) {
-  return `garden-stacks:hourly-v8:${seed}:best`;
+  return `garden-stacks:hourly-v9:${seed}:best`;
 }
 
-const HOURLY_ACTIVE_SEED_KEY = "garden-stacks:hourly-v8:active-seed";
+const HOURLY_ACTIVE_SEED_KEY = "garden-stacks:hourly-v9:active-seed";
 
 
 
 // ---- src/ui/harvest-feedback.js ----
+
+
 const HARVEST_ADD_STEP_MS = 300;
 const HARVEST_MULTIPLIER_START_MS = 1050;
 const HARVEST_LINK_STEP_MS = 120;
 const HARVEST_FINAL_DELAY_MS = 1600;
+const HARVEST_FINAL_GAP_MS = 300;
 const HARVEST_FINAL_DISPLAY_MS = 1100;
 const HARVEST_FEEDBACK_DURATION_MS = HARVEST_FINAL_DELAY_MS + HARVEST_FINAL_DISPLAY_MS + 100;
 const HARVEST_REDUCED_DURATION_MS = 450;
@@ -1344,26 +1347,35 @@ function createHourlyHarvestFeedback(harvest, options = {}) {
     digit: safeInt(card?.digit),
     delayMs: reducedMotion ? 0 : index * HARVEST_ADD_STEP_MS,
   }));
-  const chainMultiplier = Math.max(1, Math.min(4, safeInt(harvest?.chain?.multiplier, 1)));
+  const chainMultiplier = Math.max(1, Math.min(
+    HOURLY_MAX_CHAIN_MULTIPLIER,
+    safeInt(harvest?.chain?.multiplier, 1),
+  ));
   const chainPositions = Array.from(harvest?.chain?.positions ?? []).slice(0, chainMultiplier);
   const finalChainIndex = chainPositions.length - 1;
   const lastHarvestPosition = chainPositions.filter((position) => position?.source === "harvest").at(-1);
   const cardChainMultiplier = lastHarvestPosition
-    ? Math.max(1, Math.min(4, safeInt(lastHarvestPosition.chainIndex, 0) + 1))
+    ? Math.max(1, Math.min(HOURLY_MAX_CHAIN_MULTIPLIER, safeInt(lastHarvestPosition.chainIndex, 0) + 1))
     : 1;
   const cardChain = cardChainMultiplier > 1 ? {
     multiplier: cardChainMultiplier,
     delayMs: reducedMotion ? 0 : HARVEST_MULTIPLIER_START_MS,
     winner: lastHarvestPosition.chainIndex === finalChainIndex && chainMultiplier === multiplier,
   } : null;
+  const connectionDelayOffset = cardChain ? 1 : 0;
   const connectionEvents = chainPositions.filter((position) => (
     position?.source === "garden" && safeInt(position.chainIndex, 0) > 0
   )).map((position, index) => {
-    const connectionMultiplier = Math.max(2, Math.min(4, safeInt(position.chainIndex, 0) + 1));
+    const connectionMultiplier = Math.max(2, Math.min(
+      HOURLY_MAX_CHAIN_MULTIPLIER,
+      safeInt(position.chainIndex, 0) + 1,
+    ));
     return {
       pileIndex: safeInt(position.pileIndex, -1),
       multiplier: connectionMultiplier,
-      delayMs: reducedMotion ? 0 : HARVEST_MULTIPLIER_START_MS + index * HARVEST_LINK_STEP_MS,
+      delayMs: reducedMotion
+        ? 0
+        : HARVEST_MULTIPLIER_START_MS + (index + connectionDelayOffset) * HARVEST_LINK_STEP_MS,
       winner: safeInt(position.chainIndex, -1) === finalChainIndex && chainMultiplier === multiplier,
     };
   });
@@ -1373,6 +1385,18 @@ function createHourlyHarvestFeedback(harvest, options = {}) {
     delayMs: reducedMotion ? 0 : HARVEST_MULTIPLIER_START_MS,
     winner: multiplier === 5,
   } : null;
+  const multiplierDelays = [
+    cardChain?.delayMs,
+    comboType?.delayMs,
+    ...connectionEvents.map((event) => event.delayMs),
+  ].filter(Number.isFinite);
+  const lastMultiplierDelay = multiplierDelays.length
+    ? Math.max(...multiplierDelays)
+    : HARVEST_MULTIPLIER_START_MS;
+  const finalDelayMs = reducedMotion
+    ? 0
+    : Math.max(HARVEST_FINAL_DELAY_MS, lastMultiplierDelay + HARVEST_FINAL_GAP_MS);
+  const finalDurationMs = reducedMotion ? HARVEST_REDUCED_DURATION_MS : HARVEST_FINAL_DISPLAY_MS;
 
   return {
     reducedMotion,
@@ -1383,10 +1407,10 @@ function createHourlyHarvestFeedback(harvest, options = {}) {
     final: {
       multiplier,
       points: Math.max(0, safeInt(harvest?.points)),
-      delayMs: reducedMotion ? 0 : HARVEST_FINAL_DELAY_MS,
-      durationMs: reducedMotion ? HARVEST_REDUCED_DURATION_MS : HARVEST_FINAL_DISPLAY_MS,
+      delayMs: finalDelayMs,
+      durationMs: finalDurationMs,
     },
-    durationMs: reducedMotion ? HARVEST_REDUCED_DURATION_MS : HARVEST_FEEDBACK_DURATION_MS,
+    durationMs: reducedMotion ? HARVEST_REDUCED_DURATION_MS : finalDelayMs + finalDurationMs + 100,
   };
 }
 
@@ -1415,7 +1439,7 @@ function createHourlyHarvestTonePlan(feedback) {
   const finalDelay = (feedback?.final?.delayMs ?? HARVEST_FINAL_DELAY_MS) / 1000;
   tones.push(
     { stage: "final-bass", note: 48, delay: finalDelay, duration: 0.16, gain: 0.14 },
-    { stage: "final", note: 84, delay: finalDelay, duration: 0.18, gain: 0.19 },
+    { stage: "final", note: 88, delay: finalDelay, duration: 0.18, gain: 0.19 },
   );
   return tones;
 }
@@ -1496,7 +1520,7 @@ const DEAL_AFTER_PLAY_DELAY_MS = 120;
 const LANDING_MS = 300;
 const CARD_HOLO_MAX_TILT = 8;
 const SFX_SETTING_KEY = "garden-stacks:hourly:sfx";
-const HELP_SEEN_KEY = "garden-stacks:hourly:help-seen:v6";
+const HELP_SEEN_KEY = "garden-stacks:hourly:help-seen:v7";
 const FALLBACK_CARD_IMAGE = "public/assets/garden-stacks/generated/cards/card_locked_unknown.png";
 
 const ui = {
@@ -1963,7 +1987,9 @@ function previewLabel(preview) {
       remaining: preview.cardsUntilHarvest,
     });
   }
-  return t(preview.typeMatch?.matched ? "preview.sameType" : "preview.harvest", {
+  const sameTypeWins = preview.typeMatch?.matched
+    && preview.typeMatch.multiplier >= preview.chain.multiplier;
+  return t(sameTypeWins ? "preview.sameType" : "preview.harvest", {
     sum: preview.chainSum,
     multiplier: preview.multiplier,
     points: preview.points,
