@@ -29,6 +29,15 @@ test("root and simple pages load the configured AdSense client asynchronously", 
   }
 });
 
+test("root and simple pages initialize the shared GA4 tag", () => {
+  for (const html of [rootHtml, simpleHtml]) {
+    assert.match(html, /<script async src="https:\/\/www\.googletagmanager\.com\/gtag\/js\?id=G-E9HCEG6CZY"><\/script>/);
+    assert.match(html, /window\.dataLayer = window\.dataLayer \|\| \[\];/);
+    assert.match(html, /gtag\('config', 'G-E9HCEG6CZY'\);/);
+    assert.equal(html.match(/G-E9HCEG6CZY/g)?.length, 2);
+  }
+});
+
 test("root boots the hourly game in place while preserving explicit legacy modes", () => {
   assert.doesNotMatch(rootHtml, /location\.replace/);
   assert.match(rootHtml, /\.\/simple\/simple\.bundle\.js/);
