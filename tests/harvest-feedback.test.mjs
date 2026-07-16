@@ -52,30 +52,30 @@ test("harvest feedback reveals four additions and continues one cumulative chain
   assert.ok(feedback.durationMs >= feedback.final.delayMs + feedback.final.durationMs);
 });
 
-test("same-type feedback wins at five without stacking other multipliers", () => {
+test("same-type feedback wins at three without stacking other multipliers", () => {
   const feedback = createHourlyHarvestFeedback(harvest({
     chain: {
-      length: 4,
-      multiplier: 4,
-      positions: [0, 1, 2, 3].map((chainIndex) => ({
+      length: 2,
+      multiplier: 2,
+      positions: [0, 1].map((chainIndex) => ({
         source: "harvest",
         pileIndex: 0,
         chainIndex,
       })),
     },
     typeMatch: { matched: true, comboTypeId: "flower" },
-    multiplier: 5,
-    points: 85,
+    multiplier: 3,
+    points: 51,
   }));
   assert.equal(feedback.cardChain.winner, false);
   assert.equal(feedback.connectionEvents.length, 0);
   assert.deepEqual(feedback.comboType, {
-    multiplier: 5,
+    multiplier: 3,
     comboTypeId: "flower",
     delayMs: 1050,
     winner: true,
   });
-  assert.deepEqual(feedback.final, { multiplier: 5, points: 85, delayMs: 1600, durationMs: 1100 });
+  assert.deepEqual(feedback.final, { multiplier: 3, points: 51, delayMs: 1600, durationMs: 1100 });
 });
 
 test("feedback continues from x4 through x7 across later gardens", () => {

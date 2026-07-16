@@ -1,4 +1,7 @@
-import { HOURLY_MAX_CHAIN_MULTIPLIER } from "../game/hourly-harvest.js";
+import {
+  HOURLY_MAX_CHAIN_MULTIPLIER,
+  HOURLY_SAME_TYPE_MULTIPLIER,
+} from "../game/hourly-harvest.js";
 
 export const HARVEST_ADD_STEP_MS = 300;
 export const HARVEST_MULTIPLIER_START_MS = 1050;
@@ -58,10 +61,10 @@ export function createHourlyHarvestFeedback(harvest, options = {}) {
     };
   });
   const comboType = harvest?.typeMatch?.matched === true ? {
-    multiplier: 5,
+    multiplier: HOURLY_SAME_TYPE_MULTIPLIER,
     comboTypeId: String(harvest.typeMatch.comboTypeId ?? ""),
     delayMs: reducedMotion ? 0 : HARVEST_MULTIPLIER_START_MS,
-    winner: multiplier === 5,
+    winner: multiplier === HOURLY_SAME_TYPE_MULTIPLIER,
   } : null;
   const multiplierDelays = [
     cardChain?.delayMs,

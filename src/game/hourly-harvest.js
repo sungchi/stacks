@@ -2,7 +2,7 @@ import { createRng, shuffleInPlace } from "./random.js";
 import { translateText } from "../i18n.js";
 
 export const HOURLY_MODE = "hourly";
-export const HOURLY_RULES_VERSION = "hourly-four-harvest-v9";
+export const HOURLY_RULES_VERSION = "hourly-four-harvest-v10";
 export const HOURLY_ASSET_VERSION = "broad-life-groups-v1";
 export const HOURLY_HAND_SIZE = 5;
 export const HOURLY_DECK_SIZE = 40;
@@ -11,7 +11,7 @@ export const HOURLY_HARVEST_SIZE = 4;
 export const HOURLY_REDRAW_LIMIT = 3;
 export const HOURLY_COMBO_TYPE_COUNT = 5;
 export const HOURLY_COMBO_TYPE_SIZE = 8;
-export const HOURLY_SAME_TYPE_MULTIPLIER = 5;
+export const HOURLY_SAME_TYPE_MULTIPLIER = 3;
 export const HOURLY_MAX_CHAIN_MULTIPLIER = HOURLY_HARVEST_SIZE + HOURLY_PILE_COUNT - 1;
 export const HOURLY_SCORE_TARGETS = Object.freeze({ one: 250, two: 400, three: 600 });
 export const HOURLY_CLOCKWISE_ORDER = [0, 1, 3, 2];
@@ -712,11 +712,11 @@ export function hourlyRootUrl(origin, pathname = "/") {
 }
 
 export function hourlyRunStorageKey(seed) {
-  return `garden-stacks:hourly-v9:${seed}:run`;
+  return `garden-stacks:hourly-v10:${seed}:run`;
 }
 
 export function hourlyBestStorageKey(seed) {
-  return `garden-stacks:hourly-v9:${seed}:best`;
+  return `garden-stacks:hourly-v10:${seed}:best`;
 }
 
-export const HOURLY_ACTIVE_SEED_KEY = "garden-stacks:hourly-v9:active-seed";
+export const HOURLY_ACTIVE_SEED_KEY = "garden-stacks:hourly-v10:active-seed";

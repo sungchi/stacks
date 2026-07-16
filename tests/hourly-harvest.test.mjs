@@ -243,14 +243,14 @@ test("a four-card harvest chain scores without any occupied next garden", () => 
   assert.equal(preview.points, 40);
 });
 
-test("four different organisms of the same combo type use a non-stacking five-times multiplier", () => {
+test("four different organisms of the same combo type use a non-stacking three-times multiplier", () => {
   const state = ruleState();
-  state.hand = [card(4, "played-4", "flower", "oxeye-daisy")];
+  state.hand = [card(7, "played-7", "flower", "oxeye-daisy")];
   state.piles = [
     [
       card(1, "a", "flower", "dandelion"),
-      card(2, "b", "flower", "sunflower"),
-      card(3, "c", "flower", "yarrow"),
+      card(3, "b", "flower", "sunflower"),
+      card(5, "c", "flower", "yarrow"),
     ],
     [],
     [],
@@ -262,14 +262,29 @@ test("four different organisms of the same combo type use a non-stacking five-ti
     comboTypeId: "flower",
     multiplier: HOURLY_SAME_TYPE_MULTIPLIER,
   });
-  assert.equal(preview.chain.length, 4);
-  assert.equal(preview.chain.multiplier, 4);
-  assert.equal(preview.multiplier, 5);
-  assert.equal(preview.points, 50);
+  assert.equal(preview.chain.length, 1);
+  assert.equal(preview.chain.multiplier, 1);
+  assert.equal(preview.multiplier, 3);
+  assert.equal(preview.points, 48);
 
   const result = playHourlyCard(state, 0, 0);
   assert.equal(result.harvest.typeMatch.matched, true);
-  assert.equal(state.score, 50);
+  assert.equal(state.score, 48);
+});
+
+test("a four-card chain outranks the same-type three-times candidate", () => {
+  const state = ruleState();
+  state.hand = [card(4, "played-4", "flower", "oxeye-daisy")];
+  state.piles = [[
+    card(1, "a", "flower", "dandelion"),
+    card(2, "b", "flower", "sunflower"),
+    card(3, "c", "flower", "yarrow"),
+  ], [], [], []];
+  const preview = previewHourlyPlacement(state, 0, 0);
+  assert.equal(preview.typeMatch.multiplier, 3);
+  assert.equal(preview.chain.multiplier, 4);
+  assert.equal(preview.multiplier, 4);
+  assert.equal(preview.points, 40);
 });
 
 test("one harvest chain keeps increasing through all three clockwise gardens up to x7", () => {
@@ -448,11 +463,11 @@ test("hourly links canonicalize the compatibility simple path to the game root",
   assert.equal(hourlyRootUrl("http://127.0.0.1:4174", "/simple/"), "http://127.0.0.1:4174/");
 });
 
-test("full-chain scoring uses the v9 run and storage namespace", () => {
-  assert.equal(HOURLY_RULES_VERSION, "hourly-four-harvest-v9");
-  assert.equal(hourlyRunStorageKey("2026071609"), "garden-stacks:hourly-v9:2026071609:run");
-  assert.equal(hourlyBestStorageKey("2026071609"), "garden-stacks:hourly-v9:2026071609:best");
-  assert.equal(HOURLY_ACTIVE_SEED_KEY, "garden-stacks:hourly-v9:active-seed");
+test("same-type x3 scoring uses the v10 run and storage namespace", () => {
+  assert.equal(HOURLY_RULES_VERSION, "hourly-four-harvest-v10");
+  assert.equal(hourlyRunStorageKey("2026071609"), "garden-stacks:hourly-v10:2026071609:run");
+  assert.equal(hourlyBestStorageKey("2026071609"), "garden-stacks:hourly-v10:2026071609:best");
+  assert.equal(HOURLY_ACTIVE_SEED_KEY, "garden-stacks:hourly-v10:active-seed");
 });
 
 test("legacy European toad cards restore as the distinct California newt", () => {
