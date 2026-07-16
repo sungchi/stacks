@@ -747,8 +747,9 @@ function renderResult() {
   if (!ui.resultOpen || ui.state.phase !== "result") return "";
   const best = loadBest(ui.state.seed);
   return `
-    <div class="overlay result-overlay">
+    <div class="overlay result-overlay" data-action="close-result">
       <section class="dialog result-dialog" role="dialog" aria-modal="true" aria-labelledby="result-title">
+        <button class="result-close" type="button" data-action="close-result" aria-label="${escapeHtml(t("result.close"))}">×</button>
         <span class="result-seed">#${ui.state.seed}</span>
         <h2 id="result-title">${starsText(ui.state.stars)}</h2>
         <strong class="result-score">${escapeHtml(t("result.points", { score: ui.state.score }))}</strong>
@@ -1339,6 +1340,7 @@ function handleAction(action, button) {
   else if (action === "start-ready") startSeed(ui.pendingSeed || kstHourSeed());
   else if (action === "help") { ui.firstVisitHelp = false; ui.helpOpen = true; render(); }
   else if (action === "close-help") closeHelp();
+  else if (action === "close-result") { ui.resultOpen = false; render(); }
   else if (action === "set-language") setLanguage(button.value);
   else if (action === "toggle-sound") {
     ui.sfxEnabled = button.checked;
@@ -1403,6 +1405,7 @@ window.addEventListener("keydown", (event) => {
     if (ui.newGameConfirmOpen) { ui.newGameConfirmOpen = false; render(); }
     else if (ui.remainingOpen) { ui.remainingOpen = false; render(); }
     else if (ui.helpOpen) closeHelp();
+    else if (ui.resultOpen) { ui.resultOpen = false; render(); }
     else render();
   }
 });

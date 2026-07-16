@@ -1380,11 +1380,26 @@ body.is-card-carrying .garden.is-target {
 }
 
 .result-dialog {
+  position: relative;
   display: grid;
   place-items: center;
   gap: 10px;
   padding: 26px 18px 20px;
   text-align: center;
+}
+
+.result-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--ink);
+  border-radius: 50%;
+  background: #fff;
+  font-size: 20px;
+  line-height: 1;
 }
 
 .result-seed {

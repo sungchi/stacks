@@ -51,6 +51,13 @@ test("hourly header exposes the shared Malitmot Discord community link", () => {
   assert.match(hourlyBundle, /community\.discord/);
 });
 
+test("hourly result dialog closes from its button, backdrop, and Escape", () => {
+  assert.match(hourlyBundle, /class="overlay result-overlay" data-action="close-result"/);
+  assert.match(hourlyBundle, /class="result-close" type="button" data-action="close-result"/);
+  assert.match(hourlyBundle, /action === "close-result"/);
+  assert.match(hourlyBundle, /else if \(ui\.resultOpen\) \{ ui\.resultOpen = false; render\(\); \}/);
+});
+
 test("hourly boot uses fixed targets without running the balance solver", () => {
   assert.match(hourlyBundle, /HOURLY_SCORE_TARGETS = Object\.freeze\(\{ one: 250, two: 400, three: 600 \}\)/);
   assert.doesNotMatch(hourlyBundle, /function loadSolution\(/);

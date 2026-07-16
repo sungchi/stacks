@@ -37,6 +37,9 @@ test("text translation interpolates variables and falls back safely", () => {
   assert.equal(translateText("en", "hand.used", { count: 12 }), "12/40 used");
   assert.equal(translateText("ja-JP", "garden.title", { label: "C" }), "ガーデン C");
   assert.equal(translateText("fr", "score.score"), "점수");
+  assert.equal(translateText("ko", "result.close"), "결과 닫기");
+  assert.equal(translateText("en", "result.close"), "Close results");
+  assert.equal(translateText("ja", "result.close"), "結果を閉じる");
 });
 
 test("game name remains Stacks in every language", () => {

@@ -281,6 +281,7 @@ const TRANSLATIONS = {
     "result.points": "{score}점",
     "result.best": "이번 시간 최고 {score}",
     "result.startNew": "새 게임 시작",
+    "result.close": "결과 닫기",
     "toast.cannotPlace": "카드를 놓지 못했습니다.",
     "toast.redrawUnavailable": "지금은 카드를 새로 받을 수 없습니다.",
     "toast.copied": "결과를 클립보드에 복사했어요.",
@@ -365,6 +366,7 @@ const TRANSLATIONS = {
     "result.points": "{score} pts",
     "result.best": "Best this hour {score}",
     "result.startNew": "Start new game",
+    "result.close": "Close results",
     "toast.cannotPlace": "That card could not be placed.",
     "toast.redrawUnavailable": "You cannot redraw right now.",
     "toast.copied": "Result copied to the clipboard.",
@@ -449,6 +451,7 @@ const TRANSLATIONS = {
     "result.points": "{score}点",
     "result.best": "今時間のベスト {score}",
     "result.startNew": "新しいゲームを始める",
+    "result.close": "結果を閉じる",
     "toast.cannotPlace": "カードを置けませんでした。",
     "toast.redrawUnavailable": "今は手札を交換できません。",
     "toast.copied": "結果をクリップボードにコピーしました。",
@@ -2215,8 +2218,9 @@ function renderResult() {
   if (!ui.resultOpen || ui.state.phase !== "result") return "";
   const best = loadBest(ui.state.seed);
   return `
-    <div class="overlay result-overlay">
+    <div class="overlay result-overlay" data-action="close-result">
       <section class="dialog result-dialog" role="dialog" aria-modal="true" aria-labelledby="result-title">
+        <button class="result-close" type="button" data-action="close-result" aria-label="${escapeHtml(t("result.close"))}">×</button>
         <span class="result-seed">#${ui.state.seed}</span>
         <h2 id="result-title">${starsText(ui.state.stars)}</h2>
         <strong class="result-score">${escapeHtml(t("result.points", { score: ui.state.score }))}</strong>
@@ -2807,6 +2811,7 @@ function handleAction(action, button) {
   else if (action === "start-ready") startSeed(ui.pendingSeed || kstHourSeed());
   else if (action === "help") { ui.firstVisitHelp = false; ui.helpOpen = true; render(); }
   else if (action === "close-help") closeHelp();
+  else if (action === "close-result") { ui.resultOpen = false; render(); }
   else if (action === "set-language") setLanguage(button.value);
   else if (action === "toggle-sound") {
     ui.sfxEnabled = button.checked;
@@ -2871,6 +2876,7 @@ window.addEventListener("keydown", (event) => {
     if (ui.newGameConfirmOpen) { ui.newGameConfirmOpen = false; render(); }
     else if (ui.remainingOpen) { ui.remainingOpen = false; render(); }
     else if (ui.helpOpen) closeHelp();
+    else if (ui.resultOpen) { ui.resultOpen = false; render(); }
     else render();
   }
 });
