@@ -749,7 +749,7 @@ function renderResult() {
   return `
     <div class="overlay result-overlay" data-action="close-result">
       <section class="dialog result-dialog" role="dialog" aria-modal="true" aria-labelledby="result-title">
-        <button class="result-close" type="button" data-action="close-result" aria-label="${escapeHtml(t("result.close"))}">×</button>
+        <button class="result-close" type="button" data-action="close-result" aria-label="${escapeHtml(t("result.close"))}"></button>
         <span class="result-seed">#${ui.state.seed}</span>
         <h2 id="result-title">${starsText(ui.state.stars)}</h2>
         <strong class="result-score">${escapeHtml(t("result.points", { score: ui.state.score }))}</strong>

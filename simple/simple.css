@@ -1398,8 +1398,25 @@ body.is-card-carrying .garden.is-target {
   border: 1px solid var(--ink);
   border-radius: 50%;
   background: #fff;
-  font-size: 20px;
-  line-height: 1;
+}
+
+.result-close::before,
+.result-close::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 1.5px;
+  background: var(--ink);
+  content: "";
+}
+
+.result-close::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.result-close::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
 }
 
 .result-seed {
